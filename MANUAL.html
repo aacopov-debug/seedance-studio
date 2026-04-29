@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<title>Seedance 2.0 Prompt Studio · Полное руководство</title>
+<style>
+:root{
+  --fg:#1a1a2e;
+  --muted:#555;
+  --accent:#7c3aed;
+  --accent2:#ec4899;
+  --bg:#fff;
+  --code-bg:#f4f4f8;
+  --border:#e5e5ed;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#eee;color:var(--fg);font-family:'Segoe UI',-apple-system,Roboto,sans-serif;line-height:1.6}
+.page{max-width:780px;margin:24px auto;padding:48px 56px;background:var(--bg);box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:6px}
+h1,h2,h3,h4{font-weight:700;line-height:1.25;color:var(--fg)}
+h1{font-size:32px;margin:0 0 4px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h1.cover{font-size:54px}
+h2{font-size:24px;margin:36px 0 12px;border-bottom:2px solid var(--accent);padding-bottom:6px}
+h3{font-size:18px;margin:24px 0 8px;color:var(--accent)}
+h4{font-size:15px;margin:16px 0 6px}
+p{margin:8px 0}
+small,.subtle{color:var(--muted);font-size:12px}
+ul,ol{margin:8px 0 8px 24px;padding:0}
+li{margin:4px 0}
+code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-family:Consolas,Monaco,monospace;font-size:13px;color:#c7194c}
+pre{background:var(--code-bg);padding:12px 14px;border-radius:6px;overflow-x:auto;font-size:12px;border-left:3px solid var(--accent)}
+pre code{background:none;padding:0;color:#222}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px}
+th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#faf5ff;color:var(--accent)}
+tr:nth-child(even) td{background:#fafafd}
+.kbd{background:#fff;border:1px solid #ccc;border-bottom-width:2px;border-radius:4px;padding:1px 6px;font-family:Consolas,monospace;font-size:12px;display:inline-block;line-height:1.4;box-shadow:0 1px 0 #ddd;color:#333}
+.callout{border-left:4px solid var(--accent);background:#faf5ff;padding:10px 14px;margin:14px 0;border-radius:0 6px 6px 0}
+.callout.warn{border-color:#f59e0b;background:#fffbeb}
+.callout.tip{border-color:#10b981;background:#ecfdf5}
+.callout.danger{border-color:#ef4444;background:#fef2f2}
+.callout b{display:block;margin-bottom:4px}
+.toc{column-count:2;column-gap:24px;font-size:13px}
+.toc a{color:var(--fg);text-decoration:none;display:block;padding:3px 0;border-bottom:1px dotted #ccc;break-inside:avoid}
+.toc a:hover{color:var(--accent)}
+.toc .lvl2{padding-left:14px;color:var(--muted)}
+.cover-page{text-align:center;padding:120px 60px;background:linear-gradient(135deg,#faf5ff,#fce7f3);border-radius:8px;margin-bottom:36px}
+.cover-page h1{font-size:48px}
+.cover-page p{font-size:18px;color:var(--muted);margin-top:12px}
+.cover-meta{margin-top:60px;font-size:13px;color:#888}
+.divider{height:1px;background:var(--border);margin:24px 0}
+.field-table th:first-child{width:30%}
+.field-table th:nth-child(2){width:15%}
+hr{border:none;border-top:2px dashed #ddd;margin:32px 0}
+.btn-print{position:fixed;top:20px;right:20px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:12px 22px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,.4);z-index:100}
+.btn-print:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(124,58,237,.5)}
+.icon-large{font-size:48px;margin:0 0 6px}
+.section-icon{font-size:20px;margin-right:6px}
+.faq dt{font-weight:600;color:var(--accent);margin-top:14px}
+.faq dd{margin:4px 0 0 16px;color:#333}
+.print-only{display:none}
+
+@media print{
+  body{background:#fff}
+  .page{max-width:100%;margin:0;padding:18mm 16mm;box-shadow:none;border-radius:0}
+  .btn-print{display:none}
+  h1.cover,h2{break-after:avoid}
+  pre,table,.callout{break-inside:avoid}
+  h2{break-before:page}
+  h2.no-break{break-before:auto}
+  .cover-page{break-after:page}
+  .toc{break-after:page}
+  .print-only{display:block}
+  a{color:var(--fg);text-decoration:none}
+}
+@page{size:A4;margin:18mm}
+</style>
+</head>
+<body>
+
+<button class="btn-print" onclick="window.print()">🖨 Сохранить в PDF (Ctrl+P)</button>
+
+<div class="page">
+
+<!-- ========== ОБЛОЖКА ========== -->
+<div class="cover-page">
+  <div class="icon-large">🎬</div>
+  <h1 class="cover">Seedance 2.0<br/>Prompt Studio</h1>
+  <p>Полное руководство пользователя</p>
+  <p class="subtle" style="font-size:14px">Создание кинематографичных промтов для генерации видео<br/>с AI-ассистентом, multi-scene story mode и FCPXML-экспортом</p>
+  <div class="cover-meta">
+    Версия 7.2 · Апрель 2026<br/>
+    Для приложения <code>index.html</code>
+  </div>
+</div>
+
+<!-- ========== TOC ========== -->
+<h2 class="no-break">📑 Содержание</h2>
+<div class="toc">
+  <a href="#intro">1. Введение</a>
+  <a href="#install">2. Запуск приложения</a>
+  <a href="#quickstart">3. Быстрый старт за 3 минуты</a>
+  <a href="#interface">4. Главный экран</a>
+  <a href="#fields" class="lvl2">4.1 Поля формы</a>
+  <a href="#presets" class="lvl2">4.2 Пресеты и библиотеки</a>
+  <a href="#output" class="lvl2">4.3 Блок результата</a>
+  <a href="#ai-setup">5. Настройка AI</a>
+  <a href="#ai-providers" class="lvl2">5.1 Провайдеры</a>
+  <a href="#ai-models" class="lvl2">5.2 Модели</a>
+  <a href="#ai-security" class="lvl2">5.3 Безопасность ключа</a>
+  <a href="#ai-tools">6. AI инструменты</a>
+  <a href="#i2v">7. Image-to-Video режим</a>
+  <a href="#multishot">8. Multi-shot (раскадровка)</a>
+  <a href="#timeline">9. Timeline beats</a>
+  <a href="#story">10. Story Mode</a>
+  <a href="#continuity">11. Continuity Checker</a>
+  <a href="#fcpxml">12. Экспорт FCPXML</a>
+  <a href="#davinci">13. Импорт в DaVinci Resolve</a>
+  <a href="#undo">14. Undo / Redo</a>
+  <a href="#history">15. История и избранное</a>
+  <a href="#cmdpal">16. Command Palette</a>
+  <a href="#slash">17. Slash-команды</a>
+  <a href="#hotkeys">18. Горячие клавиши</a>
+  <a href="#exportimport">19. Экспорт / импорт состояния</a>
+  <a href="#themes">20. Темы и интерфейс</a>
+  <a href="#voice">21. Голосовой ввод</a>
+  <a href="#troubleshoot">22. Решение проблем</a>
+  <a href="#faq">23. FAQ</a>
+  <a href="#glossary">24. Глоссарий</a>
+  <a href="#shortcuts-table">25. Шпаргалка</a>
+</div>
+
+<!-- ========== 1 INTRO ========== -->
+<h2 id="intro">1. Введение</h2>
+
+<p><b>Seedance 2.0 Prompt Studio</b> — это локальное web-приложение для создания качественных промтов к моделям генерации видео (Seedance 2.0, Runway, Kling, Luma и др.). Приложение работает целиком в браузере, без сервера, и хранит все данные локально.</p>
+
+<h3>Что умеет</h3>
+<ul>
+<li>Собирать сложные кинематографичные промты по структурированным полям (subject, action, scene, camera, lighting, mood и др.)</li>
+<li>Генерировать промт по короткой идее одним кликом через AI</li>
+<li>Распознавать содержимое референсных картинок (Image-to-Video) с помощью AI Vision</li>
+<li>Переводить с любого языка на кинематографичный английский</li>
+<li>Создавать многосценные сценарии (Story Mode) с консистентным героем</li>
+<li>Проверять сценарии на разрывы (Continuity Checker)</li>
+<li>Экспортировать таймлайн в DaVinci Resolve / Final Cut Pro / Premiere через FCPXML</li>
+<li>Сохранять историю, избранное, банк собственных героев и сцен</li>
+</ul>
+
+<h3>Что нужно</h3>
+<ul>
+<li>Современный браузер: <b>Chrome</b>, <b>Edge</b>, <b>Firefox</b>, <b>Safari</b> (последние 2 версии)</li>
+<li>Файлы приложения: <code>index.html</code> и <code>app.js</code> в одной папке</li>
+<li>Опционально: API-ключ <b>OpenAI</b> (или совместимого провайдера) для AI-функций</li>
+</ul>
+
+<div class="callout tip">
+<b>💡 Совет</b>
+AI-функции опциональны. Без ключа приложение работает как ручной конструктор промтов — все базовые возможности доступны.
+</div>
+
+<!-- ========== 2 INSTALL ========== -->
+<h2 id="install">2. Запуск приложения</h2>
+
+<h3>Локально</h3>
+<ol>
+<li>Положи <code>index.html</code> и <code>app.js</code> в одну папку (например <code>C:\Users\<i>имя</i>\Desktop\PROMT\</code>).</li>
+<li>Дважды кликни на <code>index.html</code> — откроется в браузере по умолчанию.</li>
+<li>(Альтернативно) Открой через <code>File → Open</code> в браузере или перетащи в окно.</li>
+</ol>
+
+<div class="callout warn">
+<b>⚠ Важно</b>
+Не переименовывай <code>app.js</code> — <code>index.html</code> ссылается на него по имени. Они должны лежать в одной папке.
+</div>
+
+<h3>На GitHub Pages / любом веб-сервере</h3>
+<p>Файлы статические, никаких сборок не требуется. Заливай оба файла в репозиторий → включай Pages → готова публичная ссылка.</p>
+
+<!-- ========== 3 QUICKSTART ========== -->
+<h2 id="quickstart">3. Быстрый старт за 3 минуты</h2>
+
+<ol>
+<li><b>Открой <code>index.html</code></b> в браузере.</li>
+<li>В поле <b>«🎭 Subject (главный объект)»</b> впиши: <code>young woman with red hair</code></li>
+<li>В поле <b>«🎬 Action»</b>: <code>walking through neon-lit city at night</code></li>
+<li>В поле <b>«🌆 Scene»</b>: <code>cyberpunk Tokyo street, rainy reflections</code></li>
+<li>В выпадающем <b>«🎨 Style»</b> выбери <code>cyberpunk</code>.</li>
+<li>В выпадающем <b>«💡 Lighting»</b> выбери <code>neon backlighting</code>.</li>
+<li>Внизу справа в блоке <b>«📜 Результат»</b> нажми <b>«📋 Скопировать (EN)»</b>.</li>
+<li>Готово — английский промт в буфере, вставляй в Seedance/Runway/Kling.</li>
+</ol>
+
+<div class="callout tip">
+<b>⚡ Ещё быстрее (1 клик с AI)</b>
+Если настроил AI-ключ (раздел 5):
+<ol style="margin-top:6px">
+<li>В поле сверху <b>«🎯 Цель»</b> впиши на любом языке: <code>реклама часов в стиле блокбастера</code></li>
+<li>Нажми <b>🎯 Goal mode</b>.</li>
+<li>AI заполнит все поля английскими значениями. Жми <b>📋 Скопировать (EN)</b>.</li>
+</ol>
+</div>
+
+<!-- ========== 4 INTERFACE ========== -->
+<h2 id="interface">4. Главный экран</h2>
+
+<p>Окно делится на 3 зоны:</p>
+
+<table>
+<tr><th>Зона</th><th>Что в ней</th></tr>
+<tr><td><b>Шапка</b></td><td>Логотип, переключатели темы, AI-настроек, шрифта, счётчик генераций, доступ к Story Mode и руководству</td></tr>
+<tr><td><b>Центр</b></td><td>Форма ввода промта (subject, action, scene, camera и пр.) + блок результата справа</td></tr>
+<tr><td><b>Боковая панель</b></td><td>История генераций, избранное, поиск по ним</td></tr>
+</table>
+
+<h3 id="fields">4.1 Поля формы</h3>
+
+<p>Все поля сгруппированы по смыслу. Заполняй сверху вниз — нижние имеют разумные дефолты.</p>
+
+<table class="field-table">
+<tr><th>Поле</th><th>Тип</th><th>Назначение</th></tr>
+<tr><td><b>🎭 Subject</b></td><td>текст</td><td>Главный объект кадра. Например: <code>young woman in leather jacket</code></td></tr>
+<tr><td><b>👤 Character</b></td><td>текст</td><td>Описание героя для консистентности (3–5 визуальных черт)</td></tr>
+<tr><td><b>🎬 Action</b></td><td>текст</td><td>Что делает subject. Глаголы конкретные: <code>walking</code>, <code>turning slowly</code></td></tr>
+<tr><td><b>🌆 Scene</b></td><td>текст</td><td>Где происходит. Локация + атмосфера</td></tr>
+<tr><td><b>📝 Details</b></td><td>текст</td><td>Доп. детали кадра, реквизит, мелочи</td></tr>
+<tr><td><b>🎥 Shot</b></td><td>select</td><td>Тип плана: close-up, medium shot, wide shot...</td></tr>
+<tr><td><b>📹 Camera</b></td><td>select</td><td>Движение камеры: dolly in, tracking shot, gimbal...</td></tr>
+<tr><td><b>🔭 Lens</b></td><td>select</td><td>Объектив: 35mm, anamorphic, fisheye...</td></tr>
+<tr><td><b>⏩ Speed</b></td><td>select</td><td>Скорость движения: real-time, slow-mo, time-lapse...</td></tr>
+<tr><td><b>💡 Lighting</b></td><td>select</td><td>Освещение: cinematic chiaroscuro, neon backlighting...</td></tr>
+<tr><td><b>🕐 Time</b></td><td>select</td><td>Время суток: blue hour, golden hour, night...</td></tr>
+<tr><td><b>☁ Weather</b></td><td>select</td><td>Погода: heavy rain, fog, clear sky...</td></tr>
+<tr><td><b>🎨 Palette</b></td><td>select</td><td>Цветовая палитра: teal and orange, pastel dreamy...</td></tr>
+<tr><td><b>🎭 Mood</b></td><td>select</td><td>Настроение: epic, dreamy, tense, melancholic...</td></tr>
+<tr><td><b>🎞 Style</b></td><td>select</td><td>Визуальный стиль: photorealistic, anime, cyberpunk...</td></tr>
+<tr><td><b>🚫 Negative</b></td><td>текст</td><td>Что не должно быть в кадре (артефакты, watermark, etc.)</td></tr>
+</table>
+
+<div class="callout tip">
+<b>💡 Авто-подсказка для Negative</b>
+Если включён переключатель <b>«auto neg»</b>, базовые анти-артефакты подставляются автоматически.
+</div>
+
+<h3 id="presets">4.2 Пресеты и библиотеки</h3>
+
+<p>Под формой есть три ряда быстрых пресетов:</p>
+
+<ul>
+<li><b>🎬 Жанры</b> — Кино, Киберпанк, Аниме, Хоррор, Документалка, Реклама и др. Один клик → форма заполняется.</li>
+<li><b>🎬 Режиссёры</b> — Wes Anderson, Tarantino, Villeneuve, Nolan и др. Стилизуют lighting/palette/camera.</li>
+<li><b>📚 Библиотеки</b> — кнопка <b>«🎭 My»</b> открывает банк твоих сохранённых героев и сцен.</li>
+</ul>
+
+<h3 id="output">4.3 Блок результата</h3>
+
+<p>Справа всегда видно:</p>
+
+<ul>
+<li><b>📜 Английский промт</b> — основной результат, готов к вставке в видео-генератор</li>
+<li><b>🇷🇺 Русский (если включён)</b> — для самопроверки</li>
+<li><b>📊 Score</b> — субъективная оценка качества (по нажатию <b>🩺 Critique</b>)</li>
+<li><b>⚠ Warnings</b> — автоматические подсказки если промт слишком короткий/длинный/непоследовательный</li>
+<li><b>📋 Кнопки копирования</b> — EN, EN+RU, JSON-схема</li>
+</ul>
+
+<!-- ========== 5 AI SETUP ========== -->
+<h2 id="ai-setup">5. Настройка AI</h2>
+
+<p>AI-функции (auto-fill, vision, translate, story mode) требуют API-ключ. Поддерживаются OpenAI, Anthropic Claude, локальный Ollama, и любые OpenAI-совместимые API.</p>
+
+<h3 id="ai-providers">5.1 Провайдеры</h3>
+
+<p>Кликни <b>⚙ AI</b> в шапке. В модалке:</p>
+
+<table>
+<tr><th>Поле</th><th>Что писать</th></tr>
+<tr><td><b>Base URL</b></td><td>Адрес API-сервера. Кнопки-пресеты: OpenAI, Anthropic, Ollama, OpenRouter</td></tr>
+<tr><td><b>API Key</b></td><td>Твой ключ. <i>Сохраняется зашифрованным локально</i></td></tr>
+<tr><td><b>Model</b></td><td>Имя модели (например <code>gpt-4o-mini</code>)</td></tr>
+</table>
+
+<p>Готовые конфигурации (нажми соответствующую кнопку):</p>
+
+<table>
+<tr><th>Провайдер</th><th>Base URL</th><th>Модели</th></tr>
+<tr><td>OpenAI</td><td><code>https://api.openai.com/v1</code></td><td>gpt-4o-mini, gpt-4o, gpt-4-turbo</td></tr>
+<tr><td>OpenRouter</td><td><code>https://openrouter.ai/api/v1</code></td><td>Anthropic, Google, Meta — через один ключ</td></tr>
+<tr><td>Ollama (local)</td><td><code>http://localhost:11434/v1</code></td><td>llama3.2, mistral — бесплатно, на твоём железе</td></tr>
+<tr><td>Custom</td><td>любой</td><td>любая OpenAI-совместимая модель</td></tr>
+</table>
+
+<h3 id="ai-models">5.2 Какую модель выбрать</h3>
+
+<table>
+<tr><th>Задача</th><th>Рекомендация</th><th>Почему</th></tr>
+<tr><td>Текстовые промты</td><td><code>gpt-4o-mini</code></td><td>Быстро + дёшево + качественно ($)</td></tr>
+<tr><td>Image-to-Video Vision</td><td><code>gpt-4o</code></td><td>Vision-возможности нужны ($$)</td></tr>
+<tr><td>Story Mode (длинный JSON)</td><td><code>gpt-4o</code></td><td>Лучше держит структуру при N сцен</td></tr>
+<tr><td>Полная приватность</td><td><code>llama3.2</code> через Ollama</td><td>Не покидает компьютер</td></tr>
+</table>
+
+<h3 id="ai-security">5.3 Безопасность ключа</h3>
+
+<p>Ключ <b>не передаётся никуда кроме указанного API</b>. Хранение:</p>
+<ul>
+<li>Ключ обфусцируется через <b>XOR + base64</b> и сохраняется в <code>localStorage</code> с префиксом <code>XOR:</code></li>
+<li>На каждом AI-запросе расшифровывается на лету</li>
+<li>Никогда не появляется в логах в plaintext</li>
+</ul>
+
+<div class="callout warn">
+<b>⚠ Это обфускация, не криптография</b>
+Защита от случайного просмотра localStorage. Если кто-то может выполнить JS на твоём компьютере — ключ всё равно вытащат. Не используй приложение на чужой машине.
+</div>
+
+<!-- ========== 6 AI TOOLS ========== -->
+<h2 id="ai-tools">6. AI инструменты</h2>
+
+<table>
+<tr><th>Кнопка</th><th>Что делает</th></tr>
+<tr><td><b>🎯 Goal mode</b></td><td>Из одной фразы-цели на любом языке заполняет всю форму на английском</td></tr>
+<tr><td><b>✨ Enhance</b></td><td>Улучшает текущий промт — добавляет деталей, кинематографичности</td></tr>
+<tr><td><b>🩺 Critique</b></td><td>AI оценивает промт по 100-балльной шкале и пишет что улучшить</td></tr>
+<tr><td><b>🔍 Reverse</b></td><td>Вставь любой готовый промт — AI разложит его на поля формы</td></tr>
+<tr><td><b>🔄 RU→EN</b></td><td>Переводит русские поля на кинематографичный английский</td></tr>
+<tr><td><b>🎲 Random</b></td><td>Генерирует случайный, но связный промт-идею</td></tr>
+<tr><td><b>🧪 Mutate</b></td><td>Создаёт 5 вариаций текущего промта + AI выбирает лучший</td></tr>
+<tr><td><b>🏆 Tournament</b></td><td>Best-of-N: AI выбирает лучший из 4 вариантов</td></tr>
+<tr><td><b>🔁 Iterate</b></td><td>AI само-итерация: 3 раунда улучшений</td></tr>
+<tr><td><b>🖼 Preview</b></td><td>Генерирует превью первого кадра через DALL·E</td></tr>
+<tr><td><b>⚠ Risk</b></td><td>Предсказывает что может сломать видео-модель</td></tr>
+<tr><td><b>🌐 Translate</b></td><td>Переводит на EN/CN/JP/ES</td></tr>
+<tr><td><b>🎤 Voice</b></td><td>Голосовой ввод (Web Speech API)</td></tr>
+</table>
+
+<!-- ========== 7 I2V ========== -->
+<h2 id="i2v">7. Image-to-Video режим</h2>
+
+<p>Если у тебя есть <b>референсная картинка</b> и ты хочешь чтобы видео началось с неё — переключись в режим <b>I2V</b>.</p>
+
+<h3>Шаги</h3>
+<ol>
+<li>Внизу формы переключи режим: <b>T2V</b> → <b>I2V</b>.</li>
+<li>Перетащи картинку в зону <b>«🖼 Первый кадр»</b> (или нажми «выбрать файл»).</li>
+<li>Если AI-ключ настроен — Vision автоматически распознает картинку и заполнит поля subject/scene/style/lighting и др.</li>
+<li>(Опционально) Загрузи второе изображение в <b>«🖼 Последний кадр»</b> — если модель поддерживает start+end frames.</li>
+<li>Жми <b>📋 Скопировать (EN)</b>.</li>
+</ol>
+
+<div class="callout tip">
+<b>💡 Vision запрашивает подтверждение</b>
+При первой загрузке появится диалог «Распознать через AI Vision?». Жми OK — больше за сессию не спросит.
+</div>
+
+<div class="callout warn">
+<b>⚠ Vision требует gpt-4o (не mini)</b>
+<code>gpt-4o-mini</code> технически имеет vision, но качество хуже. Для I2V переключайся на <code>gpt-4o</code> в настройках AI.
+</div>
+
+<!-- ========== 8 MULTISHOT ========== -->
+<h2 id="multishot">8. Multi-shot (раскадровка)</h2>
+
+<p>Когда нужно несколько связанных кадров в одном видео (например, продукт показан с 3 ракурсов):</p>
+
+<h3>Активация</h3>
+<ol>
+<li>Найди переключатель <b>«🎞 Multi-shot»</b> и включи его.</li>
+<li>Появится таблица шотов с кнопкой <b>«➕ Добавить шот»</b>.</li>
+</ol>
+
+<h3>Поля шота</h3>
+<table>
+<tr><th>Поле</th><th>Что вписать</th></tr>
+<tr><td><b>Длительность</b></td><td><code>3s</code> / <code>5s</code> / <code>8s</code></td></tr>
+<tr><td><b>Camera</b></td><td><code>medium shot, slow dolly in</code></td></tr>
+<tr><td><b>Action</b></td><td>Что происходит в этом шоте</td></tr>
+<tr><td><b>Transition</b></td><td><code>cut</code> / <code>dissolve</code> / <code>match cut</code></td></tr>
+</table>
+
+<p>Шоты можно перетаскивать (drag handle ⠿) для смены порядка. <b>Character</b> в основной форме обеспечивает консистентность.</p>
+
+<!-- ========== 9 TIMELINE ========== -->
+<h2 id="timeline">9. Timeline beats</h2>
+
+<p>Если нужна <b>чёткая хронология внутри одного шота</b> (что происходит на 0с, 2с, 4с):</p>
+
+<ol>
+<li>Включи <b>«⏱ Timeline beats»</b>.</li>
+<li>Добавь точки времени с описанием камеры и subject в каждый момент.</li>
+<li>Это попадёт в промт как <code>at 0s: ... at 2s: ...</code></li>
+</ol>
+
+<!-- ========== 10 STORY MODE ========== -->
+<h2 id="story">10. Story Mode (multi-scene)</h2>
+
+<p>Самая мощная фича — превращает <b>одну идею</b> в <b>N связанных сцен с консистентным героем</b>.</p>
+
+<h3>Открыть</h3>
+<p>Кнопка <b>🎬 Story</b> в шапке справа, или Command Palette → <code>Story Mode</code>.</p>
+
+<h3>Шаги</h3>
+<ol>
+<li>В поле <b>«💡 Большая идея»</b> впиши концепт на любом языке: <code>детектив расследует исчезновения в туманном порту</code></li>
+<li>Выбери <b>жанр/тон</b>: Neo-noir, Cyberpunk thriller, Anime adventure и др. (11 опций)</li>
+<li>Слайдером <b>«🎚 Кол-во сцен»</b> выбери от 3 до 10</li>
+<li>Выбери <b>длительность сцены</b>: 3s / 5s / 8s / 10s</li>
+<li>Жми <b>«✨ Развернуть в сценарий»</b> — AI пишет ~20-40 секунд</li>
+</ol>
+
+<h3>Результат</h3>
+<ul>
+<li><b>Hero</b> — общее описание героя (3–5 визуальных черт), консистентное во всех сценах</li>
+<li><b>Title</b> — короткое название истории</li>
+<li><b>Scenes[]</b> — N карточек, каждая с заголовком и полным cinematic-английским промтом</li>
+</ul>
+
+<h3>Действия с каждой сценой</h3>
+<table>
+<tr><th>Кнопка</th><th>Действие</th></tr>
+<tr><td><b>🖼</b></td><td>Сгенерить превью через DALL·E 3 (~$0.04 за кадр)</td></tr>
+<tr><td><b>⏎ В форму</b></td><td>Загрузить эту сцену в основную форму студии</td></tr>
+<tr><td><b>✕</b></td><td>Удалить сцену</td></tr>
+<tr><td><b>textarea</b></td><td>Редактировать промт прямо в карточке (auto-save)</td></tr>
+</table>
+
+<h3>Глобальные действия</h3>
+<table>
+<tr><th>Кнопка</th><th>Действие</th></tr>
+<tr><td><b>🖼 Превью всех</b></td><td>Сгенерить картинки для всех сцен сразу. Спросит про цену.</td></tr>
+<tr><td><b>📦 Экспорт ZIP</b></td><td>Архив с .md, .json, .txt для каждой сцены, картинками</td></tr>
+<tr><td><b>📄 Экспорт .txt</b></td><td>Markdown-файл со всем сценарием</td></tr>
+<tr><td><b>🎞 Как multi-shot</b></td><td>Загрузить все сцены как шоты в основную форму</td></tr>
+<tr><td><b>📽 FCPXML</b></td><td>Таймлайн для DaVinci/FCP/Premiere (см. раздел 12)</td></tr>
+<tr><td><b>🔍 Continuity check</b></td><td>Проверка разрывов (см. раздел 11)</td></tr>
+<tr><td><b>🗑 Очистить</b></td><td>Удалить весь сценарий</td></tr>
+</table>
+
+<div class="callout tip">
+<b>💡 Сценарий сохраняется автоматически</b>
+В <code>localStorage</code>. Закрыл вкладку → открыл → всё на месте.
+</div>
+
+<!-- ========== 11 CONTINUITY ========== -->
+<h2 id="continuity">11. Continuity Checker</h2>
+
+<p>AI-скрипт-супервайзер находит разрывы между сценами и предлагает фиксы.</p>
+
+<h3>Запуск</h3>
+<p>В Story Mode → кнопка <b>🔍 Continuity check</b>. AI читает героя + все сцены, отвечает за 5–15 секунд.</p>
+
+<h3>Что проверяет (8 типов)</h3>
+<table>
+<tr><th>Тип</th><th>Пример разрыва</th></tr>
+<tr><td><b>👔 wardrobe</b></td><td>Scene 1: куртка → Scene 2: смокинг (без причины)</td></tr>
+<tr><td><b>⏰ time</b></td><td>Scene 2: ночь → Scene 3: день (без перехода)</td></tr>
+<tr><td><b>☔ weather</b></td><td>Дождь → солнечно мгновенно</td></tr>
+<tr><td><b>🎒 prop</b></td><td>Сумка появилась/исчезла</td></tr>
+<tr><td><b>📍 location</b></td><td>Город → лес → город</td></tr>
+<tr><td><b>💡 lighting</b></td><td>Контражур → плоский свет в той же локации</td></tr>
+<tr><td><b>🧬 character</b></td><td>Цвет волос/глаз героя поменялся</td></tr>
+<tr><td><b>❓ other</b></td><td>Любые другие несоответствия</td></tr>
+</table>
+
+<h3>Что показывает</h3>
+<ul>
+<li><b>Score 0–100</b> — общая оценка сценария (зелёный ≥80, жёлтый ≥50, красный <50)</li>
+<li><b>Issues</b> — список разрывов с severity 🔴 high / 🟡 med / 🔵 low</li>
+<li>Для каждого: какие сцены затронуты, описание на русском, готовый английский fix-текст</li>
+</ul>
+
+<h3>Действия</h3>
+<ul>
+<li><b>🔧 Применить fix</b> — AI переписывает целевую сцену устраняя разрыв</li>
+<li><b>✕</b> — отбросить ложный флаг</li>
+</ul>
+
+<!-- ========== 12 FCPXML ========== -->
+<h2 id="fcpxml">12. Экспорт FCPXML</h2>
+
+<p>Превращает Story Mode в готовый <b>таймлайн для монтажки</b>.</p>
+
+<h3>Что в архиве</h3>
+<pre>story-fcpxml-1730000000.zip
+├── story.fcpxml      ← таймлайн (FCPXML 1.10)
+├── media/
+│   ├── preview-01.png   (real или placeholder)
+│   ├── preview-02.png
+│   └── ...
+├── story.json        (резерв-копия сценария)
+└── README.txt        (инструкция импорта)</pre>
+
+<h3>Что в .fcpxml</h3>
+<ul>
+<li><b>Sequence</b> 1920×1080 @ 24fps</li>
+<li><b>Spine</b> — N клипов подряд, длина = выбранный <code>storyDur</code></li>
+<li><b>Имена клипов</b> = названия сцен («Scene 1: Hero arrives»)</li>
+<li><b>&lt;note&gt;</b> на каждом клипе = полный английский промт</li>
+<li><b>&lt;marker&gt;</b> на клипах = continuity issues (если делал проверку)</li>
+</ul>
+
+<!-- ========== 13 DAVINCI ========== -->
+<h2 id="davinci">13. Импорт в DaVinci Resolve</h2>
+
+<h3>Подготовка</h3>
+<ol>
+<li><b>Распакуй</b> ZIP. Не оставляй упакованным — Resolve должен видеть <code>media/</code> рядом.</li>
+<li>Положи в удобное место: <code>Documents/Seedance/My Story/</code></li>
+</ol>
+
+<h3>Импорт</h3>
+<ol>
+<li>Открой DaVinci Resolve → <b>New Project</b> → дай имя.</li>
+<li>Меню: <b>File → Import → Timeline...</b></li>
+<li>Выбери <code>story.fcpxml</code></li>
+<li>В диалоге «Load XML»: укажи <b>Source clips path</b> = папка с распакованным ZIP</li>
+<li>Галочки оставь по умолчанию → <b>OK</b></li>
+</ol>
+
+<h3>После импорта</h3>
+<ul>
+<li>В <b>Media Pool</b> появятся PNG-превью + объект таймлайна с именем твоей истории</li>
+<li>Двойной клик по таймлайну → открывается на дорожке</li>
+<li>Видно N клипов подряд, подписанных, с маркерами continuity</li>
+</ul>
+
+<h3>Замена placeholder на реальное видео</h3>
+<ol>
+<li>Сгенерь mp4 через Seedance/Runway/Kling (используя промт из &lt;note&gt;)</li>
+<li>Перетащи mp4 в Media Pool</li>
+<li>Зажми <span class="kbd">Alt</span> (Win) / <span class="kbd">Option</span> (Mac) и перетащи новый клип на placeholder — Resolve <b>заменит</b> сохранив длину/позицию</li>
+<li>Альтернатива: правый клик на клипе → <b>Replace Clip</b></li>
+</ol>
+
+<h3>Final Cut Pro</h3>
+<p>Меню: <b>File → Import → XML...</b> → выбери <code>story.fcpxml</code></p>
+
+<h3>Premiere Pro</h3>
+<div class="callout warn">
+<b>⚠ Premiere ограничен FCPXML 1.8</b>
+Workaround: импортируй сначала в Resolve → <b>File → Export → Final Cut Pro 7 XML</b> → этот legacy-файл откроется в Premiere.
+</div>
+
+<!-- ========== 14 UNDO ========== -->
+<h2 id="undo">14. Undo / Redo</h2>
+
+<table>
+<tr><th>Действие</th><th>Кнопка</th><th>Hotkey</th></tr>
+<tr><td>Отменить</td><td><b>↶ Undo</b></td><td><span class="kbd">Ctrl+Z</span></td></tr>
+<tr><td>Вернуть</td><td><b>↷ Redo</b></td><td><span class="kbd">Ctrl+Y</span> или <span class="kbd">Ctrl+Shift+Z</span></td></tr>
+</table>
+
+<p>История хранит до <b>50 последних состояний</b> формы. Snapshots делаются автоматически при изменении любого поля.</p>
+
+<!-- ========== 15 HISTORY ========== -->
+<h2 id="history">15. История и избранное</h2>
+
+<p>Боковая панель справа — две вкладки:</p>
+
+<table>
+<tr><th>Вкладка</th><th>Содержимое</th></tr>
+<tr><td><b>📜 История</b></td><td>Последние 50 сгенерированных промтов автоматически</td></tr>
+<tr><td><b>★ Избранное</b></td><td>Промты, которые ты явно отметил кнопкой <b>★</b></td></tr>
+</table>
+
+<h3>Действия</h3>
+<ul>
+<li><b>Поиск</b> — фильтрует по тексту</li>
+<li><b>Клик по элементу</b> — копирует в буфер</li>
+<li><b>Двойной клик</b> — пытается восстановить состояние формы (если сохранено)</li>
+<li><b>🗑 Очистить</b> — стирает всю вкладку</li>
+</ul>
+
+<!-- ========== 16 CMDPAL ========== -->
+<h2 id="cmdpal">16. Command Palette</h2>
+
+<p>Универсальный поисковик команд: <span class="kbd">Ctrl+K</span> или <span class="kbd">Cmd+K</span>.</p>
+
+<h3>Доступные команды</h3>
+<ul>
+<li>🎲 Случайная идея</li>
+<li>✨ AI улучшить</li>
+<li>🩺 Критика</li>
+<li>🎯 Goal mode</li>
+<li>🔄 RU→EN перевод</li>
+<li>🎬 Story Mode</li>
+<li>🔍 Continuity check</li>
+<li>📽 Export FCPXML</li>
+<li>...и ~20 других</li>
+</ul>
+
+<p>Навигация: <span class="kbd">↑</span> <span class="kbd">↓</span> — выбор, <span class="kbd">Enter</span> — выполнить, <span class="kbd">Esc</span> — закрыть.</p>
+
+<!-- ========== 17 SLASH ========== -->
+<h2 id="slash">17. Slash-команды</h2>
+
+<p>В любом текстовом поле введи команду со слэшем + <span class="kbd">Enter</span>:</p>
+
+<table>
+<tr><th>Команда</th><th>Действие</th></tr>
+<tr><td><code>/random</code></td><td>Случайный промт</td></tr>
+<tr><td><code>/clear</code></td><td>Очистить форму</td></tr>
+<tr><td><code>/dark</code></td><td>Тёмная тема</td></tr>
+<tr><td><code>/light</code></td><td>Светлая тема</td></tr>
+<tr><td><code>/cinema</code></td><td>Применить пресет «Кино»</td></tr>
+<tr><td><code>/cyberpunk</code></td><td>Применить пресет «Киберпанк»</td></tr>
+<tr><td><code>/anime</code></td><td>Применить пресет «Аниме»</td></tr>
+<tr><td><code>/horror</code></td><td>Применить пресет «Хоррор»</td></tr>
+<tr><td><code>/score</code></td><td>Запустить AI-критику</td></tr>
+<tr><td><code>/iterate</code></td><td>AI-итерация</td></tr>
+<tr><td><code>/preview</code></td><td>AI-превью кадра</td></tr>
+</table>
+
+<!-- ========== 18 HOTKEYS ========== -->
+<h2 id="hotkeys">18. Горячие клавиши</h2>
+
+<table>
+<tr><th>Действие</th><th>Hotkey</th></tr>
+<tr><td>Command Palette</td><td><span class="kbd">Ctrl</span>+<span class="kbd">K</span></td></tr>
+<tr><td>Undo</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Z</span></td></tr>
+<tr><td>Redo</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Y</span></td></tr>
+<tr><td>Закрыть модалку</td><td><span class="kbd">Esc</span></td></tr>
+<tr><td>Применить slash-команду</td><td><span class="kbd">Enter</span> в текстовом поле</td></tr>
+</table>
+
+<!-- ========== 19 EXPORT IMPORT ========== -->
+<h2 id="exportimport">19. Экспорт / импорт состояния</h2>
+
+<h3>Экспорт</h3>
+<ul>
+<li><b>📋 Скопировать (EN)</b> — английский промт в буфер</li>
+<li><b>📋 EN+RU</b> — оба языка</li>
+<li><b>{ } JSON</b> — машиночитаемая структура промта</li>
+<li><b>💾 Save state</b> — выгружает всё состояние формы в .json</li>
+<li><b>🔗 Share</b> (если есть) — кодирует в URL-хэш</li>
+</ul>
+
+<h3>Импорт</h3>
+<ul>
+<li><b>📁 Load state</b> — загружает .json обратно в форму</li>
+<li><b>Open URL</b> с <code>#s=...</code> — приложение само распакует и применит</li>
+</ul>
+
+<!-- ========== 20 THEMES ========== -->
+<h2 id="themes">20. Темы и интерфейс</h2>
+
+<table>
+<tr><th>Кнопка</th><th>Что делает</th></tr>
+<tr><td><b>🌓 Theme</b></td><td>Переключает тёмную/светлую тему</td></tr>
+<tr><td><b>A−</b> / <b>A+</b></td><td>Уменьшает/увеличивает шрифт от 80% до 140%</td></tr>
+<tr><td><b>🎨 Live palette</b></td><td>Полоска текущей цветовой палитры под формой (визуальный референс)</td></tr>
+</table>
+
+<div class="callout tip">
+<b>💡 Авто-тема по времени</b>
+Если ты ни разу не нажимал на 🌓, тема выбирается по времени суток: светлая 7:00–19:00, тёмная остальное.
+</div>
+
+<!-- ========== 21 VOICE ========== -->
+<h2 id="voice">21. Голосовой ввод</h2>
+
+<p>Web Speech API. Работает в Chrome/Edge (на Firefox/Safari ограниченно).</p>
+
+<ol>
+<li>Кнопка <b>🎤 Voice</b> возле поля ввода</li>
+<li>Браузер запросит разрешение на микрофон — разреши</li>
+<li>Говори свободно на русском</li>
+<li>Текст вставится в активное поле</li>
+</ol>
+
+<!-- ========== 22 TROUBLESHOOT ========== -->
+<h2 id="troubleshoot">22. Решение проблем</h2>
+
+<dl class="faq">
+<dt>AI-кнопки нажимаются, но ничего не происходит</dt>
+<dd>1) Проверь что в <b>⚙ AI</b> вписан ключ. 2) Открой DevTools (F12) → Console → ищи красные ошибки про 401/403/CORS. 3) Проверь что хватает $ на балансе у провайдера.</dd>
+
+<dt>Vision не распознаёт картинку в I2V</dt>
+<dd>Vision требует <code>gpt-4o</code> или <code>gpt-4-vision-preview</code>. Зайди в <b>⚙ AI</b> → смени модель. <code>gpt-4o-mini</code> работает плохо для Vision.</dd>
+
+<dt>Story Mode возвращает «AI вернул не сценарий»</dt>
+<dd>Локальные модели (Ollama) часто не держат JSON-формат. Используй <code>gpt-4o</code> или <code>claude-sonnet</code>. Слабые модели (mini) тоже могут портить JSON — переключись на старшие.</dd>
+
+<dt>localStorage заполнился, ошибка quota</dt>
+<dd>Превью-картинки в Story Mode тяжёлые. Очисти историю/избранное (🗑) или удали старые сценарии. Размер квоты браузера — обычно 5–10 MB.</dd>
+
+<dt>FCPXML импортируется в DaVinci, но клипы красные («Media offline»)</dt>
+<dd>Resolve не нашёл папку <code>media/</code>. Правый клик в Media Pool → <b>Relink Selected Clips</b> → укажи папку с распакованным ZIP.</dd>
+
+<dt>Premiere ругается на FCPXML 1.10</dt>
+<dd>Premiere поддерживает только до 1.8. Импортируй в Resolve → File → Export → Final Cut Pro 7 XML → этот файл откроется в Premiere.</dd>
+
+<dt>Голосовой ввод не работает</dt>
+<dd>В Firefox/Safari Web Speech API ограничен. Используй Chrome или Edge. Также нужен HTTPS или localhost — на <code>file://</code> может не работать.</dd>
+
+<dt>Поля заполняются «[object Object]»</dt>
+<dd>Старая версия. Убедись что у тебя <code>app.js</code> v7+. Это было исправлено через функцию <code>applyAiFields</code>.</dd>
+
+<dt>Кнопка ★ Избранное не работает</dt>
+<dd>Сначала нужно сгенерировать промт (нажать любую кнопку чтобы заполнился блок результата). Без английского промта избранное пустое.</dd>
+
+<dt>Хочу сбросить всё к заводским настройкам</dt>
+<dd>F12 → Console → введи <code>localStorage.clear()</code> → Enter → перезагрузи страницу. Сотрутся все настройки, история, ключ, темы, story.</dd>
+</dl>
+
+<!-- ========== 23 FAQ ========== -->
+<h2 id="faq">23. FAQ</h2>
+
+<dl class="faq">
+<dt>Сколько стоит использовать?</dt>
+<dd>Само приложение бесплатно. AI-функции — по тарифам твоего провайдера. С <code>gpt-4o-mini</code> один промт ≈ $0.0001, story из 5 сцен ≈ $0.001. Превью DALL·E ≈ $0.04 за кадр. Локальный Ollama — $0.</dd>
+
+<dt>Можно ли работать без интернета?</dt>
+<dd>Да. Без AI — полностью офлайн. С Ollama (локальная модель) — AI тоже офлайн.</dd>
+
+<dt>Где хранятся мои данные?</dt>
+<dd>Только в <code>localStorage</code> твоего браузера. Никаких облаков, никакой телеметрии. Очистка кэша браузера = потеря данных.</dd>
+
+<dt>Можно поделиться сценарием с коллегой?</dt>
+<dd>В Story Mode → <b>📦 Экспорт ZIP</b> или <b>📄 Экспорт .txt</b>. Коллеге пришли файл — он откроет.</dd>
+
+<dt>Поддерживается ли мобильный?</dt>
+<dd>Интерфейс адаптивный, но лучше работать с десктопа. Голосовой ввод и drag-drop для I2V на мобильных ограничены.</dd>
+
+<dt>Можно сделать публичную ссылку?</dt>
+<dd>Да — залить два файла на GitHub Pages, Netlify, Vercel. Папка статическая, сборки не нужно.</dd>
+
+<dt>Где брать API-ключи?</dt>
+<dd>OpenAI: <code>platform.openai.com/api-keys</code>. Anthropic: <code>console.anthropic.com</code>. OpenRouter: <code>openrouter.ai/keys</code>. Ollama: установи с <code>ollama.com</code>, ключ не нужен.</dd>
+
+<dt>Какая модель Seedance/Runway лучше?</dt>
+<dd>Промт-структура одинаковая для всех. Skip-test: возьми один и тот же промт из приложения и прогони через несколько генераторов — выбирай по результату.</dd>
+</dl>
+
+<!-- ========== 24 GLOSSARY ========== -->
+<h2 id="glossary">24. Глоссарий</h2>
+
+<table>
+<tr><th>Термин</th><th>Значение</th></tr>
+<tr><td>T2V (Text-to-Video)</td><td>Генерация видео по текстовому промту</td></tr>
+<tr><td>I2V (Image-to-Video)</td><td>Генерация видео с использованием стартовой картинки</td></tr>
+<tr><td>Subject</td><td>Главный объект кадра</td></tr>
+<tr><td>Shot</td><td>Тип плана (close-up, medium, wide)</td></tr>
+<tr><td>Aspect ratio</td><td>Соотношение сторон кадра (16:9, 9:16, 1:1)</td></tr>
+<tr><td>Negative prompt</td><td>Что не должно быть в видео</td></tr>
+<tr><td>Anamorphic</td><td>Объектив с горизонтальными бликами (киношный)</td></tr>
+<tr><td>Chiaroscuro</td><td>Контрастное освещение свет/тень</td></tr>
+<tr><td>Blue hour</td><td>Время до восхода/после заката (синий свет)</td></tr>
+<tr><td>Golden hour</td><td>Час после восхода/перед закатом (тёплый свет)</td></tr>
+<tr><td>Bokeh</td><td>Размытый фон от широкой диафрагмы</td></tr>
+<tr><td>FCPXML</td><td>Формат таймлайна Final Cut Pro / DaVinci</td></tr>
+<tr><td>Multi-shot</td><td>Несколько кадров в одном видео</td></tr>
+<tr><td>Continuity</td><td>Согласованность деталей между сценами</td></tr>
+<tr><td>Match cut</td><td>Склейка по визуальному сходству</td></tr>
+<tr><td>J-cut / L-cut</td><td>Звук одной сцены приходит/уходит до видео</td></tr>
+</table>
+
+<!-- ========== 25 SHORTCUTS ========== -->
+<h2 id="shortcuts-table">25. Шпаргалка (одна страница)</h2>
+
+<h3>Основные действия</h3>
+<table>
+<tr><td><span class="kbd">Ctrl</span>+<span class="kbd">K</span></td><td>Command Palette</td></tr>
+<tr><td><span class="kbd">Ctrl</span>+<span class="kbd">Z</span> / <span class="kbd">Y</span></td><td>Undo / Redo</td></tr>
+<tr><td><span class="kbd">Esc</span></td><td>Закрыть модалку</td></tr>
+<tr><td><code>/random</code> + Enter</td><td>Случайный промт</td></tr>
+<tr><td><code>/cyberpunk</code> + Enter</td><td>Пресет киберпанк</td></tr>
+</table>
+
+<h3>Workflow Story → видео</h3>
+<ol>
+<li>🎬 Story → ✨ Развернуть</li>
+<li>🔍 Continuity check → 🔧 Применить fix (если нужно)</li>
+<li>🖼 Превью всех (опционально)</li>
+<li>📽 FCPXML → распаковать ZIP</li>
+<li>DaVinci → File → Import → Timeline → story.fcpxml</li>
+<li>Сгенерить mp4 в Seedance/Runway → Replace Clip</li>
+<li>Монтаж → экспорт</li>
+</ol>
+
+<h3>Workflow единичный промт</h3>
+<ol>
+<li>🎯 Goal mode → одна фраза</li>
+<li>(или) заполнить поля вручную</li>
+<li>🩺 Critique → исправить</li>
+<li>📋 Скопировать (EN)</li>
+<li>Вставить в Seedance</li>
+</ol>
+
+<div class="divider"></div>
+
+<h3>Контакты и обновления</h3>
+<p>Это локальное приложение. Обновления — заменой файлов <code>index.html</code> и <code>app.js</code>.</p>
+
+<p class="subtle" style="text-align:center;margin-top:60px;font-size:11px">
+Seedance 2.0 Prompt Studio v7.2 · Руководство пользователя · 2026<br/>
+Сгенерировано для печати в PDF (A4)
+</p>
+
+</div>
+
+<script>
+// Auto-add anchor links to headings
+document.querySelectorAll('h2[id], h3[id]').forEach(h=>{
+  h.style.cursor='pointer';
+  h.title='Кликните чтобы скопировать ссылку на раздел';
+  h.onclick=()=>{
+    const url=location.href.split('#')[0]+'#'+h.id;
+    navigator.clipboard.writeText(url);
+    h.style.color='#10b981';setTimeout(()=>h.style.color='',600);
+  };
+});
+</script>
+
+</body>
+</html>

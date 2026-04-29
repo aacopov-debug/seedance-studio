@@ -1,0 +1,1824 @@
+/* ============ v7: EVENT BUS (replaces _origX chains) ============ */
+window.bus = window.bus || {_h:{}, on(e,f){(this._h[e]=this._h[e]||[]).push(f);return this;}, off(e,f){if(this._h[e])this._h[e]=this._h[e].filter(x=>x!==f);return this;}, emit(e,...a){(this._h[e]||[]).forEach(f=>{try{f(...a);}catch(err){console.error('[bus '+e+']',err);}});return this;}};
+/* Use bus.on('after-generate', fn) for hooks instead of overriding window.generate */
+
+/* ============ v7: SAFE AI FIELD APPLY (hoisted, used everywhere) ============ */
+/* Flattens objects to strings so AI returning {character:{name:'Alex'}} doesn't yield [object Object] */
+function applyAiFields(obj){
+  Object.entries(obj||{}).forEach(([k,vl])=>{
+    if(typeof document==='undefined'||!document.getElementById||!document.getElementById(k))return;
+    if(vl==null)return;
+    if(typeof vl==='object')vl=Object.values(vl).filter(x=>typeof x==='string').join(', ')||JSON.stringify(vl);
+    document.getElementById(k).value=String(vl);
+  });
+}
+/* Safe localStorage wrapper (handles quota errors) */
+function safeLS(k,v){try{localStorage.setItem(k,v);return true;}catch(e){console.warn('localStorage quota:',k,e.message);return false;}}
+
+/* Seedance Studio - extracted 2026-04-28T18:44:36.218Z */
+
+const O={
+shot:["wide establishing shot","extreme wide shot","full body shot","medium shot","cowboy shot","close-up","extreme close-up","over-the-shoulder","point-of-view (POV)","top-down aerial","low-angle shot","high-angle shot","Dutch angle"],
+camera:["static camera","slow dolly in","dolly out","tracking shot","handheld follow","smooth gimbal","crane up","crane down","orbit around subject","whip pan","slow zoom in","slow zoom out","drone fly-through","steadicam push-in","arc shot","rack focus pull"],
+lens:["50mm prime, shallow depth of field","35mm cinematic","85mm portrait, bokeh","24mm wide-angle","anamorphic lens with horizontal flares","macro lens","fisheye","tilt-shift miniature"],
+speed:["natural real-time motion","slow motion 120fps","ultra slow motion","time-lapse","hyperlapse","frozen moment with subtle parallax"],
+lighting:["soft natural light","golden hour sunlight","blue hour twilight","hard rim lighting","neon backlighting","volumetric god rays","studio three-point lighting","candlelight glow","moonlight","harsh midday sun","cinematic chiaroscuro","colored gels (teal & orange)","practical neon signs"],
+time:["dawn","sunrise","morning","midday","afternoon","golden hour","sunset","blue hour","night","midnight"],
+weather:["clear sky","light rain","heavy rain with reflections","thunderstorm","dense fog","light mist","snowfall","blizzard","sandstorm","overcast","windy"],
+palette:["teal and orange","desaturated muted tones","vibrant neon","pastel dreamy","monochrome black & white","warm sepia","cold cyan blues","rich earthy browns","high-contrast noir","bleach bypass"],
+mood:["epic and cinematic","dreamy and ethereal","tense and suspenseful","peaceful and serene","mysterious","romantic","melancholic","energetic and dynamic","nostalgic","heroic","unsettling"],
+style:["photorealistic cinematic","Hollywood blockbuster","Studio Ghibli anime","Pixar 3D animation","cyberpunk","film noir","wes anderson symmetric","documentary 16mm film","vintage 80s VHS","hyperrealistic 8K","watercolor animation","stop-motion","Korean drama"]
+};
+const PRESETS=[
+{name:"🎬 Кино",v:{shot:"medium shot",camera:"slow dolly in",lens:"anamorphic lens with horizontal flares",speed:"natural real-time motion",lighting:"cinematic chiaroscuro",time:"blue hour",weather:"light mist",palette:"teal and orange",mood:"epic and cinematic",style:"photorealistic cinematic"}},
+{name:"🌃 Киберпанк",v:{shot:"low-angle shot",camera:"tracking shot",lens:"35mm cinematic",speed:"natural real-time motion",lighting:"neon backlighting",time:"night",weather:"heavy rain with reflections",palette:"vibrant neon",mood:"mysterious",style:"cyberpunk"}},
+{name:"🌸 Аниме",v:{shot:"medium shot",camera:"smooth gimbal",lens:"50mm prime, shallow depth of field",speed:"natural real-time motion",lighting:"soft natural light",time:"golden hour",weather:"clear sky",palette:"pastel dreamy",mood:"dreamy and ethereal",style:"Studio Ghibli anime"}},
+{name:"🛍 Продукт",v:{shot:"close-up",camera:"orbit around subject",lens:"macro lens",speed:"slow motion 120fps",lighting:"studio three-point lighting",time:"midday",weather:"clear sky",palette:"desaturated muted tones",mood:"energetic and dynamic",style:"hyperrealistic 8K"}},
+{name:"🏔 Природа",v:{shot:"extreme wide shot",camera:"drone fly-through",lens:"24mm wide-angle",speed:"hyperlapse",lighting:"golden hour sunlight",time:"sunrise",weather:"light mist",palette:"rich earthy browns",mood:"peaceful and serene",style:"documentary 16mm film"}},
+{name:"😱 Хоррор",v:{shot:"close-up",camera:"handheld follow",lens:"35mm cinematic",speed:"natural real-time motion",lighting:"candlelight glow",time:"midnight",weather:"dense fog",palette:"monochrome black & white",mood:"tense and suspenseful",style:"film noir"}}
+];
+const GENRES=[
+{name:"🎞 Trailer",v:{lighting:"cinematic chiaroscuro",mood:"epic and cinematic",style:"Hollywood blockbuster",camera:"crane up"}},
+{name:"📱 TikTok 9:16",v:{aspect:"9:16",duration:"5s",camera:"handheld follow",lens:"24mm wide-angle",mood:"energetic and dynamic"}},
+{name:"🎵 Music video",v:{camera:"smooth gimbal",speed:"slow motion 120fps",lighting:"colored gels (teal & orange)",mood:"dreamy and ethereal"}},
+{name:"📺 Реклама",v:{shot:"close-up",camera:"orbit around subject",lighting:"studio three-point lighting",style:"hyperrealistic 8K"}},
+{name:"🍔 Food",v:{shot:"extreme close-up",camera:"slow dolly in",lens:"macro lens",speed:"slow motion 120fps",style:"hyperrealistic 8K"}},
+{name:"🏠 Real estate",v:{shot:"wide establishing shot",camera:"drone fly-through",lens:"24mm wide-angle",lighting:"golden hour sunlight"}},
+{name:"🎮 Game cinematic",v:{shot:"low-angle shot",camera:"orbit around subject",lighting:"volumetric god rays",mood:"heroic"}},
+{name:"🌿 ASMR",v:{shot:"extreme close-up",camera:"static camera",lens:"macro lens",speed:"slow motion 120fps",mood:"peaceful and serene"}},
+{name:"📰 Documentary",v:{camera:"handheld follow",lens:"35mm cinematic",style:"documentary 16mm film"}}
+];
+const DIRS=[
+{name:"Blade Runner 2049",d:"Villeneuve · neo-noir",v:{lighting:"colored gels (teal & orange)",palette:"teal and orange",style:"cyberpunk",mood:"mysterious",camera:"slow dolly in",lens:"anamorphic lens with horizontal flares",time:"night",weather:"heavy rain with reflections"}},
+{name:"Wes Anderson",d:"симметрия, пастель",v:{shot:"medium shot",camera:"static camera",palette:"pastel dreamy",style:"wes anderson symmetric",lighting:"soft natural light",mood:"nostalgic"}},
+{name:"Studio Ghibli",d:"Миядзаки",v:{style:"Studio Ghibli anime",lighting:"soft natural light",palette:"pastel dreamy",mood:"dreamy and ethereal",camera:"smooth gimbal"}},
+{name:"Tarantino",d:"стилизация",v:{shot:"close-up",camera:"slow zoom in",lens:"anamorphic lens with horizontal flares",palette:"warm sepia",style:"Hollywood blockbuster",mood:"tense and suspenseful"}},
+{name:"Christopher Nolan",d:"эпично, IMAX",v:{shot:"extreme wide shot",camera:"crane up",lens:"24mm wide-angle",palette:"desaturated muted tones",style:"Hollywood blockbuster",mood:"epic and cinematic"}},
+{name:"Tarkovsky",d:"длинные планы",v:{shot:"wide establishing shot",camera:"static camera",speed:"frozen moment with subtle parallax",palette:"desaturated muted tones",mood:"melancholic",style:"documentary 16mm film"}},
+{name:"Kubrick",d:"perfect symmetry",v:{shot:"wide establishing shot",camera:"slow zoom in",lens:"24mm wide-angle",palette:"high-contrast noir",mood:"unsettling"}},
+{name:"David Fincher",d:"тёмная цифра",v:{lighting:"hard rim lighting",palette:"cold cyan blues",style:"film noir",mood:"tense and suspenseful",camera:"steadicam push-in"}},
+{name:"Pixar",d:"3D-анимация",v:{style:"Pixar 3D animation",lighting:"soft natural light",palette:"vibrant neon",mood:"energetic and dynamic"}},
+{name:"Mad Max",d:"пыль, контраст",v:{lighting:"harsh midday sun",palette:"warm sepia",weather:"sandstorm",camera:"tracking shot"}},
+{name:"A24 horror",d:"slow burn",v:{lens:"35mm cinematic",style:"film noir",mood:"unsettling",lighting:"candlelight glow",camera:"static camera"}},
+{name:"Korean drama",d:"romance",v:{style:"Korean drama",lighting:"golden hour sunlight",time:"golden hour",palette:"warm sepia",mood:"romantic"}}
+];
+const IDEAS=[
+{subject:"a lone astronaut in a worn white spacesuit",action:"slowly walks across an alien red desert",scene:"vast martian-like landscape",details:"dust kicked up, helmet reflecting"},
+{subject:"a majestic white tiger with glowing blue eyes",action:"prowls through tall grass",scene:"misty bamboo forest at dawn",details:"sun rays piercing"},
+{subject:"a young woman with red hair in a long coat",action:"runs through a crowded neon street",scene:"futuristic Tokyo with holograms",details:"rain reflections"},
+{subject:"a samurai in dark lacquered armor",action:"slowly draws his katana",scene:"ancient Japanese temple",details:"cherry blossoms swirling"}
+];
+const RU={"wide establishing shot":"общий план","medium shot":"средний план","close-up":"крупный","static camera":"статичная","slow dolly in":"медленный наезд","tracking shot":"проводка","orbit around subject":"облёт","drone fly-through":"пролёт"};
+const CONFLICTS=[{a:["night","midnight"],b:["golden hour sunlight","harsh midday sun"],msg:"Время суток ↔ освещение"},{a:["dense fog","heavy rain"],b:["clear sky"],msg:"Погода противоречит ясному небу"},{a:["monochrome black & white"],b:["vibrant neon","teal and orange"],msg:"Ч/б ↔ цветная палитра"},{a:["static camera"],b:["whip pan","drone fly-through","tracking shot"],msg:"Противоречие в камере"}];
+const ANTI_NEG="morphing artifacts, warping, jittery motion, frame skipping, deformed limbs, extra fingers, distorted faces, text artifacts, watermark, low quality, blurry, flickering";
+const TRANS=["cut","dissolve","match cut","smash cut","fade to black"];
+const COST={'480p':0.005,'720p':0.012,'1080p':0.024};
+const AIP={openai:{base:'https://api.openai.com/v1',model:'gpt-4o-mini'},ollama:{base:'http://localhost:11434/v1',model:'llama3.2'},deepseek:{base:'https://api.deepseek.com',model:'deepseek-chat'}};
+
+const $=id=>document.getElementById(id);
+const v=id=>($(id)?.value||'').trim();
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1800);}
+
+['shot','camera','lens','speed','lighting','time','weather','palette','mood','style'].forEach(id=>{const s=$(id);O[id].forEach((x,i)=>{const o=document.createElement('option');o.textContent=x;if(i===0)o.selected=1;s.appendChild(o);});});
+
+const presetsEl=$('presets'), genresEl=$('genres'), dirsEl=$('directors');
+function renderPresets(){[...presetsEl.querySelectorAll('[data-p]')].forEach(b=>b.remove());
+  const all=[...PRESETS.map(p=>({...p,b:1})),...loadList('seedance_user_presets').map(p=>({...p,b:0}))];
+  all.forEach((p,i)=>{const btn=document.createElement('button');btn.dataset.p=i;btn.className="soft-btn text-xs px-3 py-1.5 rounded-full";
+    btn.innerHTML=p.b?p.name:`${p.name} <span data-del class="opacity-50 ml-1">✕</span>`;
+    btn.onclick=e=>{if(e.target.dataset.del!==undefined){e.stopPropagation();const a=loadList('seedance_user_presets');a.splice(i-PRESETS.length,1);saveList('seedance_user_presets',a);renderPresets();return;}
+      Object.entries(p.v).forEach(([k,vl])=>{if($(k))$(k).value=vl});[...presetsEl.querySelectorAll('[data-p]')].forEach(c=>c.classList.remove('chip-active'));btn.classList.add('chip-active');generate();};
+    presetsEl.insertBefore(btn,$('savePresetBtn'));});}
+renderPresets();
+$('savePresetBtn').onclick=()=>{const n=prompt('Название:');if(!n)return;const vv={};['shot','camera','lens','speed','lighting','time','weather','palette','mood','style'].forEach(k=>vv[k]=$(k).value);const a=loadList('seedance_user_presets');a.push({name:'⭐ '+n,v:vv});saveList('seedance_user_presets',a);renderPresets();toast('Сохранено');};
+
+GENRES.forEach(g=>{const b=document.createElement('button');b.className="soft-btn text-xs px-3 py-1.5 rounded-full";b.textContent=g.name;
+  b.onclick=()=>{Object.entries(g.v).forEach(([k,vl])=>{if($(k))$(k).value=vl});generate();};genresEl.appendChild(b);});
+
+DIRS.forEach(dr=>{const b=document.createElement('button');b.className="dir-card text-left p-3 rounded-xl border border-white/10 bg-black/10";
+  b.innerHTML=`<div class="font-medium text-sm">${dr.name}</div><div class="text-[11px] subtle mt-0.5">${dr.d}</div>`;
+  b.onclick=()=>{Object.entries(dr.v).forEach(([k,vl])=>{if($(k))$(k).value=vl});toast('Стиль: '+dr.name);generate();};dirsEl.appendChild(b);});
+
+function makeDrag(c){c.addEventListener('dragstart',e=>{const r=e.target.closest('[draggable]');if(!r)return;r.classList.add('dragging');});
+  c.addEventListener('dragend',()=>{[...c.children].forEach(x=>x.classList.remove('dragging'));reindexShots();saveState();});
+  c.addEventListener('dragover',e=>{e.preventDefault();const d=c.querySelector('.dragging');if(!d)return;
+    const a=[...c.children].find(x=>x!==d&&e.clientY<x.getBoundingClientRect().top+x.offsetHeight/2);
+    if(a)c.insertBefore(d,a);else c.appendChild(d);});}
+
+const beatsEl=$('beats');
+function addBeat(t="0–3s",cam="camera slowly pushes in",sub="subject begins to move"){
+  const r=document.createElement('div');r.className="grid grid-cols-12 gap-2";r.draggable=true;
+  r.innerHTML=`<div class="drag-handle col-span-1 pt-2.5 text-center subtle">⠿</div>
+    <input class="field col-span-2 bt" value="${t}"/><input class="field col-span-4 bc" value="${cam}"/><input class="field col-span-4 bs" value="${sub}"/>
+    <div class="col-span-1 flex gap-1"><button class="soft-btn text-xs flex-1" data-dup>📋</button><button class="soft-btn text-xs flex-1" data-rm>✕</button></div>`;
+  r.querySelector('[data-rm]').onclick=()=>{r.remove();saveState();};
+  r.querySelector('[data-dup]').onclick=()=>{addBeat(r.querySelector('.bt').value,r.querySelector('.bc').value,r.querySelector('.bs').value);saveState();};
+  beatsEl.appendChild(r);
+}
+makeDrag(beatsEl);$('addBeat').onclick=()=>{addBeat("","","");saveState();};
+const getBeats=()=>!$('useTimeline').checked?[]:[...beatsEl.querySelectorAll('[draggable]')].map(r=>({t:r.querySelector('.bt').value.trim(),cam:r.querySelector('.bc').value.trim(),sub:r.querySelector('.bs').value.trim()})).filter(b=>b.cam||b.sub);
+
+const shotsEl=$('shots');
+function addShot(dur="3s",cam="medium shot, slow dolly in",act="subject walks toward camera",tr="cut"){
+  const r=document.createElement('div');r.className="grid grid-cols-12 gap-2";r.draggable=true;
+  r.innerHTML=`<div class="drag-handle col-span-1 pt-2.5 text-center subtle">⠿<div class="text-[10px] sidx">#1</div></div>
+    <input class="field col-span-2 sd" value="${dur}"/><input class="field col-span-3 sc" value="${cam}"/><input class="field col-span-3 sa" value="${act}"/>
+    <select class="field col-span-2 st">${TRANS.map(t=>`<option ${t===tr?'selected':''}>${t}</option>`).join('')}</select>
+    <div class="col-span-1 flex gap-1"><button class="soft-btn text-xs flex-1" data-dup>📋</button><button class="soft-btn text-xs flex-1" data-rm>✕</button></div>`;
+  r.querySelector('[data-rm]').onclick=()=>{r.remove();reindexShots();saveState();};
+  r.querySelector('[data-dup]').onclick=()=>{addShot(r.querySelector('.sd').value,r.querySelector('.sc').value,r.querySelector('.sa').value,r.querySelector('.st').value);saveState();};
+  shotsEl.appendChild(r);reindexShots();
+}
+makeDrag(shotsEl);
+function reindexShots(){[...shotsEl.querySelectorAll('.sidx')].forEach((e,i)=>e.textContent='#'+(i+1));}
+const getShots=()=>!$('useShots').checked?[]:[...shotsEl.querySelectorAll('[draggable]')].map(r=>({dur:r.querySelector('.sd').value.trim(),cam:r.querySelector('.sc').value.trim(),act:r.querySelector('.sa').value.trim(),tr:r.querySelector('.st').value})).filter(s=>s.cam||s.act);
+$('addShot').onclick=()=>{addShot("","","","cut");saveState();};
+
+function applyW(s){if(!$('useWeights').checked)return s;[v('subject'),v('lighting'),v('style'),v('mood')].filter(Boolean).forEach(k=>{const re=new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g');s=s.replace(re,`(${k}:1.3)`);});return s;}
+function shakeT(){const x=+$('shake').value;if(x===0)return null;if(x<25)return"subtle handheld micro-shake";if(x<50)return"light handheld shake";if(x<75)return"strong handheld shake";return"aggressive shaky cam";}
+
+function checkWarn(){
+  const all=['lighting','time','weather','palette','mood','style'].map(v).join(' ').toLowerCase()+' '+(v('subject')+' '+v('scene')).toLowerCase();
+  const w=[];CONFLICTS.forEach(c=>{if(c.a.some(x=>all.includes(x))&&c.b.some(x=>all.includes(x)))w.push(c.msg);});
+  if(getCurTab()==='i2v'&&!imgState.img)w.push("I2V: добавьте первый кадр");
+  if(!v('subject')){w.push("Нет главного объекта");$('subject').classList.add('invalid');}else $('subject').classList.remove('invalid');
+  if($('useShots').checked&&getShots().length<2)w.push("Multi-shot: меньше 2 шотов");
+  if(!v('action')&&!$('useShots').checked&&!$('useTimeline').checked)w.push("Нет действия — может получиться статичный кадр");
+  const e=$('warnings');if(w.length){e.classList.remove('hidden');e.innerHTML='⚠ '+w.join(' · ');}else e.classList.add('hidden');
+}
+
+function buildEn(opts={}){
+  const i2v=getCurTab()==='i2v';
+  const sub=v('subject')||(i2v?"the subject in the reference image":"a cinematic subject");
+  const beats=getBeats(),shots=getShots();
+  const sty=opts.style||v('style'),cam=opts.camera||v('camera'),lens=opts.lens||v('lens'),light=opts.lighting||v('lighting');
+  const p=[];
+  if(i2v){p.push(`animate the reference image: ${sub}`);if(imgState.imgLast)p.push('with smooth interpolation to the final reference frame');if(v('motion'))p.push(v('motion'));}
+  else if(shots.length)p.push(`${sty} sequence of ${shots.length} shots featuring ${sub}`);
+  else p.push(`${sty}, ${v('shot')} of ${sub}`);
+  if(v('character'))p.push(v('character'));
+  if(v('action')&&!shots.length)p.push(v('action'));
+  if(v('scene')&&!i2v)p.push(`set in ${v('scene')}`);
+  if(!i2v)p.push(`${v('time')}, ${v('weather')}`);
+  p.push(`${light}, ${v('palette')} color grading`);
+  p.push(`shot on ${lens}, ${cam}, ${v('speed')}`);
+  const sh=shakeT();if(sh)p.push(sh);
+  if(v('speedRamp'))p.push(v('speedRamp'));
+  p.push(`${v('mood')} atmosphere`);
+  if(v('details'))p.push(v('details'));
+  if($('loopMode').checked)p.push("seamlessly loops back to the first frame");
+  if($('autoQuality').checked)p.push("ultra-detailed, sharp focus, high dynamic range, professional cinematography");
+  let en=p.join(", ")+".";
+  if(shots.length)en+="\n\nShots (multi-shot, same character throughout):\n"+shots.map((s,i)=>`Shot ${i+1} (${s.dur||'?'}, ${s.tr}): ${s.cam}. ${s.act}`).join('\n');
+  if(beats.length)en+="\n\nTimeline:\n"+beats.map(b=>`• ${b.t||''}: camera — ${b.cam}; subject — ${b.sub}`).join('\n');
+  const au=[v('ambient')&&`ambient: ${v('ambient')}`,v('sfx')&&`sfx: ${v('sfx')}`,v('dialogue')&&`dialogue: ${v('dialogue')}`].filter(Boolean);
+  if(au.length)en+=`\n\nAudio: ${au.join(' | ')}`;
+  en+=`\n\nAspect ratio: ${v('aspect')} | Duration: ${v('duration')} | Resolution: ${v('res')}`;
+  let neg=v('negative');if($('autoNeg').checked)neg=(neg?neg+', ':'')+ANTI_NEG;
+  if(neg)en+=`\nNegative prompt: ${neg}`;
+  return applyW(en);
+}
+
+function generate(){
+  const en=buildEn();const i2v=getCurTab()==='i2v';
+  const ru=s=>RU[s]||s;const r=[];
+  if(i2v)r.push(`оживить референс: ${v('subject')||'объект'}`);
+  else if(getShots().length)r.push(`${v('style')} — серия из ${getShots().length} шотов`);
+  else r.push(`${v('style')} — ${ru(v('shot'))}: ${v('subject')||'объект'}`);
+  if(v('character'))r.push(v('character'));
+  if(v('action')&&!getShots().length)r.push(v('action'));
+  if(v('scene')&&!i2v)r.push(`место: ${v('scene')}`);
+  if(!i2v)r.push(`${v('time')}, ${v('weather')}`);
+  r.push(`свет: ${v('lighting')}; палитра: ${v('palette')}`);
+  r.push(`камера: ${ru(v('camera'))}, ${v('lens')}`);
+  r.push(`настроение: ${v('mood')}`);
+  if(v('details'))r.push(v('details'));
+  if($('loopMode').checked)r.push("бесшовный луп");
+  let rus=r.join('. ')+'.';
+  const sh=getShots(),be=getBeats();
+  if(sh.length)rus+='\n\nШоты:\n'+sh.map((s,i)=>`Шот ${i+1} (${s.dur},${s.tr}): ${s.cam}. ${s.act}`).join('\n');
+  if(be.length)rus+='\n\nКадры:\n'+be.map(b=>`• ${b.t}: ${b.cam}; ${b.sub}`).join('\n');
+  rus+=`\n\nФормат: ${v('aspect')} | ${v('duration')} | ${v('res')}`;
+  $('outRu').value=rus;renderEn(en);
+  $('aspectLabel').textContent=v('aspect');updAspect();
+  $('kDur').textContent=v('duration');$('kRes').textContent=v('res');
+  const dur=parseInt(v('duration'))||5;$('kCost').textContent='~$'+((COST[v('res')]||0.012)*dur).toFixed(2);
+  $('wordCount').textContent=en.trim().split(/\s+/).length;$('charCount').textContent=en.length;
+  checkWarn();pushHist(en);saveState();
+}
+function renderEn(en){const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));$('outEnView').innerHTML=esc(en).replace(/\(([^()]+):(\d+\.?\d*)\)/g,'<span class="weight-token" title="$2">$1</span>');$('outEnView').dataset.raw=en;}
+function updAspect(){const [a,b]=v('aspect').split(':').map(Number);const x=$('aspectBox');x.style.width='80px';x.style.height=Math.min(Math.round(80*b/a),90)+'px';}
+
+const getCurTab=()=>document.querySelector('.tab.tab-active').dataset.tab;
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('tab-active'));t.classList.add('tab-active');$('i2vBlock').classList.toggle('hidden',t.dataset.tab!=='i2v');generate();});
+
+const imgState={img:null,imgLast:null};
+function wireDrop(k,id){const d=document.querySelector(`[data-drop="${k}"]`),ph=document.querySelector(`[data-ph="${k}"]`),pv=document.querySelector(`[data-preview="${k}"]`),inp=$(id);
+  function load(f){const r=new FileReader();r.onload=e=>{pv.src=e.target.result;pv.classList.remove('hidden');ph.classList.add('hidden');imgState[k]=e.target.result;};r.readAsDataURL(f);}
+  inp.onchange=e=>{const f=e.target.files[0];if(f)load(f);};
+  d.addEventListener('click',()=>inp.click());
+  ['dragover','dragenter'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add('border-violet-400');}));
+  ['dragleave','drop'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.remove('border-violet-400');}));
+  d.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)load(f);});
+  document.querySelector(`[data-clear="${k}"]`).onclick=e=>{e.preventDefault();e.stopPropagation();inp.value='';pv.src='';pv.classList.add('hidden');ph.classList.remove('hidden');imgState[k]=null;};}
+wireDrop('img','imgFile');wireDrop('imgLast','imgLastFile');
+
+function loadList(k){try{return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}}
+function saveList(k,a){safeLS(k,JSON.stringify(a.slice(0,50)))}
+let sideTab=localStorage.getItem('seedance_sidetab')||'hist';
+document.querySelector(`.sideTab[data-side="${sideTab}"]`)?.classList.add('tab-active');
+document.querySelectorAll('.sideTab').forEach(b=>b.classList.toggle('tab-active',b.dataset.side===sideTab));
+function pushHist(en){const a=loadList('seedance_hist');if(a[0]&&a[0].en===en)return;a.unshift({t:Date.now(),en});saveList('seedance_hist',a);renderList();}
+function renderList(){
+  const k=sideTab==='hist'?'seedance_hist':'seedance_fav';const arr=loadList(k);const q=$('listSearch').value.toLowerCase();
+  const fl=q?arr.filter(it=>it.en.toLowerCase().includes(q)):arr;const ul=$('listView');
+  if(!fl.length){ul.innerHTML=`<li class="subtle text-xs">${arr.length?'Не найдено':(sideTab==='hist'?'История пуста':'Нет избранного')}</li>`;return;}
+  const groups={};fl.forEach(it=>{const d=new Date(it.t).toLocaleDateString();(groups[d]=groups[d]||[]).push({...it,_i:arr.indexOf(it)});});
+  ul.innerHTML='';Object.entries(groups).forEach(([day,items])=>{
+    const h=document.createElement('li');h.className="text-[10px] subtle uppercase mt-2 mb-1";h.textContent=day;ul.appendChild(h);
+    items.forEach(it=>{const li=document.createElement('li');li.className="bg-black/5 border border-white/10 rounded-lg p-2.5 cursor-pointer flex gap-2";
+      li.innerHTML=`<div class="flex-1 min-w-0"><div class="text-[10px] subtle">${new Date(it.t).toLocaleTimeString().slice(0,5)} · ${it.en.replace(/[\n<>]/g,' ').slice(0,50)}…</div><div class="text-xs line-clamp-2 mt-0.5">${it.en.replace(/[<>]/g,'').slice(0,180)}…</div></div><button class="text-xs subtle">✕</button>`;
+      li.onclick=()=>{renderEn(it.en);toast('Загружено');};
+      li.querySelector('button').onclick=e=>{e.stopPropagation();arr.splice(it._i,1);saveList(k,arr);renderList();};
+      ul.appendChild(li);});});
+}
+$('listSearch').oninput=renderList;
+document.querySelectorAll('.sideTab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.sideTab').forEach(x=>x.classList.remove('tab-active'));b.classList.add('tab-active');sideTab=b.dataset.side;safeLS('seedance_sidetab',sideTab);renderList();});
+$('clearList').onclick=()=>{if(!confirm('Очистить?'))return;localStorage.removeItem(sideTab==='hist'?'seedance_hist':'seedance_fav');renderList();};
+$('favBtn').onclick=()=>{const en=$('outEnView').dataset.raw||$('outEnView').textContent;if(!en)return;const a=loadList('seedance_fav');a.unshift({t:Date.now(),en});saveList('seedance_fav',a);toast('★');renderList();};
+
+$('generate').onclick=generate;
+$('reset').onclick=()=>{['subject','character','action','scene','details','negative','motion','ambient','sfx','dialogue','speedRamp','oneLineIdea'].forEach(i=>$(i).value='');document.querySelectorAll('main select').forEach(s=>s.selectedIndex=0);$('aspect').value='16:9';$('duration').value='5s';$('res').value='720p';$('shake').value=0;$('shakeVal').textContent='0%';beatsEl.innerHTML='';shotsEl.innerHTML='';$('useTimeline').checked=$('useShots').checked=$('loopMode').checked=false;};
+$('randomBtn').onclick=()=>{const i=IDEAS[Math.floor(Math.random()*IDEAS.length)];$('subject').value=i.subject;$('action').value=i.action;$('scene').value=i.scene;$('details').value=i.details;const p=PRESETS[Math.floor(Math.random()*PRESETS.length)];Object.entries(p.v).forEach(([k,vl])=>$(k).value=vl);generate();};
+async function copy(id,btn){const t=id==='outEnView'?$('outEnView').dataset.raw||$('outEnView').textContent:$(id).value;if(!t)return;try{await navigator.clipboard.writeText(t);toast('✓');}catch(e){console.debug(e)}}
+$('copyEn').onclick=e=>copy('outEnView',e.currentTarget);$('copyRu').onclick=e=>copy('outRu',e.currentTarget);window.copy=copy;
+$('shake').oninput=()=>{$('shakeVal').textContent=$('shake').value+'%';debG();};
+
+function dl(n,c,m='text/plain'){const b=new Blob([c],{type:m}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(u),100);}
+$('exportTxt').onclick=()=>dl(`seedance-${Date.now()}.txt`,$('outEnView').dataset.raw||'');
+$('exportJson').onclick=()=>dl(`seedance-${Date.now()}.json`,JSON.stringify(collectState(),null,2),'application/json');
+function b64(s){return btoa(String.fromCharCode(...new TextEncoder().encode(s)));}
+function ub64(s){return new TextDecoder().decode(new Uint8Array([...atob(s)].map(c=>c.charCodeAt(0))));}
+$('shareBtn').onclick=async()=>{const u=location.origin+location.pathname+'#s='+b64(JSON.stringify(collectState()));try{await navigator.clipboard.writeText(u);toast('🔗 Ссылка скопирована');}catch{prompt('',u);}};
+
+const FIELDS=['subject','character','action','scene','details','motion','negative','ambient','sfx','dialogue','speedRamp','shot','camera','lens','speed','lighting','time','weather','palette','mood','style','aspect','duration','res','shake'];
+const FLAGS=['useWeights','autoQuality','autoNeg','autoGen','useTimeline','useShots','loopMode'];
+function collectState(){const o={tab:getCurTab(),locale:$('locale').value,beats:[...beatsEl.querySelectorAll('[draggable]')].map(r=>({t:r.querySelector('.bt').value,cam:r.querySelector('.bc').value,sub:r.querySelector('.bs').value})),shots:[...shotsEl.querySelectorAll('[draggable]')].map(r=>({dur:r.querySelector('.sd').value,cam:r.querySelector('.sc').value,act:r.querySelector('.sa').value,tr:r.querySelector('.st').value}))};FIELDS.forEach(f=>o[f]=$(f).value);FLAGS.forEach(f=>o[f]=$(f).checked);return o;}
+function applyState(s){if(!s)return;FIELDS.forEach(f=>{if(s[f]!=null&&$(f))$(f).value=s[f]});if(s.locale)$('locale').value=s.locale;FLAGS.forEach(f=>{if(s[f]!=null&&$(f))$(f).checked=s[f]});beatsEl.innerHTML='';(s.beats||[]).forEach(b=>addBeat(b.t,b.cam,b.sub));shotsEl.innerHTML='';(s.shots||[]).forEach(sh=>addShot(sh.dur,sh.cam,sh.act,sh.tr||'cut'));if(s.tab)document.querySelector(`.tab[data-tab="${s.tab}"]`)?.click();$('shakeVal').textContent=($('shake').value||0)+'%';}
+function saveState(){try{safeLS('seedance_state',JSON.stringify(collectState()));}catch(e){console.debug(e)}}
+function loadStateFn(){if(location.hash.startsWith('#s=')){try{applyState(JSON.parse(ub64(location.hash.slice(3))));toast('Загружено');return;}catch(e){console.debug(e)}}const r=localStorage.getItem('seedance_state');if(r){try{applyState(JSON.parse(r));}catch(e){console.debug(e)}}}
+
+$('themeBtn').onclick=()=>{const c=document.documentElement.dataset.theme,n=c==='dark'?'light':'dark';document.documentElement.dataset.theme=n;safeLS('seedance_theme',n);};
+const sT=localStorage.getItem('seedance_theme');if(sT)document.documentElement.dataset.theme=sT;else if(matchMedia('(prefers-color-scheme: light)').matches)document.documentElement.dataset.theme='light';
+
+const aiModal=$('aiModal'),varsModal=$('varsModal');
+$('aiSettingsBtn').onclick=()=>{aiModal.classList.remove('hidden');$('aiBase').value=localStorage.getItem('ai_base')||'https://api.openai.com/v1';$('aiKey').value=localStorage.getItem('ai_key')||'';$('aiModel').value=localStorage.getItem('ai_model')||'gpt-4o-mini';};
+$('aiSave').onclick=()=>{safeLS('ai_base',$('aiBase').value);safeLS('ai_key',$('aiKey').value);safeLS('ai_model',$('aiModel').value);aiModal.classList.add('hidden');toast('Сохранено');};
+document.querySelectorAll('[data-aip]').forEach(b=>b.onclick=()=>{const p=AIP[b.dataset.aip];$('aiBase').value=p.base;$('aiModel').value=p.model;});
+
+function aiCfg(){return{base:(localStorage.getItem('ai_base')||'https://api.openai.com/v1').replace(/\/$/,''),key:localStorage.getItem('ai_key'),model:localStorage.getItem('ai_model')||'gpt-4o-mini'};}
+function needKey(){const c=aiCfg();const local=c.base.includes('localhost')||c.base.includes('11434');if(!c.key&&!local){toast('Нужен AI ключ (⚙ AI)');aiModal.classList.remove('hidden');return null;}return c;}
+
+async function aiCall(messages,{json=false,stream=false,onChunk=null}={}){
+  const c=needKey();if(!c)return null;
+  const body={model:c.model,messages,temperature:0.85};if(json)body.response_format={type:'json_object'};if(stream)body.stream=true;
+  const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',...(c.key?{'Authorization':'Bearer '+c.key}:{})},body:JSON.stringify(body)});
+  if(stream){const rd=r.body.getReader(),de=new TextDecoder();let buf='',full='';while(1){const{done,value}=await rd.read();if(done)break;buf+=de.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(d==='[DONE]')return full;try{const j=JSON.parse(d);const t=j.choices?.[0]?.delta?.content||'';full+=t;onChunk&&onChunk(t,full);}catch(e){console.debug(e)}}}return full;}
+  const j=await r.json();if(j.error){toast('AI: '+j.error.message);return null;}return j.choices?.[0]?.message?.content;
+}
+
+$('aiAutoFill').onclick=async()=>{
+  const idea=v('oneLineIdea');if(!idea){toast('Введите идею');return;}if(!needKey())return;
+  const btn=$('aiAutoFill'),o=btn.textContent;btn.textContent='⏳';btn.disabled=true;
+  const sys=`From a one-line idea (any language) produce JSON with cinematic English values for keys: subject, character, action, scene, details, shot, camera, lens, speed, lighting, time, weather, palette, mood, style, ambient, sfx. For selects pick the closest match from these allowed values:\nshot: ${O.shot.join(' | ')}\ncamera: ${O.camera.join(' | ')}\nlens: ${O.lens.join(' | ')}\nspeed: ${O.speed.join(' | ')}\nlighting: ${O.lighting.join(' | ')}\ntime: ${O.time.join(' | ')}\nweather: ${O.weather.join(' | ')}\npalette: ${O.palette.join(' | ')}\nmood: ${O.mood.join(' | ')}\nstyle: ${O.style.join(' | ')}\nReply ONLY as JSON.`;
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:idea}],{json:true});
+  if(out){try{applyAiFields(JSON.parse(out));generate();toast('⚡ Заполнено');}catch{toast('AI: не JSON');}}
+  btn.textContent=o;btn.disabled=false;
+};
+
+$('aiEnhanceBtn').onclick=async()=>{if(!needKey())return;generate();const draft=$('outEnView').dataset.raw;
+  const btn=$('aiEnhanceBtn'),o=btn.textContent;btn.textContent='⏳';btn.disabled=true;
+  $('outEnView').textContent='';
+  const sys='You are a senior cinematographer rewriting prompts for ByteDance Seedance 2.0 text-to-video. Rewrite into vivid cinematic English under 220 words. Keep structure: subject, action, scene, time/weather, lighting, color grading, camera/lens/movement, mood, style, quality tags. Preserve aspect ratio, duration, resolution, negative prompt and any timeline/audio sections.';
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:draft}],{stream:true,onChunk:(_,full)=>{$('outEnView').textContent=full;}});
+  if(out){renderEn(out);toast('✨');pushHist(out);}
+  btn.textContent=o;btn.disabled=false;};
+
+$('aiCritiqueBtn').onclick=async()=>{if(!needKey())return;generate();
+  const out=await aiCall([{role:'system',content:'You are a critique assistant for video prompts. List 3-6 specific issues and concrete fixes in Russian. Be terse, bullet points only.'},{role:'user',content:$('outEnView').dataset.raw}]);
+  if(out)alert('🩺 Критика:\n\n'+out);};
+
+/* (was: aiReverseBtn override using prompt() — superseded by askText version below) */
+
+$('abBtn').onclick=async()=>{
+  const variants=[
+    {label:'A · базовый'},
+    {label:'B · широкий план',shot:O.shot[0],camera:'crane up',lens:O.lens[3]},
+    {label:'C · крупный план',shot:'close-up',camera:'slow dolly in',lens:'85mm portrait, bokeh'},
+    {label:'D · динамика',camera:'tracking shot',speed:'slow motion 120fps',lens:'anamorphic lens with horizontal flares'}
+  ];
+  const grid=$('varsGrid');grid.innerHTML='';varsModal.classList.remove('hidden');
+  $('varsTitle').textContent='4 варианта (выберите лучший)';
+  variants.forEach(va=>{const en=buildEn(va);const c=document.createElement('div');c.className="bg-black/10 border border-white/10 rounded-xl p-3 hover:border-violet-400/40 cursor-pointer";
+    c.innerHTML=`<div class="font-medium text-sm mb-1">${va.label}</div><div class="text-xs subtle whitespace-pre-wrap max-h-40 overflow-auto scrollbar">${en.replace(/[<>]/g,'').slice(0,400)}…</div>`;
+    c.onclick=()=>{renderEn(en);pushHist(en);varsModal.classList.add('hidden');toast('Выбран '+va.label);};grid.appendChild(c);});
+};
+
+window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();generate();}if(e.key==='Escape'){aiModal.classList.add('hidden');varsModal.classList.add('hidden');}});
+
+let _gT;function debG(){clearTimeout(_gT);_gT=setTimeout(()=>{if($('autoGen').checked)generate();},500);}
+document.querySelectorAll('main input, main select, main textarea').forEach(el=>{el.addEventListener('change',()=>{saveState();debG();});el.addEventListener('input',debG);});
+
+loadStateFn();
+if(!v('subject')){$('subject').value="a young woman with silver hair in a translucent neon raincoat";$('action').value="walking slowly through a crowded street, turning to look at the camera";$('scene').value="a futuristic Tokyo alley with holographic signs";$('details').value="rain reflections on the wet asphalt";Object.entries(PRESETS[1].v).forEach(([k,vl])=>$(k).value=vl);}
+if(!beatsEl.children.length){addBeat("0–2s","slow dolly in","subject stands still");addBeat("2–5s","push to close-up","subject turns to camera");}
+if(!shotsEl.children.length){addShot("3s","wide establishing shot, static","subject walks into frame","cut");addShot("4s","medium tracking shot","same character continues, looks ahead","dissolve");addShot("3s","close-up, slow push-in","same character turns to camera","cut");}
+generate();renderList();
+
+/* ============ v4: LIBRARIES ============ */
+const SUBJECTS=[
+  {n:"Cyberpunk samurai",d:"Воин будущего в чёрной броне с неоновой катаной",v:"a cyberpunk samurai warrior in obsidian armor with a glowing neon katana, cybernetic eye implant, tattered red scarf"},
+  {n:"Space marine",d:"Космодесантник в скафандре с винтовкой",v:"a battle-worn space marine in heavy power armor, helmet visor reflecting plasma, holding a futuristic rifle"},
+  {n:"Fairy princess",d:"Эльфийка в платье из лепестков",v:"an ethereal fairy princess with translucent gossamer wings, flower-petal dress, glowing freckles"},
+  {n:"Vintage detective",d:"Сыщик в плаще и шляпе, нуар",v:"a 1940s noir detective in a long trench coat, fedora pulled low, cigarette smoke curling"},
+  {n:"Astronaut",d:"Космонавт в потёртом скафандре",v:"a lone astronaut in a worn white spacesuit, helmet visor reflecting alien stars"},
+  {n:"Wizard",d:"Старый маг с посохом",v:"an old wise wizard with a long silver beard, weathered robes, glowing rune-etched staff"},
+  {n:"Ninja",d:"Чёрный ниндзя на крышах",v:"a stealthy ninja in black shozoku, only piercing eyes visible, traditional katana on back"},
+  {n:"Cowboy",d:"Ковбой в пыльной шляпе",v:"a weather-beaten cowboy in a dusty wide-brimmed hat, leather duster coat, hand resting on revolver"},
+  {n:"Mech pilot",d:"Пилот гигантского робота",v:"a young mech pilot in a sleek pressure suit, neural cables connected to her temples"},
+  {n:"Tiger",d:"Белый тигр с голубыми глазами",v:"a majestic white Bengal tiger with glowing ice-blue eyes, fur dusted with snow"},
+  {n:"Dragon",d:"Древний дракон в облаках",v:"an ancient red dragon with iridescent scales, leathery wings spanning the sky"},
+  {n:"Robot",d:"Маленький эмоциональный робот",v:"a small endearing robot with glowing blue eyes, dented metal body, antenna twitching"}
+];
+const SCENES=[
+  {n:"Cyberpunk Tokyo",d:"Неон, дождь, голограммы",v:"a neon-soaked futuristic Tokyo alley, holographic advertisements towering above, rain pouring on wet asphalt with reflections"},
+  {n:"Mars desert",d:"Марсианская пустыня",v:"a vast martian-like red desert with jagged rock formations under a pale orange sky, distant dust storm"},
+  {n:"Bamboo forest",d:"Бамбуковый лес в тумане",v:"a dense misty bamboo forest at dawn, sun rays piercing through tall stalks, soft moss-covered ground"},
+  {n:"Underwater city",d:"Город на дне океана",v:"an ancient sunken city with bioluminescent coral, schools of fish weaving between marble columns"},
+  {n:"Alpine road",d:"Серпантин в горах",v:"a winding mountain road carved into alpine cliffs at sunset, golden light kissing snow peaks"},
+  {n:"Abandoned city",d:"Постапокалипсис",v:"a post-apocalyptic abandoned city street, cracked concrete overgrown with vines, distant ruins"},
+  {n:"Japanese temple",d:"Древний храм с сакурой",v:"an ancient Japanese temple courtyard with stone lanterns, cherry blossom petals swirling in the wind"},
+  {n:"Space station",d:"Орбитальная станция",v:"the interior of a sleek orbital space station with curved windows showing Earth below, soft LED panels"},
+  {n:"Medieval tavern",d:"Средневековая таверна",v:"a warm candlelit medieval tavern interior, oak beams, fireplace crackling, patrons in shadow"},
+  {n:"Desert oasis",d:"Оазис ночью",v:"a desert oasis under a star-filled night sky, palm trees reflecting in still water, sand dunes glowing"},
+  {n:"Neon arcade",d:"Игровой автомат-зал",v:"a retro 80s neon arcade interior, CRT screens flickering, fog machine haze, vibrant pink and cyan lights"},
+  {n:"Foggy moor",d:"Туманные пустоши",v:"a desolate windswept moor blanketed in thick fog at dawn, gnarled dead trees silhouetted"}
+];
+const LIGHT_RECIPES=[
+  {n:"Rembrandt portrait",d:"Классический портретный свет",v:{lighting:"studio three-point lighting",mood:"melancholic"}},
+  {n:"Golden hour magic",d:"Тёплый закатный свет",v:{lighting:"golden hour sunlight",time:"golden hour",palette:"warm sepia",mood:"romantic"}},
+  {n:"Neon noir",d:"Цветные неоновые лампы",v:{lighting:"colored gels (teal & orange)",palette:"teal and orange",mood:"mysterious"}},
+  {n:"Single candle",d:"Одна свеча в темноте",v:{lighting:"candlelight glow",time:"midnight",palette:"warm sepia",mood:"unsettling"}},
+  {n:"Volumetric god rays",d:"Лучи через окно/туман",v:{lighting:"volumetric god rays",weather:"light mist",mood:"dreamy and ethereal"}},
+  {n:"Hard noir",d:"Жёсткий контурный свет",v:{lighting:"hard rim lighting",palette:"high-contrast noir",mood:"tense and suspenseful"}},
+  {n:"Soft window",d:"Мягкий рассеянный из окна",v:{lighting:"soft natural light",time:"morning",mood:"peaceful and serene"}},
+  {n:"Moonlight blue",d:"Холодный лунный свет",v:{lighting:"moonlight",time:"midnight",palette:"cold cyan blues",mood:"melancholic"}},
+  {n:"Practical neons",d:"Вывески, фонари в кадре",v:{lighting:"practical neon signs",time:"night",palette:"vibrant neon",mood:"energetic and dynamic"}},
+  {n:"Chiaroscuro",d:"Глубокая светотень",v:{lighting:"cinematic chiaroscuro",palette:"high-contrast noir",mood:"epic and cinematic"}}
+];
+const LENS_PSY={"50mm prime, shallow depth of field":"естественное восприятие, ровно как глаз","35mm cinematic":"вовлекающий, репортажный","85mm portrait, bokeh":"интимный, изолирует героя","24mm wide-angle":"драматичный, ощущение пространства","anamorphic lens with horizontal flares":"эпичный кинолук, широкий формат","macro lens":"микро-детали, текстура","fisheye":"сюр, искажение","tilt-shift miniature":"эффект игрушечного мира"};
+
+function openLib(title,items,onPick){
+  $('libTitle').textContent=title; const g=$('libGrid'); g.innerHTML='';
+  items.forEach(it=>{const c=document.createElement('button'); c.className="dir-card text-left p-3 rounded-xl border border-white/10 bg-black/10";
+    c.innerHTML=`<div class="font-medium text-sm">${it.n}</div><div class="text-[11px] subtle mt-0.5">${it.d}</div>`;
+    c.onclick=()=>{onPick(it); libModal.classList.add('hidden');}; g.appendChild(c);});
+  libModal.classList.remove('hidden');
+}
+$('libSubjBtn').onclick=()=>openLib('📚 Каталог героев',SUBJECTS,it=>{$('subject').value=it.v; generate();});
+$('libSceneBtn').onclick=()=>openLib('🌆 Каталог сцен',SCENES,it=>{$('scene').value=it.v; generate();});
+$('libLightBtn').onclick=()=>openLib('💡 Световые рецепты',LIGHT_RECIPES,it=>{Object.entries(it.v).forEach(([k,vl])=>{if($(k))$(k).value=vl}); generate();});
+
+/* ============ Lens psychology tooltips ============ */
+const lensSel=$('lens');
+const lensHint=document.createElement('div'); lensHint.className="text-[11px] subtle mt-1"; lensSel.parentElement.appendChild(lensHint);
+function updLensHint(){lensHint.textContent='💡 '+(LENS_PSY[lensSel.value]||'');}
+lensSel.addEventListener('change',updLensHint); updLensHint();
+
+/* ============ Inline ✨ buttons ============ */
+['subject','character','action','scene','details'].forEach(id=>{
+  const inp=$(id); if(!inp) return;
+  const wrap=document.createElement('div'); wrap.className="relative";
+  inp.parentElement.insertBefore(wrap,inp); wrap.appendChild(inp);
+  inp.classList.add('!pr-9');
+  const b=document.createElement('button'); b.type='button'; b.className="absolute right-2 top-1/2 -translate-y-1/2 text-sm hover:scale-110 transition"; b.title="AI расширить это поле"; b.innerHTML="✨";
+  b.onclick=async()=>{if(!needKey())return; const cur=inp.value.trim(); if(!cur){toast('Сначала впишите что-нибудь'); return;}
+    b.innerHTML='⏳';
+    const ctx=`Field: ${id}. Other context: subject=${v('subject')}, scene=${v('scene')}, style=${v('style')}, mood=${v('mood')}.`;
+    const out=await aiCall([{role:'system',content:'You expand a single short phrase into vivid cinematic English (max 25 words). Return only the rewritten phrase, no quotes, no preamble.'},{role:'user',content:ctx+'\n\nPhrase: '+cur}]);
+    if(out){inp.value=out.trim().replace(/^["']|["']$/g,''); generate();}
+    b.innerHTML='✨';};
+  wrap.appendChild(b);
+});
+
+/* ============ Vision AI for I2V image ============ */
+async function runVision(dataUrl){
+  if(!needKey()) return;
+  const c=aiCfg(); if(!c.key){toast('Нужен AI ключ');return;}
+  if(!confirm('🖼 Распознать через AI Vision и заполнить поля? (нужна vision-модель: gpt-4o, gpt-4o-mini, claude-3-5-sonnet)')) return;
+  toast('🖼 AI смотрит...');
+  try{
+    const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({
+      model:c.model,
+      response_format:{type:'json_object'},
+      messages:[{role:'user',content:[
+        {type:'text',text:'Describe this image for a video-generation prompt. Reply ONLY as JSON with these keys (cinematic English values): subject, scene, details, style, mood, lighting, palette, time, weather. For lighting/mood/style/palette/time/weather pick short cinematic terms.'},
+        {type:'image_url',image_url:{url:dataUrl}}
+      ]}]
+    })});
+    const j=await r.json();
+    if(j.error){toast('Vision: '+j.error.message); console.error(j.error); return;}
+    const txt=j.choices?.[0]?.message?.content;
+    if(!txt){toast('Vision: пустой ответ'); return;}
+    applyAiFields(JSON.parse(txt));
+    generate(); toast('✓ Распознано');
+  }catch(e){toast('Vision ошибка: '+e.message); console.error(e);}
+}
+// Hook into imgState.img writes via setter — works for both file picker AND drag-drop, after FileReader finishes
+let _imgVal=imgState.img,_imgLastVal=imgState.imgLast;
+Object.defineProperty(imgState,'img',{get:()=>_imgVal,set:v=>{const fresh=v && v!==_imgVal; _imgVal=v; if(fresh) runVision(v);},configurable:true});
+Object.defineProperty(imgState,'imgLast',{get:()=>_imgLastVal,set:v=>{_imgLastVal=v;},configurable:true});
+
+/* ============ AI refine buttons ============ */
+document.querySelectorAll('[data-refine]').forEach(b=>b.onclick=async()=>{
+  if(!needKey())return; const cur=$('outEnView').dataset.raw||'';
+  if(!cur){toast('Сначала сгенерируйте');return;}
+  const op=b.dataset.refine; const o=b.textContent; b.textContent='⏳';
+  $('outEnView').textContent='';
+  const out=await aiCall([{role:'system',content:`Rewrite the prompt to be ${op}. Keep the structure (subject/scene/camera/lighting/etc), keep aspect/duration/resolution, keep negative prompt. Reply only with the rewritten prompt.`},{role:'user',content:cur}],{stream:true,onChunk:(_,full)=>{$('outEnView').textContent=full;}});
+  if(out){renderEn(out); pushHist(out); toast('✓ '+op);}
+  b.textContent=o;
+});
+$('negSuggestBtn').onclick=async()=>{
+  if(!needKey()) return; const cur=$('outEnView').dataset.raw||''; if(!cur){toast('Сначала сгенерируйте');return;}
+  const out=await aiCall([{role:'system',content:'Suggest 5-8 negative prompt tokens (comma-separated, English) most relevant to fix likely artifacts in this video prompt. Return only the comma-separated list.'},{role:'user',content:cur}]);
+  if(out){$('negative').value=(v('negative')?v('negative')+', ':'')+out.trim(); generate(); toast('⛔ negative обновлён');}
+};
+
+/* ============ Replace prompt() with modal ============ */
+function askText(title,hint){return new Promise(res=>{
+  $('textTitle').textContent=title; $('textHint').textContent=hint||''; $('textArea').value=''; textModal.classList.remove('hidden');
+  const ok=$('textOk'); const cleanup=()=>{ok.onclick=null;};
+  ok.onclick=()=>{const v=$('textArea').value.trim(); textModal.classList.add('hidden'); cleanup(); res(v||null);};
+});}
+$('aiReverseBtn').onclick=async()=>{if(!needKey())return;
+  const src=await askText('🔍 Распознать промт','Вставьте готовый промт для распознавания'); if(!src)return; toast('🔍...');
+  const sys='Extract fields from a video-generation prompt. Reply ONLY as JSON with keys: subject, character, action, scene, details, shot, camera, lens, speed, lighting, time, weather, palette, mood, style, ambient, sfx, dialogue, negative, aspect, duration, res. Use closest cinematic English term for selects.';
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:src}],{json:true});
+  if(out){try{applyAiFields(JSON.parse(out)); generate(); toast('✓');}catch{toast('Ошибка JSON');}}
+};
+
+/* ============ Critique panel instead of alert ============ */
+$('aiCritiqueBtn').onclick=async()=>{if(!needKey())return; generate();
+  $('critBody').innerHTML='⏳ Анализирую...'; critPanel.classList.remove('hidden');
+  const out=await aiCall([{role:'system',content:'You are a senior cinematographer giving critique on a video prompt. List 4-7 specific issues and concrete fixes. Use Russian, terse markdown bullet points.'},{role:'user',content:$('outEnView').dataset.raw}]);
+  if(out){const html=out.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/^- /gm,'• ').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>'); $('critBody').innerHTML=html;}
+};
+
+/* ============ Compare modal ============ */
+$('cmpBtn').onclick=()=>{$('cmpA').value=$('outEnView').dataset.raw||''; $('cmpB').value=''; $('cmpOut').innerHTML=''; cmpModal.classList.remove('hidden');};
+$('cmpDiff').onclick=()=>{
+  const a=$('cmpA').value.split('\n'),b=$('cmpB').value.split('\n'); const max=Math.max(a.length,b.length); const out=[];
+  for(let i=0;i<max;i++){const la=a[i]||'',lb=b[i]||'';
+    if(la===lb) out.push(`<span class="subtle">  ${la.replace(/[<>]/g,'')}</span>`);
+    else{if(la) out.push(`<span style="color:#f87171">- ${la.replace(/[<>]/g,'')}</span>`); if(lb) out.push(`<span style="color:#4ade80">+ ${lb.replace(/[<>]/g,'')}</span>`);}}
+  $('cmpOut').innerHTML=out.join('\n');
+};
+
+/* ============ Markdown export ============ */
+$('exportMd').onclick=()=>{const en=$('outEnView').dataset.raw||''; const ru=$('outRu').value;
+  const md=`# Seedance 2.0 Prompt\n\n_Generated: ${new Date().toLocaleString()}_\n\n## English\n\n\`\`\`\n${en}\n\`\`\`\n\n## Русский\n\n\`\`\`\n${ru}\n\`\`\`\n\n## Параметры\n\n- **Aspect:** ${v('aspect')}\n- **Duration:** ${v('duration')}\n- **Resolution:** ${v('res')}\n- **Style:** ${v('style')}\n- **Mood:** ${v('mood')}\n`;
+  dl(`seedance-${Date.now()}.md`,md,'text/markdown');};
+
+/* ============ Speak (TTS) ============ */
+$('speakBtn').onclick=()=>{const t=$('outEnView').dataset.raw||''; if(!t) return; speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='en-US'; u.rate=0.95; speechSynthesis.speak(u); toast('🔊');};
+
+/* (was: Tags in favorites manual askText — superseded by AI auto-tags below) */
+const origRender=renderList;
+window.renderList=function(){origRender(); if(sideTab!=='fav') return;
+  const arr=loadList('seedance_fav'); const tags=[...new Set(arr.flatMap(x=>x.tags||[]))]; if(!tags.length) return;
+  const ul=$('listView'); const bar=document.createElement('li'); bar.className="flex flex-wrap gap-1 mb-2";
+  bar.innerHTML='<span class="text-[10px] subtle self-center mr-1">тэги:</span>'+tags.map(t=>`<button class="soft-btn text-[10px] px-2 py-0.5 rounded-full" data-tag="${t}">#${t}</button>`).join('');
+  ul.insertBefore(bar,ul.firstChild);
+  bar.querySelectorAll('[data-tag]').forEach(b=>b.onclick=()=>{$('listSearch').value=b.dataset.tag; renderList();});
+};
+
+/* ============ Floating chat (natural language editing) ============ */
+$('chatToggle').onclick=()=>chatPanel.classList.toggle('hidden');
+function chatAdd(role,txt){const log=$('chatLog'); const el=document.createElement('div');
+  el.className=role==='user'?'bg-violet-500/20 rounded-lg p-2 ml-6':'bg-black/20 rounded-lg p-2 mr-6';
+  el.textContent=txt; log.appendChild(el); log.scrollTop=log.scrollHeight;}
+async function chatRun(){
+  const q=$('chatInput').value.trim(); if(!q) return; if(!needKey()) return;
+  chatAdd('user',q); $('chatInput').value=''; chatAdd('ai','⏳...');
+  const log=$('chatLog'); const last=log.lastChild;
+  const state=collectState();
+  const sys=`You are an editor for a video prompt form. Given the current form state (JSON) and user's instruction, return ONLY a JSON patch with the keys to change. Available keys: ${[...FIELDS,...FLAGS].join(', ')}. For select fields use values from the allowed lists. Reply ONLY with JSON.\n\nAllowed values:\nshot: ${O.shot.join(' | ')}\ncamera: ${O.camera.join(' | ')}\nlighting: ${O.lighting.join(' | ')}\nstyle: ${O.style.join(' | ')}\nmood: ${O.mood.join(' | ')}\ntime: ${O.time.join(' | ')}\nweather: ${O.weather.join(' | ')}\npalette: ${O.palette.join(' | ')}`;
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:'Current state:\n'+JSON.stringify(state,(k,vl)=>['beats','shots'].includes(k)?undefined:vl)+'\n\nInstruction: '+q}],{json:true});
+  if(out){try{const patch=JSON.parse(out); const changed=[]; Object.entries(patch).forEach(([k,vl])=>{const el=$(k); if(!el) return; if(el.type==='checkbox') el.checked=!!vl; else el.value=vl; changed.push(k);});
+    last.textContent='✓ Изменено: '+changed.join(', '); generate();}catch{last.textContent='Не удалось распарсить ответ AI';}}
+  else last.textContent='Ошибка AI';
+}
+$('chatSend').onclick=chatRun; $('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')chatRun();});
+
+/* ============ Undo / Redo ============ */
+const HIST=[],FUTURE=[]; let _ignoreState=false;
+function snapshot(){if(_ignoreState)return; const s=JSON.stringify(collectState()); if(HIST[HIST.length-1]===s) return; HIST.push(s); if(HIST.length>50)HIST.shift(); FUTURE.length=0; updUndoBtns();}
+function updUndoBtns(){$('undoBtn').disabled=HIST.length<2; $('redoBtn').disabled=!FUTURE.length;}
+$('undoBtn').onclick=()=>{if(HIST.length<2)return; FUTURE.push(HIST.pop()); _ignoreState=true; applyState(JSON.parse(HIST[HIST.length-1])); _ignoreState=false; generate(); updUndoBtns();};
+$('redoBtn').onclick=()=>{const s=FUTURE.pop(); if(!s)return; HIST.push(s); _ignoreState=true; applyState(JSON.parse(s)); _ignoreState=false; generate(); updUndoBtns();};
+document.querySelectorAll('main input, main select, main textarea').forEach(el=>el.addEventListener('change',snapshot));
+snapshot();
+
+/* ============ Slash commands (canonical bindSlash below) ============ */
+
+/* ============ Bug fixes ============ */
+// Reset shake slider
+const origReset=$('reset').onclick; $('reset').onclick=()=>{origReset(); $('shake').value=0; $('shakeVal').textContent='0%'; $('useWeights').checked=false; $('autoQuality').checked=true; $('autoNeg').checked=true; HIST.length=0; FUTURE.length=0; snapshot();};
+
+// Better Ctrl+Z/Y
+window.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault(); $('undoBtn').click();}
+  if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){e.preventDefault(); $('redoBtn').click();}
+});
+
+/* ============ Progress indicator ============ */
+const progBar=document.createElement('div'); progBar.className="text-xs subtle mt-2 flex items-center gap-2";
+$('warnings').parentElement.insertBefore(progBar,$('warnings'));
+function updProgress(){
+  const main=['subject','action','scene','details','character'];
+  const filled=main.filter(f=>v(f)).length;
+  const pct=Math.round(filled/main.length*100);
+  progBar.innerHTML=`<div class="flex-1 h-1.5 bg-black/20 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all" style="width:${pct}%"></div></div><span>${filled}/${main.length}</span>`;
+}
+// v7: single generate wrapper + bus hooks (replaces 3-level _origGen chain)
+const _baseGen=generate;
+let _genBusy=false;
+window.generate=function(){
+  if(_genBusy)return;
+  _genBusy=true;
+  try{
+    if(!progBar.parentElement)$('warnings').parentElement.insertBefore(progBar,$('warnings'));
+    _baseGen();
+    updProgress();
+    bus.emit('after-generate');
+  }finally{_genBusy=false;}
+};
+updProgress();
+
+/* ============ v5/v7: BUGFIXES ============ */
+// Reset HIST via bus (no chain)
+bus.on('reset-after',()=>{HIST.length=0;FUTURE.length=0;snapshot();updUndoBtns();});
+// hook reset onclick once
+(function(){const r=$('reset').onclick;$('reset').onclick=()=>{r&&r();bus.emit('reset-after');};})();
+// Slash commands in ALL text fields
+const _applyPreset=i=>{Object.entries(PRESETS[i].v).forEach(([k,vl])=>$(k).value=vl);generate();};
+const _setTheme=t=>{document.documentElement.dataset.theme=t;safeLS('seedance_theme',t);};
+const SLASH_CMDS={
+  '/random':()=>$('randomBtn').click(),
+  '/clear':()=>$('reset').click(),
+  '/dark':()=>_setTheme('dark'),
+  '/light':()=>_setTheme('light'),
+  '/cinema':()=>_applyPreset(0),
+  '/cyberpunk':()=>_applyPreset(1),
+  '/anime':()=>_applyPreset(2),
+  '/horror':()=>_applyPreset(5),
+  '/score':()=>$('scoreBtn').click(),
+  '/iterate':()=>$('iterBtn').click(),
+  '/preview':()=>$('previewBtn').click()
+};
+function bindSlash(el){
+  el.addEventListener('keydown',e=>{
+    if(e.key!=='Enter')return;
+    const v0=el.value.trim();
+    const fn=SLASH_CMDS[v0];
+    if(!fn)return;
+    e.preventDefault();el.value='';fn();toast('▶ '+v0);
+  });
+}
+['subject','character','action','scene','details','motion'].forEach(id=>{const el=$(id);if(el)bindSlash(el);});
+// Vision skip-confirm in session
+let _visionSkip=false;
+window.runVision=async function(dataUrl){if(!needKey())return;const c=aiCfg();if(!c.key){toast('Нужен ключ');return;}
+  if(!_visionSkip){const ok=confirm('🖼 Распознать через AI Vision? (модель должна поддерживать vision)\n\nOK=да и больше не спрашивать в этой сессии. Cancel=пропустить.');if(!ok)return;_visionSkip=true;}
+  toast('🖼 AI смотрит...');
+  try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Describe this image for video generation. Reply ONLY as JSON with keys: subject, scene, details, style, mood, lighting, palette, time, weather. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
+    const j=await r.json();if(j.error){toast('Vision: '+j.error.message);return;}const t=j.choices?.[0]?.message?.content;if(!t)return;applyAiFields(JSON.parse(t));generate();toast('✓');}catch(e){toast('Vision: '+e.message);}};
+
+/* ============ v5: COMMAND PALETTE (Ctrl+K) ============ */
+const cmdPalHTML=`<div id="cmdPal" class="hidden fixed inset-0 z-[60] grid place-items-start pt-24 p-4 bg-black/60 backdrop-blur" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="glass rounded-2xl p-3 max-w-xl w-full" onclick="event.stopPropagation()">
+    <input id="cmdInp" class="field text-base" placeholder="🔍 команда, пресет, действие..." autocomplete="off"/>
+    <div id="cmdList" class="mt-2 max-h-80 overflow-auto scrollbar"></div>
+    <div class="text-[10px] subtle mt-1 px-2">↑↓ навигация · Enter применить · Esc закрыть</div>
+  </div></div>`;
+document.body.insertAdjacentHTML('beforeend',cmdPalHTML);
+const CMDS=[
+  {n:'🎲 Случайная идея',h:()=>$('randomBtn').click()},
+  {n:'✨ AI улучшить',h:()=>$('aiEnhanceBtn').click()},
+  {n:'🩺 Критика',h:()=>$('aiCritiqueBtn').click()},
+  {n:'🎲 4 варианта',h:()=>$('abBtn').click()},
+  {n:'📊 Сравнить',h:()=>$('cmpBtn').click()},
+  {n:'🔗 Поделиться ссылкой',h:()=>$('shareBtn').click()},
+  {n:'⚙ AI настройки',h:()=>$('aiSettingsBtn').click()},
+  {n:'🌓 Сменить тему',h:()=>$('themeBtn').click()},
+  {n:'📚 Каталог героев',h:()=>$('libSubjBtn').click()},
+  {n:'🌆 Каталог сцен',h:()=>$('libSceneBtn').click()},
+  {n:'💡 Световые рецепты',h:()=>$('libLightBtn').click()},
+  {n:'💬 Открыть чат',h:()=>chatPanel.classList.remove('hidden')},
+  {n:'📋 Сбросить форму',h:()=>$('reset').click()},
+  {n:'↶ Undo',h:()=>$('undoBtn').click()},
+  {n:'↷ Redo',h:()=>$('redoBtn').click()},
+  {n:'🔊 Озвучить',h:()=>$('speakBtn').click()},
+  {n:'.txt',h:()=>$('exportTxt').click()},
+  {n:'.md',h:()=>$('exportMd').click()},
+  {n:'.json',h:()=>$('exportJson').click()}
+];
+PRESETS.forEach(p=>CMDS.push({n:'Пресет: '+p.name,h:()=>{Object.entries(p.v).forEach(([k,vl])=>$(k).value=vl);generate();}}));
+DIRS.forEach(d=>CMDS.push({n:'Стиль: '+d.name,h:()=>{Object.entries(d.v).forEach(([k,vl])=>{if($(k))$(k).value=vl;});generate();}}));
+GENRES.forEach(g=>CMDS.push({n:'Жанр: '+g.name,h:()=>{Object.entries(g.v).forEach(([k,vl])=>{if($(k))$(k).value=vl;});generate();}}));
+let _cmdSel=0;
+function renderCmd(q=''){const ql=q.toLowerCase();const list=CMDS.filter(c=>c.n.toLowerCase().includes(ql)).slice(0,30);_cmdSel=Math.min(_cmdSel,list.length-1);if(_cmdSel<0)_cmdSel=0;
+  $('cmdList').innerHTML=list.map((c,i)=>`<div class="cmd-item px-3 py-2 rounded-lg cursor-pointer text-sm ${i===_cmdSel?'bg-violet-500/30':''}" data-i="${i}">${c.n}</div>`).join('');
+  $('cmdList').querySelectorAll('.cmd-item').forEach(el=>{el.onmouseenter=()=>{_cmdSel=+el.dataset.i;renderCmd($('cmdInp').value);};el.onclick=()=>{list[+el.dataset.i].h();$('cmdPal').classList.add('hidden');};});
+  return list;
+}
+function openCmdPal(){$('cmdInp').value='';_cmdSel=0;renderCmd();$('cmdPal').classList.remove('hidden');setTimeout(()=>$('cmdInp').focus(),0);}
+$('cmdInp').addEventListener('input',e=>renderCmd(e.target.value));
+$('cmdInp').addEventListener('keydown',e=>{const list=renderCmd($('cmdInp').value);if(e.key==='ArrowDown'){e.preventDefault();_cmdSel=Math.min(_cmdSel+1,list.length-1);renderCmd($('cmdInp').value);}else if(e.key==='ArrowUp'){e.preventDefault();_cmdSel=Math.max(_cmdSel-1,0);renderCmd($('cmdInp').value);}else if(e.key==='Enter'){e.preventDefault();list[_cmdSel]&&list[_cmdSel].h();$('cmdPal').classList.add('hidden');}else if(e.key==='Escape'){$('cmdPal').classList.add('hidden');}});
+window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();openCmdPal();}});
+
+/* ============ v5: AI IMAGE PREVIEW (first frame) ============ */
+const previewBlock=document.createElement('div');previewBlock.className="glass rounded-2xl p-5 mt-5";
+previewBlock.innerHTML=`<div class="flex items-center justify-between mb-3 gap-2 flex-wrap"><h2 class="font-semibold">🖼 AI превью первого кадра</h2><div class="flex gap-2"><select id="previewModel" class="field !w-auto !py-1.5 text-xs"><option value="dall-e-3">DALL·E 3</option><option value="gpt-image-1">gpt-image-1</option></select><button id="previewBtn" class="btn-primary px-3 py-1.5 rounded-lg text-xs">🎨 Сгенерировать кадр</button></div></div><div id="previewImg" class="hidden"></div><p class="text-[11px] subtle">Использует image-API провайдера. Промт автоматически адаптируется под still-image.</p>`;
+document.querySelector('aside').appendChild(previewBlock);
+$('previewBtn').onclick=async()=>{if(!needKey())return;const c=aiCfg();if(!c.key)return;const en=$('outEnView').dataset.raw||'';if(!en){toast('Сначала сгенерируйте');return;}
+  $('previewBtn').textContent='⏳';$('previewImg').classList.add('hidden');
+  try{const stillPrompt=en.split('\n')[0]+', single still cinematic frame, '+v('lighting')+', '+v('palette');
+    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:$('previewModel').value,prompt:stillPrompt.slice(0,3800),size:v('aspect')==='9:16'?'1024x1792':v('aspect')==='1:1'?'1024x1024':'1792x1024',n:1})});
+    const j=await r.json();if(j.error){toast('Image: '+j.error.message);return;}const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
+    if(url){$('previewImg').innerHTML=`<img src="${url}" class="w-full rounded-lg mb-2"/><div class="flex gap-2"><a href="${url}" download="preview.png" class="soft-btn text-xs px-2 py-1">⬇ Скачать</a><button onclick="navigator.clipboard.writeText('${url}');toast('URL скопирован')" class="soft-btn text-xs px-2 py-1">📋 URL</button></div>`;$('previewImg').classList.remove('hidden');toast('✓');}
+  }catch(e){toast('Image: '+e.message);}finally{$('previewBtn').textContent='🎨 Сгенерировать кадр';}};
+
+/* ============ v5: AUTO-ITERATE LOOP ============ */
+const iterBtn=document.createElement('button');iterBtn.id='iterBtn';iterBtn.className="soft-btn text-xs px-3 py-1.5";iterBtn.innerHTML='🔄 Auto-iterate';iterBtn.title='AI критикует и сам применяет правки 3 раунда';
+$('aiReverseBtn').parentElement.appendChild(iterBtn);
+iterBtn.onclick=async()=>{if(!needKey())return;generate();const o=iterBtn.textContent;
+  for(let i=1;i<=3;i++){iterBtn.textContent=`🔄 раунд ${i}/3...`;
+    const cur=$('outEnView').dataset.raw;
+    const out=await aiCall([{role:'system',content:'You are a senior cinematographer. Critique and IMPROVE this video prompt in one pass. Reply with ONLY the improved prompt, no commentary. Keep aspect/duration/resolution/negative.'},{role:'user',content:cur}]);
+    if(!out)break;renderEn(out);pushHist(out);await new Promise(r=>setTimeout(r,300));}
+  iterBtn.textContent=o;toast('✓ 3 раунда');};
+
+/* ============ v5: VARIANTS MEMORY ============ */
+const _origAB=$('abBtn').onclick;$('abBtn').onclick=async()=>{_origAB&&_origAB();
+  setTimeout(()=>{const cards=$('varsGrid').children;[...cards].forEach((card,i)=>{const star=document.createElement('button');star.className="soft-btn text-xs px-2 py-1 mt-2";star.innerHTML='★ В избранное';star.onclick=ev=>{ev.stopPropagation();const txt=card.querySelector('div.text-xs').textContent.replace(/…$/,'');const a=loadList('seedance_fav');a.unshift({t:Date.now(),en:txt,tags:['variant-'+'ABCD'[i]]});saveList('seedance_fav',a);toast('★');renderList();};card.appendChild(star);});},100);};
+
+/* ============ v5: CHARACTER CONSISTENCY auto-vsivanie ============ */
+const consistBtn=document.createElement('button');consistBtn.className="soft-btn text-xs px-3 py-1.5 ml-2";consistBtn.innerHTML='🎭 Авто-токен героя';consistBtn.title='AI создаст уникальный consistency-токен и вошьёт во все шоты';
+$('useShots').parentElement.appendChild(consistBtn);
+consistBtn.onclick=async()=>{if(!v('subject')){toast('Заполни subject');return;}if(!needKey())return;consistBtn.textContent='⏳';
+  const out=await aiCall([{role:'system',content:'Create a unique consistency token for video multi-shot. Format: "same character throughout: [3-5 specific visual features in English]". Reply with ONLY the line.'},{role:'user',content:v('subject')+(v('character')?'. '+v('character'):'')}]);
+  if(out){$('character').value=out.trim().replace(/^["']|["']$/g,'');[...shotsEl.querySelectorAll('.sc')].forEach(el=>{if(!el.value.includes('same character'))el.value=(el.value+', same character').replace(/^,\s*/,'');});generate();toast('✓ Токен создан');}
+  consistBtn.textContent='🎭 Авто-токен героя';};
+
+/* ============ v5: RULE OF THIRDS overlay ============ */
+const aspBox=$('aspectBox');aspBox.style.position='relative';
+const grid=document.createElement('div');grid.style.cssText='position:absolute;inset:0;pointer-events:none;background:linear-gradient(to right,transparent 33%,rgba(255,255,255,.3) 33%,rgba(255,255,255,.3) 33.5%,transparent 33.5%,transparent 66%,rgba(255,255,255,.3) 66%,rgba(255,255,255,.3) 66.5%,transparent 66.5%),linear-gradient(to bottom,transparent 33%,rgba(255,255,255,.3) 33%,rgba(255,255,255,.3) 33.5%,transparent 33.5%,transparent 66%,rgba(255,255,255,.3) 66%,rgba(255,255,255,.3) 66.5%,transparent 66.5%);';aspBox.appendChild(grid);
+
+/* ============ v5: BEATS AUTO-GENERATE ============ */
+const beatsAuto=document.createElement('button');beatsAuto.className="soft-btn text-xs px-3 py-1.5 ml-2";beatsAuto.innerHTML='✨ AI разбить на beats';
+$('addBeat').parentElement.appendChild(beatsAuto);
+beatsAuto.onclick=async()=>{if(!needKey())return;const en=$('outEnView').dataset.raw||'';if(!en){toast('Сначала сгенерируйте');return;}beatsAuto.textContent='⏳';
+  const dur=parseInt(v('duration'))||5;const n=Math.min(5,Math.max(3,Math.round(dur/2)));
+  const out=await aiCall([{role:'system',content:`Break this video prompt into exactly ${n} timeline beats. Reply ONLY as JSON: {"beats":[{"t":"0-2s","cam":"camera action","sub":"subject action"},...]}. English, terse.`},{role:'user',content:en}],{json:true});
+  if(out){try{const d=JSON.parse(out);beatsEl.innerHTML='';d.beats.forEach(b=>addBeat(b.t,b.cam,b.sub));$('useTimeline').checked=true;generate();toast('✓ '+d.beats.length+' beats');}catch{toast('JSON err');}}
+  beatsAuto.textContent='✨ AI разбить на beats';};
+
+/* ============ v5: PROMPT SCORING (5-axis) ============ */
+const scoreBox=document.createElement('div');scoreBox.id='scoreBox';scoreBox.className="text-xs mt-2 hidden bg-black/10 rounded-lg p-3 border border-white/10";
+$('outEnView').parentElement.insertBefore(scoreBox,$('outEnView').nextSibling);
+const scoreBtn=document.createElement('button');scoreBtn.id='scoreBtn';scoreBtn.className="soft-btn text-[11px] px-2 py-1 rounded";scoreBtn.innerHTML='📊 Score';scoreBtn.title='AI оценит промт по 5 осям';
+$('negSuggestBtn').parentElement.appendChild(scoreBtn);
+scoreBtn.onclick=async()=>{if(!needKey())return;const en=$('outEnView').dataset.raw||'';if(!en)return;scoreBtn.textContent='⏳';
+  const out=await aiCall([{role:'system',content:'Score this video prompt on 5 axes 0-10. Reply ONLY as JSON: {"clarity":N,"specificity":N,"cinematography":N,"mood":N,"executability":N,"weakest":"axis name","tip":"one short fix in Russian"}'},{role:'user',content:en}],{json:true});
+  if(out){try{const d=JSON.parse(out);
+    const lab={clarity:'Clarity',specificity:'Specificity',cinematography:'Cinematography',mood:'Mood',executability:'Executability'};
+    scoreBox.innerHTML=Object.entries(lab).map(([k,l])=>{const n=d[k]||0;const cl=n>=8?'#4ade80':n>=5?'#facc15':'#f87171';return `<div class="flex items-center gap-2 mb-1"><span class="w-28 subtle">${l}</span><div class="flex-1 h-1.5 bg-black/30 rounded"><div style="width:${n*10}%;height:100%;background:${cl};border-radius:inherit"></div></div><span class="w-6 text-right">${n}</span></div>`;}).join('')+`<div class="mt-2 subtle">⚠ слабее всего: <b>${d.weakest}</b></div><div class="text-amber-400">💡 ${d.tip}</div>`;
+    scoreBox.classList.remove('hidden');}catch{toast('JSON err');}}
+  scoreBtn.textContent='📊 Score';};
+
+/* ============ v5: PREDICT FAILURE MODES ============ */
+const failBtn=document.createElement('button');failBtn.className="soft-btn text-[11px] px-2 py-1 rounded";failBtn.innerHTML='🔮 Риски';failBtn.title='AI предскажет где могут быть артефакты';
+$('negSuggestBtn').parentElement.appendChild(failBtn);
+failBtn.onclick=async()=>{if(!needKey())return;const en=$('outEnView').dataset.raw||'';if(!en)return;failBtn.textContent='⏳';
+  const out=await aiCall([{role:'system',content:'Predict likely artifacts/failures when generating this video prompt. Be specific (hands, faces, motion, text, etc). Reply in Russian, terse markdown bullets, max 5.'},{role:'user',content:en}]);
+  if(out){$('critBody').innerHTML='<div class="font-semibold mb-2">🔮 Прогноз рисков</div>'+out.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/^- /gm,'• ').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');critPanel.classList.remove('hidden');}
+  failBtn.textContent='🔮 Риски';};
+
+/* ============ v5: VOICE INPUT ============ */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){const micBtn=document.createElement('button');micBtn.className="soft-btn text-xs px-3 py-1.5 ml-2";micBtn.innerHTML='🎤';micBtn.title='Голосовой ввод (расскажи идею)';
+  $('oneLineIdea').parentElement.appendChild(micBtn);
+  let rec=null;micBtn.onclick=()=>{if(rec){rec.stop();return;}rec=new SR();rec.lang=$('locale').value==='ru'?'ru-RU':'en-US';rec.continuous=false;rec.interimResults=true;
+    rec.onresult=ev=>{const r=ev.results[ev.results.length-1];$('oneLineIdea').value=r[0].transcript;};
+    rec.onend=()=>{micBtn.innerHTML='🎤';rec=null;toast('🎤 готово');};
+    rec.onerror=e=>{toast('🎤 '+e.error);micBtn.innerHTML='🎤';rec=null;};
+    rec.start();micBtn.innerHTML='🔴';toast('🎤 говорите...');};}
+
+/* ============ v5/v7: GENERATION COUNTER (via bus, no chain) ============ */
+const genCount=parseInt(localStorage.getItem('seedance_count')||'0');
+const counterEl=document.createElement('span');counterEl.className="text-xs subtle";counterEl.id='counter';counterEl.textContent='🔢 '+genCount;
+document.querySelector('header > div:last-child').appendChild(counterEl);
+bus.on('after-generate',()=>{const n=parseInt(localStorage.getItem('seedance_count')||'0')+1;safeLS('seedance_count',n);counterEl.textContent='🔢 '+n;});
+
+/* ============ v5: AUTO-THEME BY TIME ============ */
+if(!localStorage.getItem('seedance_theme')){const h=new Date().getHours();document.documentElement.dataset.theme=(h>=7&&h<19)?'light':'dark';}
+
+/* ============ v5: FONT SCALE ============ */
+const fsBox=document.createElement('div');fsBox.className="flex gap-1 ml-2";fsBox.innerHTML='<button class="soft-btn px-2 py-1 text-xs" id="fsDn">A−</button><button class="soft-btn px-2 py-1 text-xs" id="fsUp">A+</button>';
+document.querySelector('header > div:last-child').appendChild(fsBox);
+let fs=parseFloat(localStorage.getItem('seedance_fs')||'1');function applyFS(){document.documentElement.style.fontSize=(fs*16)+'px';safeLS('seedance_fs',fs);}applyFS();
+$('fsDn').onclick=()=>{fs=Math.max(0.8,fs-0.1);applyFS();};$('fsUp').onclick=()=>{fs=Math.min(1.4,fs+0.1);applyFS();};
+
+/* ============ v5: SMART PASTE ============ */
+window.addEventListener('paste',async e=>{
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
+  const txt=e.clipboardData.getData('text').trim();if(!txt||txt.length<20)return;
+  if(txt.startsWith('{')&&txt.includes('"subject"')){try{applyState(JSON.parse(txt));toast('✓ State импортирован');return;}catch(e){console.debug(e)}}
+  if(txt.startsWith('http')&&txt.includes('#s=')){location.hash=txt.split('#')[1];loadStateFn();toast('✓ Из ссылки');return;}
+  if(confirm('📋 Вставленный текст похож на промт. Распознать поля через AI?')){
+    if(!needKey())return;
+    const out=await aiCall([{role:'system',content:'Extract fields from a video-generation prompt. Reply ONLY as JSON with keys: subject, character, action, scene, details, shot, camera, lens, speed, lighting, time, weather, palette, mood, style, ambient, sfx, dialogue, negative, aspect, duration, res.'},{role:'user',content:txt}],{json:true});
+    if(out){try{const d=JSON.parse(out);Object.entries(d).forEach(([k,vl])=>{if($(k)&&vl)$(k).value=vl;});generate();toast('✓');}catch{toast('JSON err');}}
+  }
+});
+
+/* ============ v5: ICONIC SHOTS dictionary ============ */
+const ICONIC=[
+  {n:"Vertigo dolly zoom",d:"Hitchcock — головокружение",v:{shot:"medium shot",camera:"slow dolly in",lens:"50mm prime, shallow depth of field",speed:"natural real-time motion",mood:"unsettling"}},
+  {n:"Kubrick stare",d:"взгляд исподлобья",v:{shot:"close-up",camera:"slow dolly in",lens:"24mm wide-angle",lighting:"hard rim lighting",mood:"unsettling"}},
+  {n:"Tarantino trunk shot",d:"вид из багажника",v:{shot:"low-angle shot",camera:"static camera",lens:"24mm wide-angle",mood:"tense and suspenseful"}},
+  {n:"Spielberg face",d:"освещённое лицо в восхищении",v:{shot:"close-up",camera:"slow dolly in",lighting:"volumetric god rays",mood:"epic and cinematic"}},
+  {n:"One-shot oner",d:"длинный план без склеек",v:{shot:"medium shot",camera:"smooth gimbal",speed:"natural real-time motion",lens:"35mm cinematic"}},
+  {n:"Hero crane reveal",d:"раскрытие героя кран-снизу-вверх",v:{shot:"low-angle shot",camera:"crane up",lens:"24mm wide-angle",lighting:"golden hour sunlight",mood:"heroic"}},
+  {n:"Money shot orbit",d:"облёт вокруг героя",v:{shot:"medium shot",camera:"orbit around subject",speed:"slow motion 120fps",lens:"35mm cinematic",mood:"epic and cinematic"}},
+  {n:"Fincher push-in",d:"медленный наезд напряжения",v:{shot:"close-up",camera:"steadicam push-in",lens:"50mm prime, shallow depth of field",lighting:"hard rim lighting",mood:"tense and suspenseful"}},
+  {n:"Anderson centered",d:"идеальная симметрия Уэса",v:{shot:"medium shot",camera:"static camera",lens:"35mm cinematic",palette:"pastel dreamy",mood:"nostalgic"}},
+  {n:"Bond opening",d:"кран от объекта в небо",v:{shot:"extreme wide shot",camera:"crane up",lens:"24mm wide-angle",lighting:"golden hour sunlight",mood:"epic and cinematic"}},
+  {n:"Horror handheld",d:"тряска POV-преследования",v:{shot:"point-of-view (POV)",camera:"handheld follow",lens:"24mm wide-angle",speed:"natural real-time motion",mood:"tense and suspenseful"}},
+  {n:"Anime hair flutter",d:"ветер в волосах, slowmo",v:{shot:"close-up",camera:"smooth gimbal",speed:"slow motion 120fps",lighting:"golden hour sunlight",style:"Studio Ghibli anime",mood:"dreamy and ethereal"}},
+  {n:"Music video drop",d:"быстрый whip pan",v:{shot:"medium shot",camera:"whip pan",speed:"slow motion 120fps",lighting:"colored gels (teal & orange)",mood:"energetic and dynamic"}},
+  {n:"Drone reveal",d:"облёт пейзажа",v:{shot:"extreme wide shot",camera:"drone fly-through",lens:"24mm wide-angle",lighting:"golden hour sunlight",mood:"epic and cinematic"}},
+  {n:"Macro detail",d:"микро-деталь продукта",v:{shot:"extreme close-up",camera:"slow dolly in",lens:"macro lens",speed:"slow motion 120fps",lighting:"studio three-point lighting"}}
+];
+const NEG_LIB=[
+  {n:"👤 Лица",v:"distorted faces, asymmetrical eyes, deformed mouth, melting features, double pupils"},
+  {n:"✋ Руки",v:"extra fingers, missing fingers, fused hands, distorted hands, mutated palm"},
+  {n:"🚶 Движение",v:"jittery motion, frame skipping, frozen limbs, uncanny walk cycle, sliding feet"},
+  {n:"📝 Текст",v:"text artifacts, gibberish letters, watermark, signature, logo distortion"},
+  {n:"🎨 Качество",v:"blurry, low quality, low resolution, jpeg artifacts, oversaturated, washed out"},
+  {n:"🤖 Анимация",v:"plastic skin, doll-like, uncanny valley, stiff facial expressions, dead eyes"},
+  {n:"🌫 Артефакты",v:"morphing artifacts, warping, flickering, banding, ghosting, color fringing"},
+  {n:"🐾 Животные",v:"extra legs, deformed paws, mutated tails, asymmetrical ears, broken anatomy"}
+];
+const SOUND_LIB=[
+  {n:"🌧 City rain",v:{ambient:"heavy city rain, distant traffic, occasional thunder",sfx:"footsteps on wet pavement, neon signs buzzing"}},
+  {n:"🌲 Forest dawn",v:{ambient:"forest birdsong, gentle wind through leaves, distant stream",sfx:"twigs cracking underfoot, owl hoot fading"}},
+  {n:"🚀 Space station",v:{ambient:"low atmospheric hum, ventilation drone, distant beeping",sfx:"sliding doors hiss, fingers tap glass console"}},
+  {n:"🍺 Medieval tavern",v:{ambient:"crowd murmur, fireplace crackling, distant lute music",sfx:"mugs clink, wooden chairs scrape, laughter bursts"}},
+  {n:"🌊 Underwater",v:{ambient:"muffled deep ocean rumble, whale song echo, bubbles rising",sfx:"diving bell ping, slow heart beat, gear creaks"}},
+  {n:"🏃 Action chase",v:{ambient:"adrenaline pulse, urban background din",sfx:"running footsteps, panting breath, dodging obstacles, tires screeching"}},
+  {n:"🌃 Cyberpunk street",v:{ambient:"distant hover-car traffic, holo-ad jingles, light rain",sfx:"neon flicker, electric arc, hydraulic hiss"}},
+  {n:"🍔 Food close-up",v:{ambient:"warm kitchen ambience, soft background jazz",sfx:"sizzling oil, knife on board, glass clink"}},
+  {n:"🌌 Cosmic ambient",v:{ambient:"deep space drone, ethereal pads, distant pulsar",sfx:"none, pure cosmic stillness"}},
+  {n:"🎮 Game cinematic",v:{ambient:"orchestral swell, low brass tension",sfx:"sword unsheathe, magic charge, heavy footstep"}}
+];
+$('libSubjBtn').parentElement.insertAdjacentHTML('beforeend','<button id="libIconic" class="soft-btn text-xs px-3 py-1.5" title="Iconic shots">🎬 Iconic</button><button id="libNeg" class="soft-btn text-xs px-3 py-1.5" title="Negative library">⛔ Neg</button><button id="libSound" class="soft-btn text-xs px-3 py-1.5" title="Sound library">🎼 Sound</button>');
+$('libIconic').onclick=()=>openLib('🎬 Iconic shots',ICONIC,it=>{Object.entries(it.v).forEach(([k,vl])=>{if($(k))$(k).value=vl;});generate();});
+$('libNeg').onclick=()=>openLib('⛔ Negative-наборы',NEG_LIB,it=>{$('negative').value=(v('negative')?v('negative')+', ':'')+it.v;generate();});
+$('libSound').onclick=()=>openLib('🎼 Звуковые пресеты',SOUND_LIB,it=>{Object.entries(it.v).forEach(([k,vl])=>{if($(k))$(k).value=vl;});generate();});
+
+/* ============ v5: MULTI-MODEL templates ============ */
+const MODELS={
+  seedance:{n:"🎬 Seedance 2.0",max:10,res:["480p","720p","1080p"],hint:"Структура: subject → action → scene → camera → light → style"},
+  runway:{n:"🎥 Runway Gen-3",max:10,res:["768p","1280p"],hint:"Краткие визуальные описания, мощно с motion brush"},
+  kling:{n:"🇨🇳 Kling 1.5",max:10,res:["720p","1080p"],hint:"Поддерживает китайский, длинные сцены до 10s"},
+  hailuo:{n:"🌶 Hailuo MiniMax",max:6,res:["720p","1080p"],hint:"Хорошо с физикой и эмоциями"},
+  sora:{n:"🌀 Sora",max:60,res:["1080p"],hint:"Длинные сюжетные ролики, до 60s"},
+  veo:{n:"🅖 Google Veo",max:8,res:["1080p","4k"],hint:"Высокое качество, native audio"},
+  wan:{n:"🐼 Wan 2.1",max:5,res:["480p","720p"],hint:"Open-source, локальный запуск"}
+};
+const modelSel=document.createElement('select');modelSel.id='modelSel';modelSel.className="field !w-auto !py-1.5 text-xs ml-2";
+Object.entries(MODELS).forEach(([k,m])=>{const o=document.createElement('option');o.value=k;o.textContent=m.n;modelSel.appendChild(o);});
+modelSel.value=localStorage.getItem('seedance_model')||'seedance';
+document.querySelector('header > div:last-child').insertBefore(modelSel,$('counter'));
+const modelHint=document.createElement('div');modelHint.className="text-xs subtle px-6 max-w-7xl mx-auto -mt-2 mb-2";
+document.querySelector('main').parentElement.insertBefore(modelHint,document.querySelector('main'));
+function applyModel(){const m=MODELS[modelSel.value];safeLS('seedance_model',modelSel.value);modelHint.innerHTML=`💡 <b>${m.n}:</b> ${m.hint} · max ${m.max}s · res: ${m.res.join('/')}`;
+  const dur=$('duration');[...dur.options].forEach(o=>{const n=parseInt(o.textContent);o.disabled=n>m.max;});
+  const res=$('res');[...res.options].forEach(o=>o.style.display=m.res.some(r=>o.textContent.includes(r.replace('p','')))?'':'none');}
+modelSel.addEventListener('change',()=>{applyModel();generate();});applyModel();
+
+/* ============ v5: IMAGE-AS-STYLE toggle ============ */
+const styleToggle=document.createElement('label');styleToggle.className="flex items-center gap-2 text-xs subtle mt-2";
+styleToggle.innerHTML='<input type="checkbox" id="imgAsStyle" class="accent-violet-500"> 🎨 Использовать как style-reference (только light/palette/mood/style)';
+$('i2vBlock').appendChild(styleToggle);
+const _origRunVision=window.runVision;window.runVision=async function(dataUrl){
+  if($('imgAsStyle')?.checked){if(!needKey())return;const c=aiCfg();if(!c.key)return;
+    if(!_visionSkip){if(!confirm('🎨 Извлечь только стиль (light/palette/mood/style)?'))return;_visionSkip=true;}
+    toast('🎨 AI читает стиль...');
+    try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Extract ONLY visual style from this image. Reply as JSON: {"lighting":"...","palette":"...","mood":"...","style":"..."}. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
+      const j=await r.json();const t=j.choices?.[0]?.message?.content;const d=JSON.parse(t);Object.entries(d).forEach(([k,vl])=>{if($(k)&&vl)$(k).value=vl;});generate();toast('✓ Стиль');}catch(e){toast('Style: '+e.message);}return;}
+  return _origRunVision(dataUrl);
+};
+
+/* ============ v5: STORYBOARD per-shot preview ============ */
+const sbBtn=document.createElement('button');sbBtn.className="soft-btn text-xs px-3 py-1.5 ml-2";sbBtn.innerHTML='🎬 AI Storyboard';sbBtn.title='Сгенерировать превью каждого шота';
+$('useShots').parentElement.appendChild(sbBtn);
+sbBtn.onclick=async()=>{const shots=getShots();if(!shots.length){toast('Нет шотов');return;}if(!needKey())return;const c=aiCfg();if(!c.key)return;
+  const sbBox=document.createElement('div');sbBox.className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3";
+  if(shotsEl.parentElement.querySelector('.sb-box'))shotsEl.parentElement.querySelector('.sb-box').remove();
+  sbBox.classList.add('sb-box');shotsEl.parentElement.appendChild(sbBox);
+  for(let i=0;i<shots.length;i++){const card=document.createElement('div');card.className="bg-black/10 rounded-lg overflow-hidden border border-white/10";
+    card.innerHTML=`<div class="aspect-video bg-black/30 grid place-items-center text-xs subtle">⏳ shot ${i+1}</div><div class="p-2 text-[10px]">Shot ${i+1}: ${shots[i].cam.slice(0,40)}</div>`;sbBox.appendChild(card);
+    try{const p=`cinematic still, ${v('subject')}, ${shots[i].cam}, ${shots[i].act}, ${v('lighting')}, ${v('palette')}, ${v('style')}`;
+      const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:'dall-e-3',prompt:p.slice(0,3800),size:'1792x1024',n:1})});
+      const j=await r.json();const url=j.data?.[0]?.url;if(url)card.querySelector('div').outerHTML=`<img src="${url}" class="w-full aspect-video object-cover"/>`;
+    }catch(e){card.querySelector('div').textContent='✕ '+e.message;}}
+  toast('✓ Storyboard');};
+
+/* ============ v5: RECENTLY USED in selects ============ */
+const RECENT_KEY='seedance_recent';
+function getRecent(){try{return JSON.parse(localStorage.getItem(RECENT_KEY)||'{}');}catch{return{};}}
+function pushRecent(k,val){const r=getRecent();r[k]=[val,...(r[k]||[]).filter(x=>x!==val)].slice(0,3);safeLS(RECENT_KEY,JSON.stringify(r));}
+['shot','camera','lens','lighting','style','mood','palette'].forEach(id=>{const sel=$(id);sel.addEventListener('change',()=>pushRecent(id,sel.value));
+  const refresh=()=>{const r=getRecent()[id]||[];if(!r.length)return;[...sel.querySelectorAll('option[data-recent]')].forEach(o=>o.remove());r.slice().reverse().forEach(val=>{const o=document.createElement('option');o.dataset.recent='1';o.textContent='🕒 '+val;o.value=val;sel.insertBefore(o,sel.firstChild);});};refresh();});
+
+/* ============ v6: BUGFIXES ============ */
+// debounce progBar updates (was running on every keystroke)
+let _progT;const _origUpd=updProgress;window.updProgress=function(){clearTimeout(_progT);_progT=setTimeout(_origUpd,200);};
+// Reset clears preview + sb-box
+const _r3=$('reset').onclick;$('reset').onclick=()=>{_r3&&_r3();const p=$('previewImg');if(p){p.classList.add('hidden');p.innerHTML='';}document.querySelectorAll('.sb-box,#scoreBox').forEach(el=>{if(el.id==='scoreBox'){el.classList.add('hidden');el.innerHTML='';}else el.remove();});};
+// chatPanel z above toggle
+chatPanel.style.zIndex='45';$('chatToggle').style.zIndex='44';
+// score 0% min width
+const _sc=document.createElement('style');_sc.textContent='#scoreBox div[style*="width:0%"]{min-width:2px}';document.head.appendChild(_sc);
+
+/* ============ v6: API KEY obfuscation (XOR base64) ============ */
+const _xk='seedance_v6_salt_8723';function _xor(s){return [...s].map((c,i)=>String.fromCharCode(c.charCodeAt(0)^_xk.charCodeAt(i%_xk.length))).join('');}
+const _origAiCfg=aiCfg;window.aiCfg=function(){const c=_origAiCfg();if(c.key&&c.key.startsWith('XOR:')){try{c.key=_xor(atob(c.key.slice(4)));}catch(e){console.debug(e)}}return c;};
+const _aiKey=$('aiKey');_aiKey.addEventListener('blur',()=>{if(_aiKey.value&&!_aiKey.value.startsWith('XOR:')){const enc='XOR:'+btoa(_xor(_aiKey.value));safeLS('seedance_ai_key',enc);_aiKey.value=enc;}});
+// On load, decrypt for display (kept as XOR: in storage)
+if(_aiKey.value.startsWith('XOR:'))_aiKey.placeholder='🔒 ключ зашифрован';
+
+/* ============ v6: STATE VERSIONING ============ */
+const SCHEMA_V=6;const _sv=parseInt(localStorage.getItem('seedance_schema')||'0');
+if(_sv<SCHEMA_V){safeLS('seedance_schema',SCHEMA_V);console.info('Seedance schema migrated to v'+SCHEMA_V);}
+
+/* ============ v6: BANK (Characters + Scenes) ============ */
+function loadBank(k){try{return JSON.parse(localStorage.getItem(k)||'[]');}catch{return[];}}
+function saveBank(k,a){safeLS(k,JSON.stringify(a));}
+function bankUI(title,key,fields){
+  $('libTitle').textContent=title;const g=$('libGrid');g.innerHTML='';
+  const arr=loadBank(key);
+  const addBtn=document.createElement('button');addBtn.className="dir-card text-left p-3 rounded-xl border-2 border-dashed border-violet-500/40 bg-violet-500/5";
+  addBtn.innerHTML='<div class="font-medium text-sm">➕ Сохранить текущее</div><div class="text-[11px] subtle mt-0.5">'+fields.join(', ')+'</div>';
+  addBtn.onclick=async()=>{const name=await askText('Имя записи','Например: Maya, Detective Cole, Cyberpunk Tokyo');if(!name)return;const obj={n:name,d:new Date().toLocaleDateString(),v:{}};fields.forEach(f=>obj.v[f]=v(f));arr.push(obj);saveBank(key,arr);bankUI(title,key,fields);toast('💾');};
+  g.appendChild(addBtn);
+  arr.forEach((it,i)=>{const c=document.createElement('div');c.className="dir-card text-left p-3 rounded-xl border border-white/10 bg-black/10 relative";
+    c.innerHTML=`<div class="font-medium text-sm">${it.n}</div><div class="text-[11px] subtle mt-0.5">${it.d} · ${(Object.values(it.v)[0]||'').slice(0,50)}</div><button class="absolute top-2 right-2 text-xs subtle hover:text-red-400" data-rm="${i}">✕</button>`;
+    c.onclick=ev=>{if(ev.target.dataset.rm){arr.splice(+ev.target.dataset.rm,1);saveBank(key,arr);bankUI(title,key,fields);return;}Object.entries(it.v).forEach(([k,vl])=>{if($(k)&&vl)$(k).value=vl;});generate();libModal.classList.add('hidden');toast('✓ '+it.n);};
+    g.appendChild(c);});
+  libModal.classList.remove('hidden');
+}
+$('libSubjBtn').parentElement.insertAdjacentHTML('beforeend','<button id="bankChar" class="soft-btn text-xs px-3 py-1.5" title="Мои герои">🎭 My</button><button id="bankSc" class="soft-btn text-xs px-3 py-1.5" title="Мои сцены">🎪 My</button>');
+$('bankChar').onclick=()=>bankUI('🎭 Банк героев','seedance_char_bank',['subject','character','details']);
+$('bankSc').onclick=()=>bankUI('🎪 Банк сцен','seedance_scene_bank',['scene','details','time','weather','lighting','palette']);
+
+/* ============ v6: ACTION VERBS picker ============ */
+const VERBS=['lunges','stalks','glides','shatters','ignites','dissolves','emerges','plunges','levitates','pivots','sprints','crouches','reaches','spins','collapses','vaults','crawls','strides','soars','recoils','grasps','hurls','whispers','screams','laughs','weeps','smirks','glares','trembles','meditates'];
+const verbBtn=document.createElement('button');verbBtn.className="text-xs subtle ml-2 hover:text-violet-400";verbBtn.innerHTML='💪 verbs';verbBtn.title='Каталог ярких глаголов';
+$('action').parentElement.parentElement.insertBefore(verbBtn,$('action').parentElement.nextSibling);
+verbBtn.onclick=()=>{const items=VERBS.map(v=>({n:v,d:''}));openLib('💪 Action verbs',items,it=>{const cur=v('action');$('action').value=cur?cur+', '+it.n:it.n;generate();});};
+
+/* ============ v6: PARTICLES / FX selector ============ */
+const FX=['dust motes floating','falling cherry blossoms','floating embers','heavy rain','snowfall','sparks flying','smoke drifting','fog tendrils','autumn leaves','glowing fireflies','sand particles','bokeh light orbs','steam clouds','water droplets','glitter trail'];
+const fxRow=document.createElement('div');fxRow.className="mt-2";
+fxRow.innerHTML='<label class="block text-xs subtle mb-1">🌬 Эффекты / частицы</label><select id="fx" class="field"><option value="">— нет —</option>'+FX.map(f=>`<option>${f}</option>`).join('')+'</select>';
+$('details').parentElement.parentElement.appendChild(fxRow);
+$('fx').addEventListener('change',generate);
+
+/* ============ v6: FILM STOCK presets ============ */
+const STOCKS=[
+  {n:"Kodak Portra 400",d:"тёплый портретный",v:{palette:"warm sepia",style:"35mm film grain",mood:"nostalgic"}},
+  {n:"Cinestill 800T",d:"ночной с halation",v:{palette:"vibrant neon",style:"35mm film grain",lighting:"practical neon signs",mood:"mysterious"}},
+  {n:"Fuji Velvia 50",d:"сочные природные",v:{palette:"rich vibrant",style:"35mm film grain",mood:"epic and cinematic"}},
+  {n:"16mm grainy",d:"арт-хаус документ.",v:{style:"16mm film grain, vintage look",palette:"desaturated muted",mood:"melancholic"}},
+  {n:"Super 8 vintage",d:"ретро домашнее видео",v:{style:"super 8 film, heavy grain, light leaks",palette:"warm sepia",mood:"nostalgic"}},
+  {n:"Kodak Vision3 500T",d:"кино-стандарт ночь",v:{style:"35mm cinematic film",palette:"teal and orange",lighting:"hard rim lighting"}},
+  {n:"Black & white classic",d:"чёрно-белый Феллини",v:{palette:"high-contrast noir",style:"black and white classic film",lighting:"chiaroscuro"}},
+  {n:"Polaroid SX-70",d:"мягкий ретро",v:{palette:"pastel dreamy",style:"polaroid instant film, soft focus",mood:"dreamy and ethereal"}}
+];
+$('libSound').insertAdjacentHTML('afterend','<button id="libStock" class="soft-btn text-xs px-3 py-1.5" title="Film stock">🎞 Stock</button><button id="libHooks" class="soft-btn text-xs px-3 py-1.5" title="Trending hooks">🔥 Hooks</button>');
+$('libStock').onclick=()=>openLib('🎞 Film stock',STOCKS,it=>{Object.entries(it.v).forEach(([k,vl])=>{if($(k))$(k).value=vl;});generate();});
+
+/* ============ v6: TRENDING HOOKS library ============ */
+const HOOKS=[
+  {n:"POV: ты обнаружил",d:"первое лицо тайна",v:"point-of-view shot, the camera approaches "},
+  {n:"3 секунды до...",d:"таймер напряжения",v:"countdown tension intro, urgent close-up of "},
+  {n:"Что если бы...",d:"альтернативная реальность",v:"alternate reality reveal, slow camera tilt down to "},
+  {n:"Не моргай!",d:"гипноз внимания",v:"hypnotic close-up, locked stare into camera, "},
+  {n:"Wait for it...",d:"slow build to drop",v:"slow building anticipation tracking shot, then sudden reveal of "},
+  {n:"Никто не ожидал",d:"шок-трансформация",v:"unexpected transformation reveal, dramatic push-in on "},
+  {n:"Один в кадре",d:"одиночество героя",v:"isolated subject in vast empty environment, slow zoom out from "},
+  {n:"Зеркало правды",d:"раскрытие через отражение",v:"mirror reflection reveal, slow rack focus to mirror showing "},
+  {n:"Последняя минута",d:"финальный отсчёт",v:"final countdown intensity, frantic handheld follow on "},
+  {n:"Тайна за дверью",d:"intrigue door open",v:"slow door opening reveal, light spilling onto "},
+  {n:"Контраст эпох",d:"старое vs новое",v:"split contrast, past vs future juxtaposition with "},
+  {n:"Beauty close-up",d:"эстетика детали",v:"hyper-aesthetic macro detail of "},
+  {n:"Speed run",d:"ускоренное преодоление",v:"timelapse compressed action sequence of "},
+  {n:"Reverse reveal",d:"обратная съёмка",v:"reversed playback dramatic reveal of "},
+  {n:"Tabletop GOD shot",d:"сверху вниз вертикально",v:"top-down god view static shot of "}
+];
+$('libHooks').onclick=()=>openLib('🔥 Trending hooks',HOOKS,it=>{$('subject').value=it.v+v('subject');generate();});
+
+/* ============ v6: GOAL-DRIVEN MODE ============ */
+const goalBtn=document.createElement('button');goalBtn.className="soft-btn text-xs px-3 py-1.5";goalBtn.innerHTML='🎯 Goal mode';goalBtn.title='Опиши цель — AI соберёт всю форму';
+$('aiAutoFill').parentElement.appendChild(goalBtn);
+/* applyAiFields now hoisted at top of file */
+goalBtn.onclick=async()=>{if(!needKey())return;const goal=await askText('🎯 Цель ролика','Не описание сцены, а ЦЕЛЬ. Например: "вызвать ностальгию", "продать беговые кроссовки за 5 секунд", "показать одиночество в большом городе"');if(!goal)return;
+  toast('🎯 AI думает...');
+  const sys='You are a senior creative director. Given a GOAL (in any language), design a complete video prompt. Reply ONLY as JSON with these keys: subject, character, action, scene, details, shot, camera, lens, speed, lighting, time, weather, palette, mood, style, ambient, sfx, dialogue, negative. CRITICAL: ALL VALUES MUST BE IN ENGLISH ONLY. Use cinematic English terminology. Each value MUST be a flat string (NEVER an object or array). If a field does not apply, use empty string "". Make every choice serve the goal.';
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:'GOAL: '+goal}],{json:true});
+  if(out){try{const d=JSON.parse(out);applyAiFields(d);generate();toast('🎯 Готово');}catch{toast('JSON err');}}
+};
+
+/* ============ v7: TRANSLATE FIELDS RU→EN ============ */
+const trBtn=document.createElement('button');trBtn.className="soft-btn text-xs px-3 py-1.5";trBtn.innerHTML='🔄 RU→EN';trBtn.title='Перевести все поля формы на английский';
+$('aiAutoFill').parentElement.appendChild(trBtn);
+trBtn.onclick=async()=>{if(!needKey())return;
+  const TR_FIELDS=['subject','character','action','scene','details','motion','negative','ambient','sfx','dialogue','speedRamp'];
+  const data={};TR_FIELDS.forEach(f=>{const val=v(f);if(val)data[f]=val;});
+  if(!Object.keys(data).length){toast('Пусто');return;}
+  trBtn.textContent='⏳';
+  const sys='Translate all values to cinematic English. Keep keys exactly as given. Reply ONLY as JSON with the same keys. Each value must be a flat English string (NEVER an object). Use professional cinematography vocabulary. If a value is already English, refine it for cinematic clarity but keep meaning.';
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:JSON.stringify(data)}],{json:true});
+  if(out){try{applyAiFields(JSON.parse(out));generate();toast('✓ переведено');}catch{toast('JSON err');}}
+  trBtn.textContent='🔄 RU→EN';
+};
+
+/* ============ v6: SELF-CONSISTENCY CHECK ============ */
+const consBtn=document.createElement('button');consBtn.className="soft-btn text-[11px] px-2 py-1 rounded";consBtn.innerHTML='🔁 Check';consBtn.title='AI ищет противоречия в промте';
+$('negSuggestBtn').parentElement.appendChild(consBtn);
+consBtn.onclick=async()=>{if(!needKey())return;const en=$('outEnView').dataset.raw||'';if(!en)return;consBtn.textContent='⏳';
+  const out=await aiCall([{role:'system',content:'Read this video prompt CAREFULLY. List any internal contradictions or implausibilities (e.g. "night" vs "golden hour", "calm" vs "explosion", impossible camera moves, time/light mismatches). If none, say "✓ Противоречий не найдено". Russian, max 5 short bullets.'},{role:'user',content:en}]);
+  if(out){$('critBody').innerHTML='<div class="font-semibold mb-2">🔁 Self-consistency</div>'+out.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/^- /gm,'• ');critPanel.classList.remove('hidden');}
+  consBtn.textContent='🔁 Check';};
+
+/* ============ v6: NEGATIVE auto-validate ============ */
+$('negative').addEventListener('blur',async()=>{const neg=v('negative');const en=$('outEnView').dataset.raw||'';if(!neg||!en||!aiCfg().key)return;
+  const out=await aiCall([{role:'system',content:'Check if the negative prompt CONTRADICTS positive prompt. Reply ONLY as JSON: {"conflicts":["item1",...]} (max 3, in Russian) or {"conflicts":[]} if all good.'},{role:'user',content:'Positive: '+en+'\n\nNegative: '+neg}],{json:true,silent:true});
+  if(out){try{const d=JSON.parse(out);if(d.conflicts&&d.conflicts.length){toast('⚠ neg-конфликт: '+d.conflicts.join('; '));}}catch(e){console.debug(e)}}});
+
+/* ============ v6: PROMPT MUTATOR ============ */
+const mutBtn=document.createElement('button');mutBtn.className="soft-btn text-xs px-3 py-1.5";mutBtn.innerHTML='🧪 Mutate';mutBtn.title='5 случайных мутаций → AI выбирает лучшую';
+$('aiReverseBtn').parentElement.appendChild(mutBtn);
+mutBtn.onclick=async()=>{if(!needKey())return;const en=$('outEnView').dataset.raw||'';if(!en)return;mutBtn.textContent='🧪 1/6...';
+  const muts=[];const ops=['shorter','more cinematic','darker mood','add unexpected element','more sensory detail'];
+  for(let i=0;i<ops.length;i++){mutBtn.textContent=`🧪 ${i+1}/6...`;const o=await aiCall([{role:'system',content:'Mutate this video prompt: '+ops[i]+'. Reply ONLY with the mutated prompt.'},{role:'user',content:en}]);if(o)muts.push(o);}
+  mutBtn.textContent='🧪 6/6 judge...';
+  const judge=await aiCall([{role:'system',content:'You are an AI judge. Pick the BEST of these video prompts (most cinematic, evocative, executable). Reply ONLY with the number 1-'+muts.length},{role:'user',content:muts.map((m,i)=>`#${i+1}\n${m}`).join('\n\n---\n\n')}]);
+  const idx=parseInt(judge)-1;if(muts[idx]){renderEn(muts[idx]);pushHist(muts[idx]);toast('🏆 winner #'+(idx+1));}
+  mutBtn.textContent='🧪 Mutate';};
+
+/* ============ v6: BEST-OF-N tournament ============ */
+// (uses existing 4-variants modal) — add AI judge button into it
+const _origAB6=$('abBtn').onclick;$('abBtn').onclick=async()=>{await Promise.resolve(_origAB6&&_origAB6());
+  setTimeout(()=>{if(!$('varsGrid'))return;const judgeBtn=document.createElement('button');judgeBtn.className="btn-primary px-3 py-1.5 rounded-lg text-xs mt-3 w-full";judgeBtn.innerHTML='🏆 AI выбери лучший';
+    if(!$('varsGrid').nextElementSibling||!$('varsGrid').nextElementSibling.classList.contains('judge'))$('varsGrid').parentElement.insertBefore(judgeBtn,$('varsGrid').nextSibling);
+    judgeBtn.classList.add('judge');
+    judgeBtn.onclick=async()=>{judgeBtn.textContent='⏳';const variants=[...$('varsGrid').children].map(c=>c.querySelector('.text-xs').textContent.replace(/…$/,''));
+      const j=await aiCall([{role:'system',content:'Pick the most cinematic and evocative video prompt. Reply ONLY with the letter A/B/C/D.'},{role:'user',content:variants.map((v,i)=>'ABCD'[i]+'.\n'+v).join('\n\n')}]);
+      const i='ABCD'.indexOf((j||'').trim().toUpperCase()[0]);if(i>=0){[...$('varsGrid').children].forEach((c,k)=>{c.style.outline=k===i?'2px solid #4ade80':'';});toast('🏆 '+'ABCD'[i]);}
+      judgeBtn.innerHTML='🏆 AI выбери лучший';};},150);};
+
+/* ============ v6: FEW-SHOT from favorites ============ */
+const _origEnh=$('aiEnhanceBtn').onclick;$('aiEnhanceBtn').onclick=async function(...a){
+  const favs=loadList('seedance_fav').slice(0,3);if(favs.length){window._fewShot=favs.map(f=>'Example of style I prefer:\n'+f.en).join('\n\n---\n\n');}
+  return _origEnh&&_origEnh(...a);};
+
+/* ============ v6: COLOR GRADING visualizer ============ */
+const PALMAP={"vibrant neon":["#ff006e","#fb5607","#ffbe0b","#3a86ff","#8338ec","#06ffa5"],"teal and orange":["#0a7e8c","#1ba6b3","#f4a259","#e76f51","#264653","#f4d35e"],"warm sepia":["#704214","#a47148","#c69963","#e8c39e","#f4e1c1","#52310c"],"cold cyan blues":["#0a2540","#1a5fb4","#62a0ea","#99c1f1","#cce4f7","#e5f1fa"],"pastel dreamy":["#fcd5ce","#f8edeb","#fae1dd","#e8e8e4","#d8e2dc","#ffd6ff"],"high-contrast noir":["#000","#1a1a1a","#3d3d3d","#7a7a7a","#bdbdbd","#fff"],"desaturated muted":["#5a5a5a","#7d7d7d","#9c9c9c","#b8b8b8","#d4d4d4","#e8e8e8"],"rich vibrant":["#d62828","#003049","#fcbf49","#eae2b7","#f77f00","#264653"]};
+const palStrip=document.createElement('div');palStrip.className="flex gap-0.5 mt-1 h-3 rounded overflow-hidden";
+$('palette').parentElement.appendChild(palStrip);
+function updPalStrip(){const p=PALMAP[v('palette')]||['#444','#555','#666','#777','#888','#999'];palStrip.innerHTML=p.map(c=>`<div style="flex:1;background:${c}"></div>`).join('');}
+$('palette').addEventListener('change',updPalStrip);updPalStrip();
+
+/* ============ v6: LIVE TINT background ============ */
+function updTint(){const p=PALMAP[v('palette')];if(!p)return;const c=p[1]||p[0];document.body.style.boxShadow='inset 0 0 200px '+c+'15';}
+$('palette').addEventListener('change',updTint);updTint();
+
+/* ============ v6: SIDE-BY-SIDE EN/RU toggle ============ */
+const sbsBtn=document.createElement('button');sbsBtn.className="soft-btn text-xs px-2.5 py-1.5";sbsBtn.innerHTML='📜 SbS';sbsBtn.title='EN/RU side-by-side';
+$('exportTxt').parentElement.insertBefore(sbsBtn,$('exportTxt'));
+let _sbs=false;sbsBtn.onclick=()=>{_sbs=!_sbs;const wrap=$('outEnView').parentElement;
+  if(_sbs){wrap.classList.add('grid','grid-cols-2','gap-3');$('outEnView').classList.add('col-span-1','max-h-[36rem]');$('outRu').classList.add('col-span-1','!max-h-[36rem]');sbsBtn.classList.add('!bg-violet-500/30');}
+  else{wrap.classList.remove('grid','grid-cols-2','gap-3');$('outEnView').classList.remove('col-span-1','max-h-[36rem]');$('outRu').classList.remove('col-span-1','!max-h-[36rem]');sbsBtn.classList.remove('!bg-violet-500/30');}};
+
+/* ============ v6: MULTI-LANG preview (EN+RU+CN+JP) ============ */
+const mlBtn=document.createElement('button');mlBtn.className="soft-btn text-xs px-2.5 py-1.5";mlBtn.innerHTML='🌐';mlBtn.title='Перевести на CN+JP+ES';
+$('exportTxt').parentElement.insertBefore(mlBtn,$('exportTxt'));
+mlBtn.onclick=async()=>{if(!needKey())return;const en=$('outEnView').dataset.raw||'';if(!en)return;mlBtn.textContent='⏳';
+  const out=await aiCall([{role:'system',content:'Translate this video prompt to Chinese, Japanese, Spanish. Reply ONLY as JSON: {"cn":"...","jp":"...","es":"..."}'},{role:'user',content:en}],{json:true});
+  if(out){try{const d=JSON.parse(out);const html=`<div class="space-y-3"><div><div class="text-[10px] subtle uppercase">中文 (Chinese — для Kling)</div><div class="field text-sm whitespace-pre-wrap">${d.cn}</div></div><div><div class="text-[10px] subtle uppercase">日本語 (Japanese)</div><div class="field text-sm whitespace-pre-wrap">${d.jp}</div></div><div><div class="text-[10px] subtle uppercase">Español</div><div class="field text-sm whitespace-pre-wrap">${d.es}</div></div></div>`;
+    const m=document.createElement('div');m.id='mlBox';m.className="mt-3";const old=$('mlBox');if(old)old.remove();m.innerHTML=html;$('outRu').parentElement.appendChild(m);toast('✓');}catch{toast('JSON err');}}
+  mlBtn.textContent='🌐';};
+
+/* ============ v6/v7: AUTO-TAGS on favorite (non-blocking) ============ */
+$('favBtn').onclick=()=>{const en=$('outEnView').dataset.raw||$('outEnView').textContent;if(!en)return;
+  const entry={t:Date.now(),en,tags:[]};
+  const a=loadList('seedance_fav');a.unshift(entry);saveList('seedance_fav',a);toast('★');renderList();
+  // generate tags in background (fire-and-forget)
+  if(aiCfg().key){aiCall([{role:'system',content:'Generate 2-4 short tags (English single words) for this video prompt. Reply ONLY as comma-separated list.'},{role:'user',content:en}],{silent:true}).then(out=>{if(!out)return;entry.tags=out.split(',').map(s=>s.trim().replace(/[^a-z0-9-]/gi,'').toLowerCase()).filter(Boolean).slice(0,4);saveList('seedance_fav',a);renderList();}).catch(()=>{});}
+};
+
+/* ============ v6: HOVER PREVIEW в истории ============ */
+const tip=document.createElement('div');tip.id='hovTip';tip.className="hidden fixed z-50 max-w-md p-3 glass rounded-lg text-xs shadow-2xl pointer-events-none";document.body.appendChild(tip);
+$('listView').addEventListener('mouseover',e=>{const li=e.target.closest('[data-en]');if(!li)return;tip.textContent=li.dataset.en;tip.classList.remove('hidden');});
+$('listView').addEventListener('mousemove',e=>{tip.style.left=Math.min(e.clientX+15,window.innerWidth-tip.offsetWidth-10)+'px';tip.style.top=Math.min(e.clientY+15,window.innerHeight-tip.offsetHeight-10)+'px';});
+$('listView').addEventListener('mouseout',()=>tip.classList.add('hidden'));
+const _origRen2=renderList;window.renderList=function(){_origRen2();[...$('listView').querySelectorAll('li')].forEach(li=>{const t=li.querySelector('.line-clamp-2,.line-clamp-3,div');if(t&&!li.dataset.en)li.dataset.en=t.textContent;});};renderList();
+
+/* ============ v6: INLINE HELP icons ============ */
+const HELP={'Идея':'Заполни subject (главный объект), action (действие), scene (где). Это основа. Остальное — детали кинематографии.','Камера':'shot — крупность, camera — движение, lens — объектив. Психология объективов под селектом.','Освещение и палитра':'lighting — источник, palette — цветовая гамма, mood — общее настроение. Под palette показана живая палитра.','Multi-shot':'Если включить useShots — промт станет рассказом из N шотов. Auto-токен героя сохраняет консистентность.'};
+document.querySelectorAll('.glass h2').forEach(h=>{const t=h.textContent.trim();if(HELP[t]){const q=document.createElement('button');q.className="ml-2 text-xs subtle hover:text-violet-400";q.textContent='?';q.title=HELP[t];q.onclick=ev=>{ev.stopPropagation();alert(t+'\n\n'+HELP[t]);};h.appendChild(q);}});
+
+/* ============ v6: CHANGELOG modal on version bump ============ */
+const _lastV=localStorage.getItem('seedance_seen_v')||'0';
+if(_lastV!=='6'){setTimeout(()=>{const m=document.createElement('div');m.className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur";m.innerHTML=`<div class="glass rounded-2xl p-6 max-w-lg w-full"><div class="flex justify-between mb-3"><h3 class="font-semibold text-lg">🎉 Seedance v6</h3><button class="text-2xl subtle" onclick="this.closest('.fixed').remove()">×</button></div>
+<div class="text-sm space-y-2"><b>Новое:</b><ul class="list-disc pl-5 text-xs space-y-1 subtle">
+<li>🎯 Goal mode — опиши цель, AI соберёт форму</li>
+<li>🎭🎪 My — банк своих героев и сцен</li>
+<li>🧪 Mutate — 5 мутаций + AI-судья</li>
+<li>🏆 Tournament — AI выбирает лучший из 4 вариантов</li>
+<li>🌐 EN+CN+JP+ES перевод</li>
+<li>📜 SbS — side-by-side EN/RU</li>
+<li>🎞 Stock — film-эмуляция (Portra/Cinestill/16mm)</li>
+<li>🔥 Hooks — вирусные зачины TikTok</li>
+<li>💪 Verbs · 🌬 FX · 🔁 Self-check · 🎨 Live palette · 🔒 Encrypted key</li>
+</ul><button class="btn-primary px-4 py-2 rounded-lg text-sm mt-2 w-full" onclick="safeLS('seedance_seen_v','6');this.closest('.fixed').remove()">Понял, поехали</button></div></div>`;document.body.appendChild(m);},800);}
+
+/* ============================================================ */
+/* ============ v7: STORY MODE (multi-scene) ================== */
+/* ============================================================ */
+
+/* Lazy-load JSZip from CDN for ZIP export */
+function loadJSZip(){
+  if(window.JSZip)return Promise.resolve(window.JSZip);
+  return new Promise((res,rej)=>{
+    const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    sc.onload=()=>res(window.JSZip);sc.onerror=()=>rej(new Error('JSZip load failed'));
+    document.head.appendChild(sc);
+  });
+}
+
+/* In-memory current story */
+let STORY={hero:'',title:'',scenes:[]};
+function loadStory(){try{const r=localStorage.getItem('seedance_story');if(r)STORY=JSON.parse(r);}catch(e){console.debug(e)}}
+function saveStory(){safeLS('seedance_story',JSON.stringify(STORY));}
+loadStory();
+
+/* Header button */
+const storyBtn=document.createElement('button');
+storyBtn.id='storyBtn';storyBtn.className='soft-btn text-xs px-3 py-1.5 ml-2';
+storyBtn.innerHTML='🎬 Story';storyBtn.title='Multi-scene story mode (одна идея → N связанных сцен)';
+document.querySelector('header > div:last-child').appendChild(storyBtn);
+
+/* Modal HTML */
+const storyHTML=`
+<div id="storyModal" class="hidden fixed inset-0 z-[55] grid place-items-center p-3 bg-black/60 backdrop-blur" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="glass rounded-2xl p-5 max-w-5xl w-full max-h-[92vh] overflow-auto scrollbar" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+      <h2 class="font-semibold text-lg">🎬 Story Mode — multi-scene</h2>
+      <div class="flex gap-2 flex-wrap">
+        <button id="storyClear" class="soft-btn text-xs px-3 py-1.5">🗑 Очистить</button>
+        <button id="storyClose" class="soft-btn text-xs px-3 py-1.5">×</button>
+      </div>
+    </div>
+    <div class="grid sm:grid-cols-3 gap-2 mb-3">
+      <div class="sm:col-span-3">
+        <label class="block text-xs subtle mb-1">💡 Большая идея (любой язык)</label>
+        <textarea id="storyIdea" rows="2" class="field" placeholder="напр.: молодая хакерша находит послание из будущего и решает изменить историю"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs subtle mb-1">🎚 Кол-во сцен: <span id="storyNVal">5</span></label>
+        <input type="range" id="storyN" min="3" max="10" value="5" class="w-full"/>
+      </div>
+      <div>
+        <label class="block text-xs subtle mb-1">🎭 Жанр / тон</label>
+        <select id="storyTone" class="field !py-1.5 text-sm">
+          <option value="cinematic drama">Кинодрама</option>
+          <option value="cyberpunk thriller">Cyberpunk thriller</option>
+          <option value="neo-noir">Neo-noir</option>
+          <option value="anime adventure">Anime adventure</option>
+          <option value="horror suspense">Horror</option>
+          <option value="comedy short">Комедия</option>
+          <option value="documentary">Документальный</option>
+          <option value="commercial ad">Реклама</option>
+          <option value="music video">Музыкальный клип</option>
+          <option value="action blockbuster">Action blockbuster</option>
+          <option value="fantasy epic">Fantasy epic</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs subtle mb-1">⏱ Длина сцены</label>
+        <select id="storyDur" class="field !py-1.5 text-sm">
+          <option value="3s">3s</option><option value="5s" selected>5s</option><option value="8s">8s</option><option value="10s">10s</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-2 mb-4 flex-wrap">
+      <button id="storyExpand" class="btn-primary px-4 py-2 rounded-lg text-sm">✨ Развернуть в сценарий</button>
+      <button id="storyPrevAll" class="soft-btn text-xs px-3 py-2">🖼 Превью всех</button>
+      <button id="storyExportZip" class="soft-btn text-xs px-3 py-2">📦 Экспорт ZIP</button>
+      <button id="storyExportTxt" class="soft-btn text-xs px-3 py-2">📄 Экспорт .txt</button>
+      <button id="storyAsShots" class="soft-btn text-xs px-3 py-2">🎞 Как multi-shot</button>
+    </div>
+    <div id="storyHero" class="hidden text-xs subtle mb-3 p-2 bg-violet-500/10 border border-violet-500/30 rounded-lg"></div>
+    <div id="storyScenes" class="space-y-3"></div>
+  </div>
+</div>`;
+document.body.insertAdjacentHTML('beforeend',storyHTML);
+
+storyBtn.onclick=()=>{$('storyModal').classList.remove('hidden');renderStory();};
+$('storyClose').onclick=()=>$('storyModal').classList.add('hidden');
+$('storyClear').onclick=()=>{if(!confirm('Очистить текущий сценарий?'))return;STORY={hero:'',title:'',scenes:[]};saveStory();renderStory();};
+$('storyN').oninput=e=>$('storyNVal').textContent=e.target.value;
+
+function renderStory(){
+  const hero=$('storyHero'),wrap=$('storyScenes');
+  if(STORY.hero){hero.classList.remove('hidden');hero.innerHTML='<b>🎭 Hero:</b> '+STORY.hero+(STORY.title?'<br><b>📖 Title:</b> '+STORY.title:'');}
+  else hero.classList.add('hidden');
+  if(!STORY.scenes.length){wrap.innerHTML='<div class="text-xs subtle text-center p-6">Введите идею и нажмите ✨ Развернуть</div>';return;}
+  wrap.innerHTML='';
+  STORY.scenes.forEach((sc,i)=>{
+    const card=document.createElement('div');
+    card.className='border border-white/10 rounded-xl p-3 bg-black/10';
+    card.innerHTML=`
+      <div class="flex items-start gap-3 flex-wrap">
+        <div id="storyImg${i}" class="w-32 aspect-video bg-black/30 rounded-lg flex-shrink-0 grid place-items-center text-xs subtle overflow-hidden">—</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+            <div class="font-semibold text-sm">Scene ${i+1}: ${sc.title||''}</div>
+            <div class="flex gap-1">
+              <button data-act="prev" data-i="${i}" class="soft-btn text-[10px] px-2 py-0.5">🖼</button>
+              <button data-act="load" data-i="${i}" class="soft-btn text-[10px] px-2 py-0.5">⏎ В форму</button>
+              <button data-act="del" data-i="${i}" class="soft-btn text-[10px] px-2 py-0.5 hover:!bg-red-500/30">✕</button>
+            </div>
+          </div>
+          <textarea data-edit="${i}" rows="3" class="field text-xs">${(sc.prompt||'').replace(/</g,'&lt;')}</textarea>
+        </div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+  // wire
+  wrap.querySelectorAll('[data-act]').forEach(b=>{
+    b.onclick=()=>{
+      const i=+b.dataset.i,act=b.dataset.act;
+      if(act==='del'){STORY.scenes.splice(i,1);saveStory();renderStory();}
+      else if(act==='load'){loadSceneToForm(STORY.scenes[i]);toast('⏎ Сцена загружена');}
+      else if(act==='prev')generateScenePreview(i);
+    };
+  });
+  wrap.querySelectorAll('[data-edit]').forEach(t=>{
+    t.oninput=()=>{STORY.scenes[+t.dataset.edit].prompt=t.value;saveStory();};
+  });
+  // restore previews
+  STORY.scenes.forEach((sc,i)=>{if(sc.imgUrl){const slot=$('storyImg'+i);if(slot)slot.innerHTML=`<img src="${sc.imgUrl}" class="w-full h-full object-cover"/>`;}});
+}
+
+$('storyExpand').onclick=async()=>{
+  const idea=$('storyIdea').value.trim();
+  if(!idea){toast('Введите идею');return;}
+  if(!needKey())return;
+  const N=+$('storyN').value,tone=$('storyTone').value,dur=$('storyDur').value;
+  $('storyExpand').textContent='⏳ AI пишет...';
+  const sys=`You are a senior screenwriter and director. Given a high-level idea, design EXACTLY ${N} connected video scenes that flow as a single story. Use the tone: "${tone}". Maintain a CONSISTENT main character across all scenes. ALL VALUES MUST BE IN ENGLISH. Reply ONLY as JSON:
+{"hero":"detailed cinematic description of main character (3-5 visual features, English)","title":"short story title","scenes":[{"title":"3-word scene name","prompt":"complete cinematic English video prompt for this scene including subject, action, scene, camera, lighting, mood. ~30-50 words. Mention the hero with consistency tag."}]}
+Each scene's "prompt" must be a flat string. Avoid nested objects.`;
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:idea}],{json:true});
+  $('storyExpand').textContent='✨ Развернуть в сценарий';
+  if(!out){toast('AI: пусто');return;}
+  try{
+    const d=JSON.parse(out);
+    if(!d.scenes||!Array.isArray(d.scenes)){toast('AI вернул не сценарий');return;}
+    STORY={hero:String(d.hero||''),title:String(d.title||''),scenes:d.scenes.slice(0,N).map(s=>({title:String(s.title||''),prompt:typeof s.prompt==='object'?Object.values(s.prompt).join(', '):String(s.prompt||''),imgUrl:''}))};
+    saveStory();renderStory();
+    toast('✓ '+STORY.scenes.length+' сцен');
+  }catch(e){toast('JSON err: '+e.message);}
+};
+
+async function generateScenePreview(i){
+  if(!needKey())return;
+  const c=aiCfg();if(!c.key)return;
+  const sc=STORY.scenes[i];if(!sc)return;
+  const slot=$('storyImg'+i);if(slot)slot.innerHTML='⏳';
+  try{
+    const prompt=`cinematic still frame, ${STORY.hero}, ${sc.prompt}`.slice(0,3800);
+    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:'dall-e-3',prompt,size:'1792x1024',n:1})});
+    const j=await r.json();
+    if(j.error){if(slot)slot.textContent='✕';toast('Image: '+j.error.message);return;}
+    const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
+    if(url){sc.imgUrl=url;saveStory();if(slot)slot.innerHTML=`<img src="${url}" class="w-full h-full object-cover"/>`;}
+  }catch(e){if(slot)slot.textContent='✕ '+e.message.slice(0,15);}
+}
+
+$('storyPrevAll').onclick=async()=>{
+  if(!STORY.scenes.length){toast('Нет сцен');return;}
+  if(!confirm(`Сгенерировать ${STORY.scenes.length} картинок? Это займёт ~${STORY.scenes.length*8}с и стоит ~$${(STORY.scenes.length*0.04).toFixed(2)}.`))return;
+  $('storyPrevAll').textContent='⏳';
+  for(let i=0;i<STORY.scenes.length;i++){
+    $('storyPrevAll').textContent=`⏳ ${i+1}/${STORY.scenes.length}`;
+    await generateScenePreview(i);
+  }
+  $('storyPrevAll').textContent='🖼 Превью всех';toast('✓');
+};
+
+function loadSceneToForm(sc){
+  if(!sc)return;
+  $('subject').value=STORY.hero||v('subject');
+  $('action').value=sc.prompt||'';
+  $('scene').value=sc.title||'';
+  $('character').value=STORY.hero||'';
+  generate();
+  $('storyModal').classList.add('hidden');
+}
+
+$('storyAsShots').onclick=()=>{
+  if(!STORY.scenes.length){toast('Нет сцен');return;}
+  $('character').value=STORY.hero||v('character');
+  shotsEl.innerHTML='';
+  STORY.scenes.forEach((sc)=>{
+    addShot('5s','medium shot',sc.prompt.slice(0,200),'cut');
+  });
+  $('useShots').checked=true;
+  generate();
+  $('storyModal').classList.add('hidden');
+  toast('🎞 '+STORY.scenes.length+' shots');
+};
+
+$('storyExportTxt').onclick=()=>{
+  if(!STORY.scenes.length){toast('Нет сцен');return;}
+  const lines=[`# ${STORY.title||'Untitled Story'}`,'',`Hero: ${STORY.hero}`,'','---',''];
+  STORY.scenes.forEach((sc,i)=>{lines.push(`## Scene ${i+1}: ${sc.title}`,'',sc.prompt,'','---','');});
+  dl(`story-${Date.now()}.md`,lines.join('\n'),'text/markdown');
+};
+
+$('storyExportZip').onclick=async()=>{
+  if(!STORY.scenes.length){toast('Нет сцен');return;}
+  $('storyExportZip').textContent='⏳';
+  try{
+    const JSZip=await loadJSZip();
+    const zip=new JSZip();
+    zip.file('00_story.md',`# ${STORY.title||'Untitled'}\n\nHero: ${STORY.hero}\n\n${STORY.scenes.length} scenes`);
+    zip.file('story.json',JSON.stringify(STORY,null,2));
+    STORY.scenes.forEach((sc,i)=>{
+      const num=String(i+1).padStart(2,'0');
+      zip.file(`scene-${num}-${(sc.title||'untitled').replace(/[^a-z0-9]+/gi,'-').slice(0,30)}.txt`,sc.prompt);
+    });
+    // fetch image previews if any
+    const imgPromises=STORY.scenes.map(async(sc,i)=>{
+      if(!sc.imgUrl||!sc.imgUrl.startsWith('http'))return;
+      try{const r=await fetch(sc.imgUrl);const b=await r.blob();zip.file(`preview-${String(i+1).padStart(2,'0')}.png`,b);}catch(e){console.debug(e)}
+    });
+    await Promise.all(imgPromises);
+    const blob=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`story-${Date.now()}.zip`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast('📦 ZIP готов');
+  }catch(e){toast('ZIP: '+e.message);}
+  $('storyExportZip').textContent='📦 Экспорт ZIP';
+};
+
+/* ============================================================ */
+/* ============ v7.1: CONTINUITY CHECKER ====================== */
+/* ============================================================ */
+
+/* Inject button + result panel into Story modal */
+(function injectContinuity(){
+  const bar=document.querySelector('#storyModal .flex.gap-2.mb-4');
+  if(!bar)return;
+  const b=document.createElement('button');
+  b.id='storyContinuity';b.className='soft-btn text-xs px-3 py-2';
+  b.innerHTML='🔍 Continuity check';
+  b.title='AI ищет разрывы между сценами: одежда героя, время суток, погода, реквизит, локация';
+  bar.appendChild(b);
+  const panel=document.createElement('div');
+  panel.id='storyContinuityPanel';panel.className='hidden mb-3';
+  $('storyHero').insertAdjacentElement('afterend',panel);
+})();
+
+const SEV={high:'bg-red-500/20 border-red-500/40 text-red-200',med:'bg-amber-500/20 border-amber-500/40 text-amber-200',low:'bg-sky-500/20 border-sky-500/40 text-sky-200'};
+const SEV_ICON={high:'🔴',med:'🟡',low:'🔵'};
+
+let CONTINUITY={issues:[],score:null,ts:0};
+
+function renderContinuity(){
+  const p=$('storyContinuityPanel');if(!p)return;
+  if(!CONTINUITY.issues.length&&CONTINUITY.score==null){p.classList.add('hidden');p.innerHTML='';return;}
+  p.classList.remove('hidden');
+  const scoreColor=CONTINUITY.score>=80?'text-emerald-300':CONTINUITY.score>=50?'text-amber-300':'text-red-300';
+  let html=`<div class="border border-white/10 rounded-xl p-3 bg-black/20">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+      <div class="font-semibold text-sm">🔍 Continuity Report</div>
+      <div class="flex items-center gap-3 text-xs">
+        <span>Score: <b class="${scoreColor}">${CONTINUITY.score??'—'}/100</b></span>
+        <span class="subtle">Issues: ${CONTINUITY.issues.length}</span>
+        <button id="continuityClose" class="soft-btn text-[10px] px-2 py-0.5">×</button>
+      </div>
+    </div>`;
+  if(!CONTINUITY.issues.length)html+='<div class="text-xs subtle p-3 text-center">✅ Разрывов не найдено</div>';
+  else{
+    html+='<div class="space-y-2">';
+    CONTINUITY.issues.forEach((it,idx)=>{
+      const sev=SEV[it.severity]||SEV.med;
+      const fromLabel=it.scene_from!=null?`Scene ${it.scene_from+1}`:'all';
+      const toLabel=it.scene_to!=null?`Scene ${it.scene_to+1}`:'';
+      html+=`<div class="rounded-lg border ${sev} p-2 text-xs">
+        <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+          <div><b>${SEV_ICON[it.severity]||'🟡'} ${(it.type||'').toUpperCase()}</b> · ${fromLabel}${toLabel?' → '+toLabel:''}</div>
+          <div class="flex gap-1">
+            ${it.scene_to!=null?`<button data-cfix="${idx}" class="soft-btn text-[10px] px-2 py-0.5">🔧 Применить fix</button>`:''}
+            <button data-cdel="${idx}" class="soft-btn text-[10px] px-2 py-0.5">✕</button>
+          </div>
+        </div>
+        <div class="opacity-90">${(it.description||'').replace(/</g,'&lt;')}</div>
+        ${it.fix_suggestion?`<div class="mt-1 pt-1 border-t border-white/10 opacity-80"><b>💡 Fix:</b> ${(it.fix_suggestion||'').replace(/</g,'&lt;')}</div>`:''}
+      </div>`;
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  p.innerHTML=html;
+  $('continuityClose').onclick=()=>{CONTINUITY={issues:[],score:null,ts:0};renderContinuity();};
+  p.querySelectorAll('[data-cdel]').forEach(b=>b.onclick=()=>{CONTINUITY.issues.splice(+b.dataset.cdel,1);renderContinuity();});
+  p.querySelectorAll('[data-cfix]').forEach(b=>b.onclick=()=>applyContinuityFix(+b.dataset.cfix));
+}
+
+$('storyContinuity').onclick=async()=>{
+  if(!STORY.scenes.length){toast('Нет сцен для проверки');return;}
+  if(!needKey())return;
+  const btn=$('storyContinuity');btn.textContent='⏳ AI анализ...';btn.disabled=true;
+  const scenesText=STORY.scenes.map((s,i)=>`Scene ${i+1} ("${s.title||''}"): ${s.prompt}`).join('\n\n');
+  const sys=`You are a script supervisor checking video continuity. Given a hero description and a list of scenes, find ALL discontinuities between them: wardrobe changes, time-of-day jumps, weather inconsistencies, prop appearances/disappearances, location mismatches, lighting contradictions, character feature drift.
+Reply ONLY as JSON:
+{"score":0-100,"issues":[{"type":"wardrobe|time|weather|prop|location|lighting|character|other","scene_from":<0-based index>,"scene_to":<0-based index>,"severity":"high|med|low","description":"<1 sentence in Russian>","fix_suggestion":"<concrete English text to insert into scene_to's prompt to resolve this>"}]}
+Score 100 = perfect continuity, 0 = chaos. If only one scene, focus on internal consistency with hero. Return [] if no issues.`;
+  const user=`HERO: ${STORY.hero||'(not specified)'}\n\nSCENES:\n${scenesText}`;
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:user}],{json:true});
+  btn.textContent='🔍 Continuity check';btn.disabled=false;
+  if(!out){toast('AI: пусто');return;}
+  try{
+    const d=JSON.parse(out);
+    CONTINUITY={
+      issues:Array.isArray(d.issues)?d.issues.map(i=>({
+        type:String(i.type||'other'),
+        scene_from:typeof i.scene_from==='number'?i.scene_from:null,
+        scene_to:typeof i.scene_to==='number'?i.scene_to:null,
+        severity:['high','med','low'].includes(i.severity)?i.severity:'med',
+        description:String(i.description||''),
+        fix_suggestion:String(i.fix_suggestion||'')
+      })):[],
+      score:typeof d.score==='number'?Math.round(d.score):null,
+      ts:Date.now()
+    };
+    renderContinuity();
+    if(!CONTINUITY.issues.length)toast('✅ Разрывов не найдено');
+    else toast(`⚠ Найдено: ${CONTINUITY.issues.length}, score ${CONTINUITY.score}/100`);
+  }catch(e){toast('JSON err: '+e.message);}
+};
+
+async function applyContinuityFix(idx){
+  const issue=CONTINUITY.issues[idx];if(!issue||issue.scene_to==null)return;
+  const scene=STORY.scenes[issue.scene_to];if(!scene){toast('Сцена не найдена');return;}
+  if(!needKey())return;
+  toast('🔧 AI переписывает сцену...');
+  const sys=`You are a script editor. Rewrite the given video scene prompt to fix this continuity issue. Keep the original intent, length (~30-50 words), and cinematic English style. Return ONLY the new prompt as a flat plain string, no JSON, no quotes, no labels.`;
+  const user=`HERO: ${STORY.hero}\n\nORIGINAL SCENE PROMPT:\n${scene.prompt}\n\nCONTINUITY ISSUE: ${issue.description}\n\nFIX TO APPLY: ${issue.fix_suggestion}`;
+  const out=await aiCall([{role:'system',content:sys},{role:'user',content:user}],{json:false});
+  if(!out){toast('AI: пусто');return;}
+  scene.prompt=out.trim().replace(/^["']|["']$/g,'').slice(0,800);
+  saveStory();
+  CONTINUITY.issues.splice(idx,1);
+  renderStory();renderContinuity();
+  toast('✓ Сцена обновлена');
+}
+
+/* ============================================================ */
+/* ============ v7.2: FCPXML EXPORT (timeline) ================ */
+/* ============================================================ */
+
+function _xmlEsc(s){return String(s||'').replace(/[<>&"']/g,c=>({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));}
+
+function makePlaceholderPng(text,w=1920,h=1080){
+  return new Promise(res=>{
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    const ctx=c.getContext('2d');
+    const grad=ctx.createLinearGradient(0,0,w,h);
+    grad.addColorStop(0,'#1a1033');grad.addColorStop(1,'#0a0518');
+    ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='rgba(168,85,247,0.4)';ctx.lineWidth=8;
+    ctx.strokeRect(40,40,w-80,h-80);
+    ctx.fillStyle='#a78bfa';ctx.font='bold 36px sans-serif';ctx.textAlign='left';
+    ctx.fillText('🎬 SEEDANCE STORY · placeholder',80,110);
+    ctx.fillStyle='#fff';ctx.font='bold 96px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const words=String(text).split(' ');const lines=[];let line='';
+    words.forEach(wd=>{const t=line?line+' '+wd:wd;if(ctx.measureText(t).width>w-300){lines.push(line);line=wd;}else line=t;});
+    if(line)lines.push(line);
+    const lh=120,y0=h/2-(lines.length-1)*lh/2;
+    lines.forEach((ln,i)=>ctx.fillText(ln,w/2,y0+i*lh));
+    c.toBlob(b=>res(b),'image/png');
+  });
+}
+
+function buildFCPXML(story,opts){
+  const fps=opts.fps||24,W=1920,H=1080,durSec=opts.durSec||5;
+  const frames=sec=>Math.round(sec*fps);
+  const rat=sec=>`${frames(sec)}/${fps}s`;
+  const scenes=story.scenes;
+  let rid=1;
+  const fMain=`r${rid++}`,fStill=`r${rid++}`;
+  let resXML=`
+    <format id="${fMain}" name="FFVideoFormat1080p${fps}" frameDuration="100/${fps*100}s" width="${W}" height="${H}" colorSpace="1-1-1 (Rec. 709)"/>
+    <format id="${fStill}" name="FFVideoFormatRateUndefined" width="${W}" height="${H}"/>`;
+  const assetIds=[];
+  scenes.forEach((sc,i)=>{
+    const id=`r${rid++}`;assetIds[i]=id;
+    const fname=`media/preview-${String(i+1).padStart(2,'0')}.png`;
+    resXML+=`
+    <asset id="${id}" name="preview-${i+1}" start="0s" hasVideo="1" format="${fStill}" duration="0s">
+      <media-rep kind="original-media" src="${fname}"/>
+    </asset>`;
+  });
+  let offset=0;
+  const spineXML=scenes.map((sc,i)=>{
+    const d=rat(durSec),off=rat(offset);offset+=durSec;
+    const name=_xmlEsc(`Scene ${i+1}: ${sc.title||''}`);
+    const note=_xmlEsc(sc.prompt||'');
+    const markers=(opts.continuity?.issues||[])
+      .filter(it=>it.scene_to===i)
+      .map(it=>`<marker start="0s" duration="40/${fps}s" value="${_xmlEsc((it.severity||'').toUpperCase()+': '+(it.description||''))}"/>`).join('');
+    return `<video ref="${assetIds[i]}" offset="${off}" name="${name}" start="0s" duration="${d}"><note>${note}</note>${markers}</video>`;
+  }).join('\n            ');
+  const totalDur=rat(scenes.length*durSec);
+  const projName=_xmlEsc(story.title||'Untitled Story');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.10">
+  <resources>${resXML}
+  </resources>
+  <library>
+    <event name="Seedance Story">
+      <project name="${projName}">
+        <sequence format="${fMain}" duration="${totalDur}" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine>
+            ${spineXML}
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>`;
+}
+
+/* Inject button */
+(function injectFcpxml(){
+  const bar=document.querySelector('#storyModal .flex.gap-2.mb-4');
+  if(!bar)return;
+  const b=document.createElement('button');
+  b.id='storyFcpxml';b.className='soft-btn text-xs px-3 py-2';
+  b.innerHTML='📽 FCPXML';
+  b.title='Экспорт таймлайна для Final Cut Pro / DaVinci Resolve / Premiere Pro';
+  bar.appendChild(b);
+})();
+
+$('storyFcpxml').onclick=async()=>{
+  if(!STORY.scenes.length){toast('Нет сцен');return;}
+  const btn=$('storyFcpxml');btn.textContent='⏳';btn.disabled=true;
+  try{
+    const JSZip=await loadJSZip();
+    const zip=new JSZip();
+    const durSec=parseInt(($('storyDur').value||'5s').replace('s',''))||5;
+    const fps=24;
+    // Process previews
+    const mediaFolder=zip.folder('media');
+    for(let i=0;i<STORY.scenes.length;i++){
+      const sc=STORY.scenes[i];
+      const fname=`preview-${String(i+1).padStart(2,'0')}.png`;
+      btn.textContent=`⏳ ${i+1}/${STORY.scenes.length}`;
+      let blob=null;
+      if(sc.imgUrl&&sc.imgUrl.startsWith('http')){
+        try{const r=await fetch(sc.imgUrl);blob=await r.blob();}catch(e){console.debug(e)}
+      }
+      if(!blob){
+        blob=await makePlaceholderPng(`Scene ${i+1}: ${sc.title||'untitled'}`);
+      }
+      mediaFolder.file(fname,blob);
+    }
+    const xml=buildFCPXML(STORY,{fps,durSec,continuity:CONTINUITY});
+    zip.file('story.fcpxml',xml);
+    zip.file('story.json',JSON.stringify(STORY,null,2));
+    zip.file('README.txt',
+`SEEDANCE STORY → FCPXML EXPORT
+================================
+
+Содержимое:
+  story.fcpxml      — таймлайн для импорта
+  media/            — превью-картинки (placeholder для сцен без AI-картинки)
+  story.json        — резерв (полный state сценария)
+
+Импорт:
+
+▸ Final Cut Pro (Mac):
+    File → Import → XML... → выбери story.fcpxml
+
+▸ DaVinci Resolve (Win/Mac/Linux):
+    File → Import → Timeline... → выбери story.fcpxml
+    (Resolve автоматически найдёт media/ рядом)
+
+▸ Adobe Premiere Pro:
+    File → Import → выбери story.fcpxml
+    (Premiere поддерживает FCPXML 1.x частично; если ругается —
+     открой проект сначала в Resolve и пересохрани в .xml)
+
+Что в таймлайне:
+  • ${STORY.scenes.length} клипов на главной видео-дорожке
+  • Длительность: ${durSec}с каждый, ${fps}fps, 1920×1080
+  • Имена клипов = названия сцен
+  • В <note> каждого клипа — полный английский промт сцены
+  • Маркеры на клипах = continuity issues (если делал проверку)
+
+После импорта замени placeholder-картинки на реальные mp4 от
+Seedance/Runway/Kling — таймлайн уже собран, просто drag-and-drop.
+
+Сгенерировано: ${new Date().toISOString()}
+Story: "${STORY.title||'Untitled'}"
+Hero: ${STORY.hero||'(не задан)'}
+`);
+    const blob=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`story-fcpxml-${Date.now()}.zip`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast('📽 FCPXML ZIP готов');
+  }catch(e){toast('FCPXML err: '+e.message);}
+  btn.textContent='📽 FCPXML';btn.disabled=false;
+};
+
+/* ============================================================ */
+/* ============ v7.3: USER MANUAL link ======================== */
+/* ============================================================ */
+(function injectManualBtn(){
+  const headerRight=document.querySelector('header > div:last-child');
+  if(!headerRight)return;
+  const b=document.createElement('a');
+  b.id='manualBtn';b.href='MANUAL.html';b.target='_blank';b.rel='noopener';
+  b.className='soft-btn text-xs px-3 py-1.5 ml-1';
+  b.innerHTML='📖 Руководство';
+  b.title='Открыть полное руководство пользователя (можно сохранить в PDF: Ctrl+P)';
+  headerRight.appendChild(b);
+})();
+
+/* Command palette integration */
+try{
+  CMDS.push({n:'🎬 Story Mode',h:()=>$('storyBtn').click()});
+  CMDS.push({n:'🔍 Continuity check',h:()=>{$('storyBtn').click();setTimeout(()=>$('storyContinuity').click(),300);}});
+  CMDS.push({n:'📽 Export FCPXML',h:()=>{$('storyBtn').click();setTimeout(()=>$('storyFcpxml').click(),300);}});
+  CMDS.push({n:'📖 Открыть руководство',h:()=>window.open('MANUAL.html','_blank')});
+}catch(e){console.debug(e)}
+
+/* ============================================================ */
+/* ============ v7.4: PROTECTIVE LAYER ======================== */
+/* ============================================================ */
+
+/* --- 1. Error log + global handlers --- */
+const ERR_LOG_KEY='seedance_errors';
+const ERR_LOG_MAX=20;
+function logError(src,err){
+  try{
+    const arr=JSON.parse(localStorage.getItem(ERR_LOG_KEY)||'[]');
+    arr.unshift({t:Date.now(),src,msg:String(err?.message||err||'unknown'),stack:String(err?.stack||'').slice(0,500)});
+    safeLS(ERR_LOG_KEY,JSON.stringify(arr.slice(0,ERR_LOG_MAX)));
+  }catch(e){console.warn('logError failed',e);}
+  console.error('['+src+']',err);
+}
+window.addEventListener('error',e=>{
+  logError('window.error',e.error||e.message);
+  if(e.message&&!/ResizeObserver|Script error/.test(e.message))toast('⚠ '+String(e.message).slice(0,80));
+});
+window.addEventListener('unhandledrejection',e=>{
+  logError('unhandled-promise',e.reason);
+  const m=e.reason?.message||String(e.reason||'Promise rejection');
+  toast('⚠ '+m.slice(0,80));
+});
+
+/* --- 2. localStorage quota monitor --- */
+function lsUsage(){
+  let total=0;
+  try{for(const k in localStorage){if(Object.prototype.hasOwnProperty.call(localStorage,k))total+=(k.length+(localStorage[k]||'').length);}}catch(e){console.debug(e)}
+  return {bytes:total,kb:(total/1024).toFixed(1),mb:(total/1048576).toFixed(2),pct:Math.round(total/(5*1024*1024)*100)};
+}
+let _lastQuotaWarn=0;
+function checkLSQuota(silent){
+  const u=lsUsage();
+  if(u.pct>=80&&Date.now()-_lastQuotaWarn>120000){
+    _lastQuotaWarn=Date.now();
+    if(!silent)toast(`⚠ Хранилище ${u.pct}% (${u.kb}KB). Ctrl+K → "Очистить"`);
+  }
+  return u;
+}
+function lsCleanup(){
+  let freed=0;const before=lsUsage().bytes;
+  try{
+    if(typeof STORY!=='undefined'&&STORY?.scenes){
+      STORY.scenes.forEach(s=>{if(s.imgUrl){delete s.imgUrl;freed++;}});
+      saveStory();
+    }
+  }catch(e){logError('cleanup-story',e);}
+  try{
+    ['seedance_hist','seedance_fav'].forEach(k=>{
+      const a=JSON.parse(localStorage.getItem(k)||'[]');
+      if(a.length>10)safeLS(k,JSON.stringify(a.slice(0,10)));
+    });
+  }catch(e){logError('cleanup-list',e);}
+  const saved=Math.max(0,before-lsUsage().bytes);
+  toast(`🧹 Освобождено ${(saved/1024).toFixed(1)}KB${freed?' (превью: '+freed+')':''}`);
+  if(typeof renderStory==='function')renderStory();
+}
+
+/* --- 3. Auto-backup before AI ops --- */
+const SAFETY_KEY='seedance_safety_backup';
+function safetyBackup(){
+  try{
+    const snap={ts:Date.now(),state:collectState(),story:typeof STORY!=='undefined'?STORY:null};
+    safeLS(SAFETY_KEY,JSON.stringify(snap));
+  }catch(e){logError('backup',e);}
+}
+function safetyRestore(){
+  const r=localStorage.getItem(SAFETY_KEY);
+  if(!r){toast('Нет backup');return;}
+  try{
+    const s=JSON.parse(r);
+    const ago=Math.round((Date.now()-s.ts)/1000);
+    if(!confirm(`Восстановить backup от ${new Date(s.ts).toLocaleTimeString()} (${ago}с назад)?\n\nТекущее состояние перезапишется.`))return;
+    if(s.state)applyState(s.state);
+    if(s.story&&typeof STORY!=='undefined'){Object.assign(STORY,s.story);saveStory();if(typeof renderStory==='function')renderStory();}
+    if(typeof generate==='function')generate();
+    toast('🚑 Восстановлено');
+  }catch(e){logError('restore',e);toast('Backup битый: '+e.message);}
+}
+
+/* --- 4. Wrap aiCall with timeout + retry --- */
+const AI_TIMEOUT_MS=60000;
+const _origAiCall=window.aiCall;
+async function aiCallSafe(messages,opts={}){
+  safetyBackup();
+  const maxAttempts=2;
+  let lastErr=null;
+  for(let attempt=1;attempt<=maxAttempts;attempt++){
+    try{
+      const result=await Promise.race([
+        _origAiCall(messages,opts),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('AI timeout '+(AI_TIMEOUT_MS/1000)+'s')),AI_TIMEOUT_MS))
+      ]);
+      return result;
+    }catch(e){
+      lastErr=e;
+      logError('aiCall-attempt-'+attempt,e);
+      const retryable=/timeout|network|fetch|Failed to fetch|NetworkError/i.test(e.message||'');
+      if(attempt<maxAttempts&&retryable){
+        toast(`⏱ Сеть: повтор ${attempt}/${maxAttempts-1}...`);
+        await new Promise(r=>setTimeout(r,1500));
+        continue;
+      }
+      toast('⚠ AI: '+String(e.message||e).slice(0,80));
+      return null;
+    }
+  }
+  return null;
+}
+window.aiCall=aiCallSafe;
+
+/* --- 5. Schema validation helper --- */
+function assertShape(obj,schema,ctx='?'){
+  for(const [k,t] of Object.entries(schema)){
+    const val=obj?.[k];
+    if(val==null&&t.endsWith('?'))continue;
+    const baseType=t.replace('?','');
+    if(baseType==='string'&&typeof val!=='string')throw new Error(`${ctx}.${k}: expected string, got ${typeof val}`);
+    if(baseType==='array'&&!Array.isArray(val))throw new Error(`${ctx}.${k}: expected array`);
+    if(baseType==='number'&&typeof val!=='number')throw new Error(`${ctx}.${k}: expected number`);
+    if(baseType==='object'&&(typeof val!=='object'||Array.isArray(val)))throw new Error(`${ctx}.${k}: expected object`);
+  }
+  return true;
+}
+window.assertShape=assertShape;
+
+/* --- 6. Self-test panel + Error log viewer --- */
+function runSelfTest(){
+  const tests=[];
+  const T=(name,fn)=>{
+    try{const r=fn();tests.push([name,r===false?'fail':'ok',typeof r==='string'?r:(r===true||r===undefined?'':String(r))]);}
+    catch(e){tests.push([name,'fail',e.message]);}
+  };
+  T('localStorage write',()=>safeLS('__sdtest__','1'));
+  T('localStorage read',()=>localStorage.getItem('__sdtest__')==='1');
+  try{localStorage.removeItem('__sdtest__');}catch(e){console.debug(e)}
+  T('LS quota',()=>{const u=lsUsage();return (u.pct<80?'OK ':'WARN ')+u.kb+'KB ('+u.pct+'%)';});
+  T('DOM critical elements',()=>{
+    const ids=['outEnView','subject','action','aiKey','storyBtn','manualBtn','reset','aiSettingsBtn'];
+    const missing=ids.filter(id=>!$(id));
+    return missing.length?'missing: '+missing.join(','):ids.length+' present';
+  });
+  T('AI key configured',()=>{const c=aiCfg();return c.key?'yes':'no (set in ⚙ AI)';});
+  T('AI base URL',()=>aiCfg().base);
+  T('AI model',()=>aiCfg().model);
+  T('Canvas API',()=>typeof document.createElement('canvas').getContext==='function'?'yes':false);
+  T('JSZip',()=>typeof window.JSZip!=='undefined'?'cached':'lazy (will load on demand)');
+  T('Web Speech API',()=>typeof window.SpeechRecognition!=='undefined'||typeof window.webkitSpeechRecognition!=='undefined'?'yes':'not supported');
+  T('Clipboard API',()=>navigator.clipboard?'yes':'fallback only');
+  T('STORY structure',()=>{
+    if(typeof STORY==='undefined')return false;
+    return STORY&&typeof STORY.hero==='string'&&Array.isArray(STORY.scenes)?STORY.scenes.length+' scenes':'invalid';
+  });
+  T('Command palette',()=>Array.isArray(CMDS)&&CMDS.length>5?CMDS.length+' commands':false);
+  T('Error journal',()=>{const a=JSON.parse(localStorage.getItem(ERR_LOG_KEY)||'[]');return a.length+' entries';});
+  T('Safety backup',()=>localStorage.getItem(SAFETY_KEY)?'present':'none yet');
+  T('aiCall wrapper',()=>window.aiCall===aiCallSafe?'active':false);
+
+  const pass=tests.filter(t=>t[1]==='ok').length;
+  const allOk=pass===tests.length;
+  document.getElementById('selfTestModal')?.remove();
+  const html=`
+<div class="fixed inset-0 z-[60] grid place-items-center p-3 bg-black/60 backdrop-blur" id="selfTestModal" onclick="if(event.target===this)this.remove()">
+  <div class="glass rounded-2xl p-5 max-w-2xl w-full max-h-[85vh] overflow-auto scrollbar" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-lg">🔧 Self-test · <span class="${allOk?'text-emerald-400':'text-amber-400'}">${pass}/${tests.length}</span></h2>
+      <button class="soft-btn text-xs px-3 py-1.5" onclick="this.closest('#selfTestModal').remove()">×</button>
+    </div>
+    <table class="w-full text-xs">
+      <thead><tr class="text-left subtle"><th class="pb-2 pr-2">Test</th><th class="pb-2 pr-2">Status</th><th class="pb-2">Detail</th></tr></thead>
+      <tbody>${tests.map(([n,s,d])=>`<tr class="border-t border-white/10"><td class="py-1.5 pr-2">${n}</td><td class="py-1.5 pr-2"><span class="${s==='ok'?'text-emerald-400':'text-red-400'}">${s==='ok'?'✓ ok':'✕ fail'}</span></td><td class="py-1.5 subtle">${(d||'').replace(/</g,'&lt;')}</td></tr>`).join('')}</tbody>
+    </table>
+    <div class="mt-4 flex gap-2 flex-wrap">
+      <button class="soft-btn text-xs px-3 py-2" onclick="window.showErrorLog()">🐛 Журнал ошибок</button>
+      <button class="soft-btn text-xs px-3 py-2" onclick="window.lsCleanup()">🧹 Очистить хранилище</button>
+      <button class="soft-btn text-xs px-3 py-2" onclick="window.safetyRestore()">🚑 Backup</button>
+      <button class="soft-btn text-xs px-3 py-2" onclick="window.runSelfTest()">🔄 Re-run</button>
+    </div>
+  </div>
+</div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function showErrorLog(){
+  const arr=JSON.parse(localStorage.getItem(ERR_LOG_KEY)||'[]');
+  document.getElementById('errLogModal')?.remove();
+  const body=arr.length
+    ?arr.map(e=>`<div class="text-xs mb-2 p-2 rounded border border-red-500/30 bg-red-500/10"><div class="subtle text-[10px]">${new Date(e.t).toLocaleString()} · <b>${e.src}</b></div><div class="font-mono break-all">${(e.msg||'').replace(/</g,'&lt;').slice(0,400)}</div>${e.stack?`<details class="mt-1"><summary class="subtle cursor-pointer text-[10px]">stack</summary><pre class="text-[10px] opacity-70 whitespace-pre-wrap">${(e.stack||'').replace(/</g,'&lt;')}</pre></details>`:''}</div>`).join('')
+    :'<div class="text-xs subtle text-center p-6">✅ Журнал пуст — ошибок не зафиксировано</div>';
+  const html=`
+<div class="fixed inset-0 z-[60] grid place-items-center p-3 bg-black/60 backdrop-blur" id="errLogModal" onclick="if(event.target===this)this.remove()">
+  <div class="glass rounded-2xl p-5 max-w-3xl w-full max-h-[85vh] overflow-auto scrollbar" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold">🐛 Журнал ошибок (${arr.length})</h2>
+      <div class="flex gap-2">
+        ${arr.length?`<button class="soft-btn text-xs px-3 py-1.5" onclick="if(confirm('Очистить?')){localStorage.removeItem('${ERR_LOG_KEY}');this.closest('#errLogModal').remove();window.toast('🗑 Журнал очищен');}">🗑 Очистить</button>`:''}
+        <button class="soft-btn text-xs px-3 py-1.5" onclick="this.closest('#errLogModal').remove()">×</button>
+      </div>
+    </div>
+    ${body}
+  </div>
+</div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+window.runSelfTest=runSelfTest;
+window.showErrorLog=showErrorLog;
+window.lsCleanup=lsCleanup;
+window.safetyRestore=safetyRestore;
+window.lsUsage=lsUsage;
+
+try{
+  CMDS.push({n:'🔧 Self-test (диагностика)',h:runSelfTest});
+  CMDS.push({n:'🐛 Журнал ошибок',h:showErrorLog});
+  CMDS.push({n:'🚑 Восстановить backup',h:safetyRestore});
+  CMDS.push({n:'🧹 Очистить хранилище',h:()=>{if(confirm('Удалить превью Story и сократить историю до 10?'))lsCleanup();}});
+}catch(e){console.debug(e)}
+
+/* First-run quota check + periodic */
+setTimeout(()=>checkLSQuota(),3000);
+setInterval(()=>checkLSQuota(true),60000);
+

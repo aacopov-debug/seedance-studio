@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Seedance 2.0 — Prompt Studio</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+html,body{font-family:'Inter',system-ui,sans-serif}
+html[data-theme="dark"]{color-scheme:dark}
+html[data-theme="dark"] body{color:#e2e8f0;background:radial-gradient(1200px 600px at 80% -10%,rgba(168,85,247,.25),transparent 60%),radial-gradient(900px 500px at -10% 20%,rgba(56,189,248,.20),transparent 60%),#0a0a0f}
+html[data-theme="light"]{color-scheme:light}
+html[data-theme="light"] body{color:#0f172a;background:radial-gradient(1200px 600px at 80% -10%,rgba(168,85,247,.18),transparent 60%),#f8fafc}
+.glass{background:rgba(255,255,255,.04);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08)}
+html[data-theme="light"] .glass{background:rgba(255,255,255,.7);border:1px solid rgba(15,23,42,.08)}
+html[data-theme="light"] .field{background:#fff;border-color:#e2e8f0;color:#0f172a}
+html[data-theme="light"] .subtle{color:#475569}
+html[data-theme="light"] .soft-btn{background:#fff;border-color:#e2e8f0;color:#0f172a}
+html[data-theme="dark"] .field{background:rgba(0,0,0,.3);border-color:rgba(255,255,255,.1);color:#e2e8f0}
+html[data-theme="dark"] .subtle{color:#94a3b8}
+html[data-theme="dark"] .soft-btn{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:#e2e8f0}
+.field{border-radius:.75rem;padding:.6rem .75rem;border-width:1px;outline:none;width:100%}
+.field:focus{border-color:#a78bfa}
+.field.invalid{border-color:#f87171!important}
+.soft-btn{border-radius:.75rem;border-width:1px;transition:all .15s}
+.soft-btn:hover{filter:brightness(1.15)}
+.chip-active{background:linear-gradient(135deg,#a855f7,#ec4899)!important;color:#fff!important;border-color:transparent!important}
+.scrollbar::-webkit-scrollbar{width:8px;height:8px}.scrollbar::-webkit-scrollbar-thumb{background:rgba(127,127,127,.25);border-radius:8px}
+.grad-text{background:linear-gradient(135deg,#a78bfa,#f472b6,#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.btn-primary{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;transition:all .15s}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 30px -10px rgba(236,72,153,.6)}
+details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-marker{display:none}
+.tab-active{background:linear-gradient(135deg,#8b5cf6,#ec4899)!important;color:#fff!important;border-color:transparent!important}
+.tooltip{position:relative}
+.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;z-index:50;border:1px solid rgba(255,255,255,.1);width:max-content;max-width:240px;white-space:normal}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;transition:all .25s;background:#0f172a;color:#fff;padding:.6rem 1rem;border-radius:.75rem;border:1px solid rgba(255,255,255,.15);z-index:100;font-size:.85rem}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.drag-handle{cursor:grab;user-select:none}.dragging{opacity:.4}
+.weight-token{background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(236,72,153,.25));padding:0 3px;border-radius:3px}
+.dir-card{transition:all .15s}.dir-card:hover{transform:translateY(-2px);border-color:#a855f7!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="max-w-7xl mx-auto px-6 pt-6 pb-3 flex items-center justify-between gap-3 flex-wrap">
+  <div class="flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 grid place-items-center shadow-lg"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="white" stroke-width="2"><path d="M5 4l14 8-14 8V4z"/></svg></div>
+    <div><h1 class="text-xl sm:text-2xl font-extrabold">Seedance <span class="grad-text">2.0</span> <span class="text-xs font-normal subtle">Prompt Studio</span></h1><p class="text-xs subtle">Профессиональный генератор промтов</p></div>
+  </div>
+  <div class="flex items-center gap-2 text-xs flex-wrap">
+    <select id="locale" class="field !w-auto !py-1.5"><option value="ru">🇷🇺</option><option value="en">🇬🇧</option></select>
+    <button id="themeBtn" class="soft-btn px-3 py-1.5">🌓</button>
+    <button id="aiSettingsBtn" class="soft-btn px-3 py-1.5">⚙ AI</button>
+    <button id="shareBtn" class="soft-btn px-3 py-1.5">🔗</button>
+    <button id="cmpBtn" class="soft-btn px-3 py-1.5" title="Сравнить два промта">📊</button>
+    <button id="undoBtn" class="soft-btn px-3 py-1.5" title="Undo (Ctrl+Z)" disabled>↶</button>
+    <button id="redoBtn" class="soft-btn px-3 py-1.5" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
+  </div>
+</header>
+
+<div class="max-w-7xl mx-auto px-6 pb-4">
+  <div class="inline-flex gap-1 p-1 rounded-xl glass">
+    <button class="tab tab-active px-4 py-2 rounded-lg text-sm font-medium" data-tab="t2v">📝 Text-to-Video</button>
+    <button class="tab px-4 py-2 rounded-lg text-sm font-medium" data-tab="i2v">🖼 Image-to-Video</button>
+  </div>
+</div>
+
+<main class="max-w-7xl mx-auto px-6 pb-16 grid lg:grid-cols-5 gap-6">
+<section class="lg:col-span-3 space-y-5">
+
+<div class="bg-gradient-to-r from-violet-500/15 to-pink-500/15 border border-violet-400/40 rounded-2xl p-4">
+  <div class="flex items-center gap-2 mb-2"><span class="text-lg">⚡</span><span class="font-semibold text-sm">AI: одно предложение → вся форма</span></div>
+  <div class="flex gap-2 flex-wrap">
+    <input id="oneLineIdea" class="field flex-1 min-w-[200px]" placeholder="девушка-самурай рубит сакуру под полной луной"/>
+    <button id="aiAutoFill" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">⚡ Заполнить</button>
+  </div>
+</div>
+
+<div id="i2vBlock" class="glass rounded-2xl p-5 hidden space-y-4">
+  <h2 class="font-semibold">🖼 Референс-кадры</h2>
+  <div class="grid sm:grid-cols-2 gap-3">
+    <div>
+      <div class="flex justify-between mb-1"><span class="text-xs subtle">Первый кадр *</span><button data-clear="img" class="text-[10px] subtle">убрать</button></div>
+      <label class="flex items-center justify-center border-2 border-dashed border-white/15 rounded-xl p-4 cursor-pointer h-32" data-drop="img"><div data-ph="img" class="text-center subtle text-xs"><div class="text-2xl">📷</div>выбрать</div><img data-preview="img" class="hidden max-h-28 rounded" alt=""/></label>
+      <input id="imgFile" type="file" accept="image/*" class="hidden"/>
+    </div>
+    <div>
+      <div class="flex justify-between mb-1"><span class="text-xs subtle">Последний кадр (interpolation)</span><button data-clear="imgLast" class="text-[10px] subtle">убрать</button></div>
+      <label class="flex items-center justify-center border-2 border-dashed border-white/15 rounded-xl p-4 cursor-pointer h-32" data-drop="imgLast"><div data-ph="imgLast" class="text-center subtle text-xs"><div class="text-2xl">🎯</div>финал</div><img data-preview="imgLast" class="hidden max-h-28 rounded" alt=""/></label>
+      <input id="imgLastFile" type="file" accept="image/*" class="hidden"/>
+    </div>
+  </div>
+  <div><label class="block text-xs subtle mb-1">Motion prompt</label><textarea id="motion" rows="2" class="field" placeholder="hair flowing, eyes blinking, camera pushes in"></textarea></div>
+</div>
+
+<div class="glass rounded-2xl p-5">
+  <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+    <h2 class="font-semibold">Идея</h2>
+    <div class="flex gap-2 flex-wrap">
+      <button id="randomBtn" class="soft-btn text-xs px-3 py-1.5">🎲 Случайная</button>
+      <button id="aiEnhanceBtn" class="soft-btn text-xs px-3 py-1.5">✨ Улучшить</button>
+      <button id="aiCritiqueBtn" class="soft-btn text-xs px-3 py-1.5" title="AI критика">🩺 Критика</button>
+      <button id="aiReverseBtn" class="soft-btn text-xs px-3 py-1.5" title="Распарсить чужой промт">🔍 Распознать</button>
+      <button id="libSubjBtn" class="soft-btn text-xs px-3 py-1.5" title="Каталог героев">📚 Subject</button>
+      <button id="libSceneBtn" class="soft-btn text-xs px-3 py-1.5" title="Каталог сцен">🌆 Scene</button>
+      <button id="libLightBtn" class="soft-btn text-xs px-3 py-1.5" title="Световые рецепты">💡 Light</button>
+    </div>
+  </div>
+  <label class="block text-xs subtle mb-1">Главный объект <span class="text-pink-400">*</span></label>
+  <input id="subject" class="field" placeholder="девушка с серебристыми волосами в неоновом плаще"/>
+  <label class="block text-xs subtle mt-3 mb-1 tooltip" data-tip="Дублируется во все шоты для консистентности">Описание персонажа (multi-shot consistency)</label>
+  <input id="character" class="field" placeholder="same character: silver hair, neon raincoat, green eyes"/>
+  <label class="block text-xs subtle mt-3 mb-1">Действие</label>
+  <input id="action" class="field" placeholder="медленно идёт по мокрой улице"/>
+  <label class="block text-xs subtle mt-3 mb-1">Локация</label>
+  <input id="scene" class="field" placeholder="ночной киберпанк-город с дождём"/>
+  <label class="block text-xs subtle mt-3 mb-1">Детали</label>
+  <textarea id="details" rows="2" class="field" placeholder="отражения в лужах, лёгкий туман"></textarea>
+</div>
+
+<div class="glass rounded-2xl p-5 space-y-4">
+  <h2 class="font-semibold">Кинематография</h2>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div><label class="block text-xs subtle mb-1">План</label><select id="shot" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Камера</label><select id="camera" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Объектив</label><select id="lens" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Скорость</label><select id="speed" class="field"></select></div>
+  </div>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div><label class="block text-xs subtle mb-1">Тряска камеры: <span id="shakeVal">0%</span></label><input id="shake" type="range" min="0" max="100" value="0" class="w-full accent-violet-500"/></div>
+    <div><label class="block text-xs subtle mb-1">Speed ramp</label><input id="speedRamp" class="field" placeholder="slow-mo first 2s, normal speed last"/></div>
+  </div>
+</div>
+
+<div class="glass rounded-2xl p-5 space-y-4">
+  <h2 class="font-semibold">Свет, стиль, атмосфера</h2>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div><label class="block text-xs subtle mb-1">Свет</label><select id="lighting" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Время</label><select id="time" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Погода</label><select id="weather" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Палитра</label><select id="palette" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Настроение</label><select id="mood" class="field"></select></div>
+    <div><label class="block text-xs subtle mb-1">Стиль</label><select id="style" class="field"></select></div>
+  </div>
+  <div><label class="block text-xs subtle mb-2">Жанр-пак</label><div id="genres" class="flex flex-wrap gap-2"></div></div>
+  <div><label class="block text-xs subtle mb-2">Цветовой пресет</label><div id="presets" class="flex flex-wrap gap-2 items-center"><button id="savePresetBtn" class="soft-btn text-xs px-3 py-1.5 rounded-full">💾 Сохранить</button></div></div>
+</div>
+
+<div class="glass rounded-2xl p-5">
+  <h2 class="font-semibold mb-3">🎬 Cinematic library</h2>
+  <div id="directors" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+</div>
+
+<div class="glass rounded-2xl p-5">
+  <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+    <h2 class="font-semibold">🎬 Beats (раскадровка)</h2>
+    <div class="flex gap-2"><label class="flex items-center gap-2 text-xs subtle"><input id="useTimeline" type="checkbox" class="accent-violet-500"> Включить</label><button id="addBeat" class="soft-btn text-xs px-3 py-1.5">+ Кадр</button></div>
+  </div>
+  <div id="beats" class="space-y-2"></div>
+</div>
+
+<div class="glass rounded-2xl p-5">
+  <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+    <h2 class="font-semibold">🎞 Multi-shot</h2>
+    <div class="flex gap-2"><label class="flex items-center gap-2 text-xs subtle"><input id="useShots" type="checkbox" class="accent-violet-500"> Включить</label><button id="addShot" class="soft-btn text-xs px-3 py-1.5">+ Шот</button></div>
+  </div>
+  <div id="shots" class="space-y-2"></div>
+</div>
+
+<div class="glass rounded-2xl p-5 space-y-3">
+  <h2 class="font-semibold">🔊 Звук</h2>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div><label class="block text-xs subtle mb-1">Ambient</label><input id="ambient" class="field" placeholder="city traffic, soft rain"/></div>
+    <div><label class="block text-xs subtle mb-1">SFX</label><input id="sfx" class="field" placeholder="footsteps, neon hum"/></div>
+    <div class="sm:col-span-2"><label class="block text-xs subtle mb-1">Диалог</label><input id="dialogue" class="field" placeholder='woman whispers: "..."'/></div>
+  </div>
+</div>
+
+<div class="glass rounded-2xl p-5 space-y-4">
+  <h2 class="font-semibold">Параметры</h2>
+  <div class="grid sm:grid-cols-3 gap-4">
+    <div><label class="block text-xs subtle mb-1">Соотношение</label><select id="aspect" class="field"><option>16:9</option><option>9:16</option><option>1:1</option><option>4:3</option><option>21:9</option></select></div>
+    <div><label class="block text-xs subtle mb-1 tooltip" data-tip="Pro: до 10s. Lite: до 5s">Длительность</label><select id="duration" class="field"><option>3s</option><option selected>5s</option><option>10s</option></select></div>
+    <div><label class="block text-xs subtle mb-1 tooltip" data-tip="Pro: 1080p. Lite: 720p">Разрешение</label><select id="res" class="field"><option>480p</option><option selected>720p</option><option>1080p</option></select></div>
+  </div>
+  <div class="flex items-center gap-4 flex-wrap text-sm">
+    <label class="flex items-center gap-2"><input id="useWeights" type="checkbox" class="accent-violet-500"> <span class="tooltip" data-tip="(word:1.3) синтаксис">Веса</span></label>
+    <label class="flex items-center gap-2"><input id="autoQuality" type="checkbox" class="accent-violet-500" checked> Quality-теги</label>
+    <label class="flex items-center gap-2"><input id="autoNeg" type="checkbox" class="accent-violet-500" checked> Анти-артефакты</label>
+    <label class="flex items-center gap-2"><input id="autoGen" type="checkbox" class="accent-violet-500"> Авто-ген</label>
+    <label class="flex items-center gap-2"><input id="loopMode" type="checkbox" class="accent-violet-500"> 🔁 Луп</label>
+  </div>
+  <details class="bg-black/10 rounded-xl border border-white/10 p-3"><summary class="text-sm font-medium">Negative prompt</summary><textarea id="negative" rows="2" class="field mt-3" placeholder="blurry, low quality, watermark"></textarea></details>
+</div>
+
+<div class="flex flex-wrap gap-3 items-center">
+  <button id="generate" class="btn-primary font-semibold px-5 py-3 rounded-xl">✨ Сгенерировать</button>
+  <button id="abBtn" class="soft-btn px-4 py-3" title="4 версии с разными параметрами">🎲 4 варианта</button>
+  <button id="reset" class="soft-btn px-4 py-3">Сбросить</button>
+  <span class="text-xs subtle ml-auto self-center">⌨ <kbd class="px-1.5 py-0.5 bg-black/20 rounded">Ctrl+Enter</kbd></span>
+</div>
+</section>
+
+<aside class="lg:col-span-2 lg:sticky lg:top-6 self-start space-y-5">
+<div class="glass rounded-2xl p-5">
+  <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+    <h2 class="font-semibold">Промт</h2>
+    <div class="flex gap-1.5 flex-wrap">
+      <button id="copyEn" class="soft-btn text-xs px-2.5 py-1.5">📋 EN</button>
+      <button id="copyRu" class="soft-btn text-xs px-2.5 py-1.5">📋 RU</button>
+      <button id="favBtn" class="soft-btn text-xs px-2.5 py-1.5">★</button>
+      <button id="exportTxt" class="soft-btn text-xs px-2.5 py-1.5">.txt</button>
+      <button id="exportMd" class="soft-btn text-xs px-2.5 py-1.5">.md</button>
+      <button id="exportJson" class="soft-btn text-xs px-2.5 py-1.5">.json</button>
+      <button id="speakBtn" class="soft-btn text-xs px-2.5 py-1.5" title="Прочитать вслух">🔊</button>
+    </div>
+  </div>
+  <div class="flex items-center gap-3 mb-3 flex-wrap">
+    <div id="aspectBox" class="bg-gradient-to-br from-violet-500/30 to-pink-500/30 border border-white/15 rounded grid place-items-center text-[10px] subtle" style="width:80px;height:45px"><span id="aspectLabel">16:9</span></div>
+    <div class="text-xs subtle">
+      <div><span id="kDur">5s</span> · <span id="kRes">720p</span> · <span id="kCost">~$0.06</span></div>
+      <div><span id="wordCount">0</span> слов · <span id="charCount">0</span> симв.</div>
+    </div>
+  </div>
+  <div id="warnings" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs rounded-lg p-2.5 mb-3"></div>
+  <div class="text-[11px] uppercase tracking-wider subtle mb-1">English</div>
+  <div id="outEnView" class="scrollbar field text-sm whitespace-pre-wrap min-h-[12rem] max-h-[24rem] overflow-auto"></div>
+  <div class="flex flex-wrap gap-1 mt-2 text-[11px]">
+    <span class="subtle self-center">AI правки:</span>
+    <button data-refine="shorter" class="soft-btn px-2 py-1 rounded">короче</button>
+    <button data-refine="epic" class="soft-btn px-2 py-1 rounded">эпичнее</button>
+    <button data-refine="more details" class="soft-btn px-2 py-1 rounded">больше деталей</button>
+    <button data-refine="cinematic" class="soft-btn px-2 py-1 rounded">кинематографичнее</button>
+    <button data-refine="darker mood" class="soft-btn px-2 py-1 rounded">мрачнее</button>
+    <button data-refine="lighter mood" class="soft-btn px-2 py-1 rounded">легче</button>
+    <button id="negSuggestBtn" class="soft-btn px-2 py-1 rounded" title="AI предложит negative">⛔ neg</button>
+  </div>
+  <div class="text-[11px] uppercase tracking-wider subtle mt-3 mb-1">Русский</div>
+  <textarea id="outRu" rows="6" class="scrollbar field text-sm"></textarea>
+</div>
+
+<div class="glass rounded-2xl p-5">
+  <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+    <div class="inline-flex gap-1 p-1 rounded-lg glass">
+      <button class="sideTab tab-active px-3 py-1.5 rounded text-xs" data-side="hist">История</button>
+      <button class="sideTab px-3 py-1.5 rounded text-xs" data-side="fav">★ Избранное</button>
+    </div>
+    <button id="clearList" class="text-xs subtle">Очистить</button>
+  </div>
+  <input id="listSearch" class="field text-xs mb-2" placeholder="🔎 поиск..."/>
+  <ul id="listView" class="space-y-2 max-h-72 overflow-auto scrollbar text-sm"></ul>
+</div>
+</aside>
+</main>
+
+<!-- Library modal -->
+<div id="libModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">
+  <div class="glass rounded-2xl p-6 max-w-3xl w-full max-h-[85vh] overflow-auto scrollbar">
+    <div class="flex justify-between mb-4"><h3 id="libTitle" class="font-semibold text-lg">📚 Библиотека</h3><button onclick="libModal.classList.add('hidden')" class="text-2xl subtle">×</button></div>
+    <div id="libGrid" class="grid sm:grid-cols-2 gap-2"></div>
+  </div>
+</div>
+
+<!-- Compare modal -->
+<div id="cmpModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">
+  <div class="glass rounded-2xl p-6 max-w-5xl w-full max-h-[90vh] overflow-auto scrollbar">
+    <div class="flex justify-between mb-4"><h3 class="font-semibold text-lg">📊 Сравнить два промта</h3><button onclick="cmpModal.classList.add('hidden')" class="text-2xl subtle">×</button></div>
+    <div class="grid sm:grid-cols-2 gap-3"><textarea id="cmpA" rows="14" class="field text-xs" placeholder="Версия A..."></textarea><textarea id="cmpB" rows="14" class="field text-xs" placeholder="Версия B..."></textarea></div>
+    <div class="mt-3 text-xs subtle">Слева — текущий. Справа вставьте другой. Различия в строках подсвечиваются.</div>
+    <div class="flex gap-2 mt-3"><button id="cmpDiff" class="btn-primary px-4 py-2 rounded-lg text-sm">Сравнить</button><button onclick="cmpModal.classList.add('hidden')" class="soft-btn px-4 py-2 text-sm">Закрыть</button></div>
+    <pre id="cmpOut" class="mt-3 text-xs whitespace-pre-wrap"></pre>
+  </div>
+</div>
+
+<!-- Text input modal (used for AI reverse, paste prompt) -->
+<div id="textModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">
+  <div class="glass rounded-2xl p-6 max-w-2xl w-full">
+    <div class="flex justify-between mb-3"><h3 id="textTitle" class="font-semibold text-lg"></h3><button onclick="textModal.classList.add('hidden')" class="text-2xl subtle">×</button></div>
+    <p id="textHint" class="text-xs subtle mb-2"></p>
+    <textarea id="textArea" rows="8" class="field"></textarea>
+    <div class="flex gap-2 justify-end mt-3"><button onclick="textModal.classList.add('hidden')" class="soft-btn px-4 py-2 text-sm">Отмена</button><button id="textOk" class="btn-primary px-4 py-2 rounded-lg text-sm">OK</button></div>
+  </div>
+</div>
+
+<!-- Critique panel (slide from right) -->
+<div id="critPanel" class="hidden fixed top-0 right-0 h-full w-full sm:w-96 z-50 glass p-5 overflow-auto scrollbar shadow-2xl" style="border-left:1px solid rgba(255,255,255,.1)">
+  <div class="flex justify-between mb-3"><h3 class="font-semibold">🩺 AI Критика</h3><button onclick="critPanel.classList.add('hidden')" class="text-2xl subtle">×</button></div>
+  <div id="critBody" class="text-sm whitespace-pre-wrap leading-relaxed"></div>
+</div>
+
+<!-- Floating chat (AI edit by natural language) -->
+<button id="chatToggle" class="fixed bottom-5 right-5 z-40 btn-primary w-14 h-14 rounded-full shadow-2xl text-2xl" title="Chat: редактируй промт текстом">💬</button>
+<div id="chatPanel" class="hidden fixed bottom-24 right-5 z-40 glass rounded-2xl w-80 sm:w-96 max-h-[70vh] flex flex-col shadow-2xl" style="border:1px solid rgba(255,255,255,.1)">
+  <div class="flex justify-between items-center p-3 border-b border-white/10"><span class="font-semibold text-sm">💬 AI чат-редактор</span><button onclick="chatPanel.classList.add('hidden')" class="text-xl subtle">×</button></div>
+  <div id="chatLog" class="flex-1 overflow-auto scrollbar p-3 space-y-2 text-sm min-h-[200px]"><div class="text-xs subtle">Пиши на любом языке: «добавь дождь и сделай ночь», «убери диалог», «измени стиль на аниме», «сделай шот крупным планом»…</div></div>
+  <div class="p-3 border-t border-white/10 flex gap-2"><input id="chatInput" class="field text-sm" placeholder="напиши изменение..."/><button id="chatSend" class="btn-primary px-3 py-2 rounded-lg text-sm">→</button></div>
+</div>
+
+<div id="aiModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">
+  <div class="glass rounded-2xl p-6 max-w-lg w-full">
+    <div class="flex justify-between mb-4"><h3 class="font-semibold text-lg">⚙ AI настройки</h3><button onclick="aiModal.classList.add('hidden')" class="text-2xl subtle">×</button></div>
+    <div class="flex gap-2 mb-3 flex-wrap text-xs">
+      <button data-aip="openai" class="soft-btn px-3 py-1.5">OpenAI</button>
+      <button data-aip="ollama" class="soft-btn px-3 py-1.5">Ollama локально</button>
+      <button data-aip="deepseek" class="soft-btn px-3 py-1.5">DeepSeek</button>
+    </div>
+    <label class="block text-xs subtle mb-1">Base URL</label><input id="aiBase" class="field mb-3" value="https://api.openai.com/v1"/>
+    <label class="block text-xs subtle mb-1">API Key</label><input id="aiKey" type="password" class="field mb-3" placeholder="sk-..."/>
+    <label class="block text-xs subtle mb-1">Model</label><input id="aiModel" class="field mb-4" value="gpt-4o-mini"/>
+    <div class="flex gap-2 justify-end"><button onclick="aiModal.classList.add('hidden')" class="soft-btn px-4 py-2 text-sm">Отмена</button><button id="aiSave" class="btn-primary px-4 py-2 rounded-lg text-sm">Сохранить</button></div>
+  </div>
+</div>
+
+<div id="varsModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">
+  <div class="glass rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-auto scrollbar">
+    <div class="flex justify-between mb-4"><h3 id="varsTitle" class="font-semibold text-lg">Выберите вариант</h3><button onclick="varsModal.classList.add('hidden')" class="text-2xl subtle">×</button></div>
+    <div id="varsGrid" class="grid sm:grid-cols-2 gap-3"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>
