@@ -2397,6 +2397,11 @@ FORBIDDEN:
 
 ${variantsSpec}
 
+🌐 LANGUAGE RULE — STRICT
+- prompt_en: ALWAYS in ENGLISH — this is for pasting into Sora/Runway/Kling/DALL-E (they work best with English)
+- prompt_ru: faithful Russian translation of prompt_en, same structure, same details — for user understanding
+The Russian translation must be a real translation, not a separate prompt. Same length, same concepts.
+
 Reply ONLY as JSON:
 {
   "core": {
@@ -2406,7 +2411,8 @@ Reply ONLY as JSON:
   },
   "variants": [
     {
-      "prompt": "ready-to-paste English prompt, ${wordCount} words. MUST include core subject+action+object literally and prominently.",
+      "prompt_en": "ready-to-paste ENGLISH prompt, ${wordCount} words. MUST include core subject+action+object literally and prominently. Single paragraph.",
+      "prompt_ru": "точный русский перевод prompt_en, та же структура, та же длина. Сохраняй все технические термины (lens, aspect ratio, 24fps, anamorphic) транслитерацией или в скобках по-английски.",
       "approach": "${count===3?'action|emotion|visual':'unified'}",
       "title": "Russian short title (3-5 words)",
       "score": 0-100,
@@ -2420,14 +2426,19 @@ Reply ONLY as JSON:
     if(!res)throw new Error('Пустой ответ');
     const j=JSON.parse(res);
     assertShape(j,{variants:'array'},'txtGenerate');
-    j.variants.forEach((v,i)=>assertShape(v,{prompt:'string'},'variant['+i+']'));
+    // Backward compat: if AI returned old "prompt" field, treat as English
+    j.variants.forEach((v,i)=>{
+      if(!v.prompt_en&&v.prompt)v.prompt_en=v.prompt;
+      if(!v.prompt_ru)v.prompt_ru='';
+      assertShape(v,{prompt_en:'string'},'variant['+i+']');
+    });
     j.variants.sort((a,b)=>(b.score||0)-(a.score||0));
 
-    // CORE PRESERVATION CHECK — verify each variant includes core action/object
+    // CORE PRESERVATION CHECK — verify each English variant includes core action/object
     const core=j.core||{};
     const coreWords=[(core.action||''),(core.object||'')].filter(Boolean).join(' ').toLowerCase().split(/\W+/).filter(w=>w.length>=3);
     j.variants.forEach(v=>{
-      const lc=(v.prompt||'').toLowerCase();
+      const lc=(v.prompt_en||'').toLowerCase();
       const missing=coreWords.filter(w=>!lc.includes(w));
       v._coreMissing=missing.length>0?missing:null;
     });
@@ -2456,10 +2467,19 @@ Reply ONLY as JSON:
             <span class="text-xs subtle">${target.icon} ${aspect} · ${style.icon} ${style.label}</span>
           </div>
           ${v.why?`<div class="text-xs subtle italic mb-2">💡 ${v.why.replace(/</g,'&lt;')}</div>`:''}
-          ${v._coreMissing?`<div class="text-xs mb-2 p-2 rounded bg-red-500/15 border border-red-500/40 text-red-300">⚠ Возможно потеряно ядро: <b>${v._coreMissing.join(', ')}</b> — нажми «✨ Восстановить ядро»</div>`:''}
-          <div class="text-sm whitespace-pre-wrap leading-relaxed mb-3 p-3 rounded-lg bg-black/20 border border-white/5">${v.prompt.replace(/</g,'&lt;')}</div>
+          ${v._coreMissing?`<div class="text-xs mb-2 p-2 rounded bg-red-500/15 border border-red-500/40 text-red-300">⚠ Возможно потеряно ядро: <b>${v._coreMissing.join(', ')}</b> — нажми «🔒 Восстановить ядро»</div>`:''}
+          <div class="mb-2">
+            <div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN — для вставки в Sora/Runway/Kling/DALL·E</div>
+            <div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/20 border border-white/5" data-prompt="en">${v.prompt_en.replace(/</g,'&lt;')}</div>
+          </div>
+          ${v.prompt_ru?`
+          <details class="mb-3">
+            <summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer hover:text-violet-400">🇷🇺 RU — перевод для понимания (нажми чтобы развернуть)</summary>
+            <div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/10 border border-white/5 mt-2 italic" data-prompt="ru">${v.prompt_ru.replace(/</g,'&lt;')}</div>
+          </details>`:''}
           <div class="flex flex-wrap gap-2">
-            <button class="soft-btn text-xs px-3 py-1.5" data-act="copy">📋 Копировать</button>
+            <button class="soft-btn text-xs px-3 py-1.5" data-act="copyEn">📋 EN</button>
+            ${v.prompt_ru?`<button class="soft-btn text-xs px-3 py-1.5" data-act="copyRu">📋 RU</button>`:''}
             <button class="soft-btn text-xs px-3 py-1.5" data-act="image" title="Открыть в Image Mode с aspect ${aspect}">🖼 → В картинку (${aspect})</button>
             <button class="soft-btn text-xs px-3 py-1.5" data-act="preview" title="Сразу сгенерировать кадр">🖼 Превью</button>
             ${target.k==='video'?`<button class="soft-btn text-xs px-3 py-1.5" data-act="pro">🎬 → В Pro mode</button>`:''}
@@ -2469,9 +2489,15 @@ Reply ONLY as JSON:
 
     out.querySelectorAll('.sm-result[data-vi]').forEach((card)=>{
       const i=+card.dataset.vi;const v=j.variants[i];
-      card.querySelector('[data-act="copy"]').onclick=()=>{navigator.clipboard.writeText(v.prompt);toast('📋 Скопировано');};
+      const enBox=()=>card.querySelector('[data-prompt="en"]');
+      const ruBox=()=>card.querySelector('[data-prompt="ru"]');
+
+      card.querySelector('[data-act="copyEn"]').onclick=()=>{navigator.clipboard.writeText(v.prompt_en||'');toast('📋 EN скопирован');};
+      const copyRuBtn=card.querySelector('[data-act="copyRu"]');
+      if(copyRuBtn)copyRuBtn.onclick=()=>{navigator.clipboard.writeText(v.prompt_ru||'');toast('📋 RU скопирован');};
+
       card.querySelector('[data-act="image"]').onclick=()=>{
-        document.getElementById('imgIdea').value=v.prompt;
+        document.getElementById('imgIdea').value=v.prompt_en||'';
         const sz=_aspectToImgSize(aspect);
         if(typeof _imgSize!=='undefined'){_imgSize=sz;}
         try{document.querySelectorAll('#imgSizeTiles .sm-tile').forEach(el=>el.classList.toggle('active',el.dataset.size===sz));}catch(e){}
@@ -2481,7 +2507,7 @@ Reply ONLY as JSON:
       card.querySelector('[data-act="preview"]').onclick=async(e)=>{
         const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
         try{
-          const urls=await generateImage(v.prompt,{size:_aspectToImgSize(aspect)});
+          const urls=await generateImage(v.prompt_en||'',{size:_aspectToImgSize(aspect)});
           if(urls&&urls[0]){
             let prev=card.querySelector('.sm-preview');
             if(!prev){prev=document.createElement('div');prev.className='sm-preview mt-3';card.appendChild(prev);}
@@ -2492,7 +2518,8 @@ Reply ONLY as JSON:
       const proBtn=card.querySelector('[data-act="pro"]');
       if(proBtn)proBtn.onclick=()=>{
         setMode('pro');
-        setTimeout(()=>{const sub=$('subject');if(sub){sub.value=v.prompt.slice(0,200);sub.dispatchEvent(new Event('change'));}const o=$('outEnView');if(o){o.textContent=v.prompt;o.dataset.raw=v.prompt;}toast('🎛 Открыт в Pro mode');},200);
+        const en=v.prompt_en||'';
+        setTimeout(()=>{const sub=$('subject');if(sub){sub.value=en.slice(0,200);sub.dispatchEvent(new Event('change'));}const o=$('outEnView');if(o){o.textContent=en;o.dataset.raw=en;}toast('🎛 Открыт в Pro mode');},200);
       };
       card.querySelector('[data-act="improve"]').onclick=async(e)=>{
         const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
@@ -2501,27 +2528,38 @@ Reply ONLY as JSON:
           if(v._coreMissing){
             sysImp=`The user's CORE IDEA is: subject="${core.subject}", action="${core.action}"${core.object?', object="'+core.object+'"':''}.
 This prompt LOST the core. Rewrite it so the subject literally and visibly performs the action${core.object?' on/with the object':''}. Keep all cinematic detail (camera, lens, lighting, mood, style) but make sure the central act of "${core.subject} ${core.action}${core.object?' '+core.object:''}" is the visible focal point of the frame, not background atmosphere.
-Keep aspect ratio ${aspect} and same length range. Reply ONLY with the rewritten English prompt text, no preamble, no JSON.`;
+Keep aspect ratio ${aspect} and same length range.
+Reply ONLY as JSON: {"prompt_en":"the rewritten ENGLISH prompt","prompt_ru":"faithful Russian translation"}.`;
           }else{
-            sysImp=`Improve this AI prompt: add more concrete sensory specifics, replace vague adjectives with precise visual detail, strengthen camera/lens/lighting blocks, deepen mood. CRITICAL: the subject "${core.subject||''}" performing action "${core.action||''}"${core.object?' with "'+core.object+'"':''} must remain the visible focal point. Do NOT lose the core action. Keep aspect ratio ${aspect} and same length range. Reply ONLY with the improved English prompt text, no preamble, no JSON.`;
+            sysImp=`Improve this AI prompt: add more concrete sensory specifics, replace vague adjectives with precise visual detail, strengthen camera/lens/lighting blocks, deepen mood. CRITICAL: the subject "${core.subject||''}" performing action "${core.action||''}"${core.object?' with "'+core.object+'"':''} must remain the visible focal point. Do NOT lose the core action. Keep aspect ratio ${aspect} and same length range.
+Reply ONLY as JSON: {"prompt_en":"the improved ENGLISH prompt","prompt_ru":"faithful Russian translation"}.`;
           }
-          const better=await aiCall([{role:'system',content:sysImp},{role:'user',content:v.prompt}]);
+          const better=await aiCall([{role:'system',content:sysImp},{role:'user',content:'EN: '+(v.prompt_en||'')}],{json:true});
           if(better){
-            v.prompt=better.trim();
+            try{
+              const jb=JSON.parse(better);
+              if(jb.prompt_en)v.prompt_en=String(jb.prompt_en).trim();
+              if(jb.prompt_ru)v.prompt_ru=String(jb.prompt_ru).trim();
+            }catch(_){
+              // fallback: treat whole reply as English prompt
+              v.prompt_en=better.trim();
+            }
             v.score=Math.min(100,(v.score||70)+5);
             // Re-check core
-            const lc=v.prompt.toLowerCase();
+            const lc=(v.prompt_en||'').toLowerCase();
             const stillMissing=coreWords.filter(w=>!lc.includes(w));
             v._coreMissing=stillMissing.length>0?stillMissing:null;
-            // Re-render this card
-            card.querySelector('.bg-black\\/20').textContent=v.prompt;
+            // Re-render boxes
+            const en=enBox();if(en)en.textContent=v.prompt_en;
+            const ru=ruBox();if(ru&&v.prompt_ru)ru.textContent=v.prompt_ru;
             const warn=card.querySelector('.bg-red-500\\/15');
             if(warn)warn.remove();
             if(v._coreMissing){
               const w=document.createElement('div');
               w.className='text-xs mb-2 p-2 rounded bg-red-500/15 border border-red-500/40 text-red-300';
               w.innerHTML=`⚠ Всё ещё потеряно: <b>${v._coreMissing.join(', ')}</b>`;
-              card.querySelector('.bg-black\\/20').before(w);
+              const enWrap=en?en.parentElement:null;
+              if(enWrap)enWrap.parentElement.insertBefore(w,enWrap);
             }else{
               b.textContent='✨ Ещё детальнее';
             }
