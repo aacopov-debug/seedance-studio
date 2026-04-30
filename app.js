@@ -2079,14 +2079,19 @@ function phOpenEntry(entry){
     if(out){
       // Re-render text variants (lightweight: just show as cards with EN/RU + copy)
       out.innerHTML=`<div class="text-xs subtle mb-3">🕘 Из истории · ${phFmtTs(entry.ts)} · ${entry.variants.length} вар.</div>`+
-        entry.variants.map((v,i)=>`<div class="sm-result">
+        entry.variants.map((v,i)=>`<div class="sm-result" data-hi="${i}">
           <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
             <div class="flex items-center gap-2"><span class="font-semibold text-sm">📌 ${(v.title||'Вариант '+(i+1)).replace(/</g,'&lt;')}</span>${typeof v.score==='number'?`<span class="sm-score ${smScoreClass(v.score)}">⭐ ${v.score}/100</span>`:''}</div>
           </div>
           <div class="mb-2"><div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN</div><div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/20 border border-white/5">${(v.prompt_en||'').replace(/</g,'&lt;')}</div></div>
           ${v.prompt_ru?`<details class="mb-2"><summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer">🇷🇺 RU</summary><div class="text-sm whitespace-pre-wrap p-3 rounded-lg bg-black/10 border border-white/5 mt-2 italic">${v.prompt_ru.replace(/</g,'&lt;')}</div></details>`:''}
-          <div class="flex gap-2"><button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText(${JSON.stringify(v.prompt_en||'')});toast('📋 EN')">📋 EN</button>${v.prompt_ru?`<button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText(${JSON.stringify(v.prompt_ru)});toast('📋 RU')">📋 RU</button>`:''}</div>
+          <div class="flex gap-2"><button class="soft-btn text-xs px-3 py-1.5" data-hist-act="copyEn">📋 EN</button>${v.prompt_ru?`<button class="soft-btn text-xs px-3 py-1.5" data-hist-act="copyRu">📋 RU</button>`:''}</div>
         </div>`).join('');
+      out.querySelectorAll('.sm-result[data-hi]').forEach(card=>{
+        const i=+card.dataset.hi;const v=entry.variants[i];
+        card.querySelector('[data-hist-act="copyEn"]').onclick=()=>{navigator.clipboard.writeText(v.prompt_en||'');toast('📋 EN');};
+        const r=card.querySelector('[data-hist-act="copyRu"]');if(r)r.onclick=()=>{navigator.clipboard.writeText(v.prompt_ru||'');toast('📋 RU');};
+      });
       out.insertAdjacentHTML('beforeend',bxBarHtml('text-history'));
       bxWire(out,'text-history',entry.meta||{},entry.variants);
     }
@@ -2101,14 +2106,19 @@ function phOpenEntry(entry){
     const out=document.getElementById('i2pResults');
     if(out){
       out.innerHTML=`<div class="text-xs subtle mb-3">🕘 Из истории · ${phFmtTs(entry.ts)} · ${entry.variants.length} вар. · ${(entry.idea||'').replace(/</g,'&lt;')}</div>`+
-        entry.variants.map((v,i)=>`<div class="sm-result">
+        entry.variants.map((v,i)=>`<div class="sm-result" data-hi="${i}">
           <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
             <div class="flex items-center gap-2"><span class="font-semibold text-sm">📌 ${(v.title||'Вариант '+(i+1)).replace(/</g,'&lt;')}</span>${typeof v.score==='number'?`<span class="sm-score ${smScoreClass(v.score)}">⭐ ${v.score}/100</span>`:''}</div>
           </div>
           <div class="mb-2"><div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN</div><div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/20 border border-white/5">${(v.prompt_en||'').replace(/</g,'&lt;')}</div></div>
           ${v.prompt_ru?`<details class="mb-2"><summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer">🇷🇺 RU</summary><div class="text-sm whitespace-pre-wrap p-3 rounded-lg bg-black/10 border border-white/5 mt-2 italic">${v.prompt_ru.replace(/</g,'&lt;')}</div></details>`:''}
-          <div class="flex gap-2"><button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText(${JSON.stringify(v.prompt_en||'')});toast('📋 EN')">📋 EN</button>${v.prompt_ru?`<button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText(${JSON.stringify(v.prompt_ru)});toast('📋 RU')">📋 RU</button>`:''}</div>
+          <div class="flex gap-2"><button class="soft-btn text-xs px-3 py-1.5" data-hist-act="copyEn">📋 EN</button>${v.prompt_ru?`<button class="soft-btn text-xs px-3 py-1.5" data-hist-act="copyRu">📋 RU</button>`:''}</div>
         </div>`).join('');
+      out.querySelectorAll('.sm-result[data-hi]').forEach(card=>{
+        const i=+card.dataset.hi;const v=entry.variants[i];
+        card.querySelector('[data-hist-act="copyEn"]').onclick=()=>{navigator.clipboard.writeText(v.prompt_en||'');toast('📋 EN');};
+        const r=card.querySelector('[data-hist-act="copyRu"]');if(r)r.onclick=()=>{navigator.clipboard.writeText(v.prompt_ru||'');toast('📋 RU');};
+      });
       out.insertAdjacentHTML('beforeend',bxBarHtml('i2p-history'));
       bxWire(out,'i2p-history',entry.meta||{},entry.variants);
     }
@@ -3141,16 +3151,20 @@ Reply ONLY as JSON:
   const file=document.getElementById('i2pFile');
   const clr=document.getElementById('i2pClear');
   drop?.addEventListener('click',e=>{if(e.target.closest('button'))return;file?.click();});
-  drop?.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('border-violet-400');});
-  drop?.addEventListener('dragleave',()=>drop.classList.remove('border-violet-400'));
-  drop?.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('border-violet-400');i2pHandleFile(e.dataTransfer.files?.[0]);});
+  let dragDepth=0;
+  drop?.addEventListener('dragenter',e=>{e.preventDefault();dragDepth++;drop.classList.add('border-violet-400');});
+  drop?.addEventListener('dragover',e=>e.preventDefault());
+  drop?.addEventListener('dragleave',()=>{dragDepth=Math.max(0,dragDepth-1);if(dragDepth===0)drop.classList.remove('border-violet-400');});
+  drop?.addEventListener('drop',e=>{e.preventDefault();dragDepth=0;drop.classList.remove('border-violet-400');i2pHandleFile(e.dataTransfer.files?.[0]);});
   file?.addEventListener('change',e=>i2pHandleFile(e.target.files?.[0]));
   clr?.addEventListener('click',e=>{e.stopPropagation();i2pSetImage(null);if(file)file.value='';});
-  // Paste from clipboard
+  // Paste from clipboard — only when i2p tab is active AND focus is not in a text input
   document.addEventListener('paste',e=>{
     if(document.getElementById('smI2pPanel')?.classList.contains('sm-hidden'))return;
+    const tag=(e.target?.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||e.target?.isContentEditable)return;
     const items=e.clipboardData?.items;if(!items)return;
-    for(const it of items){if(it.type.startsWith('image/')){i2pHandleFile(it.getAsFile());break;}}
+    for(const it of items){if(it.type&&it.type.startsWith('image/')){const f=it.getAsFile();if(f){e.preventDefault();i2pHandleFile(f);break;}}}
   });
   document.getElementById('i2pGenerate')?.addEventListener('click',i2pGenerate);
   document.getElementById('phOpenBtnI2p')?.addEventListener('click',()=>phToggle(true));

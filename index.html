@@ -50,7 +50,10 @@ html[data-theme="light"] .sm-tile:hover{border-color:#a78bfa}
 .sm-tile-icon{font-size:24px;display:block;margin-bottom:4px;line-height:1}
 .sm-tile-label{font-size:13px;font-weight:600}
 .sm-tile-sub{font-size:10px;opacity:.6;margin-top:2px;line-height:1.2}
-.sm-result{padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03)}
+.sm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+@media (max-width:480px){.sm-grid{grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:6px}.sm-tile{padding:10px 6px}.sm-tile-icon{font-size:20px}.sm-tile-label{font-size:12px}}
+@media (max-width:640px){#phModal>div{max-height:95vh!important;max-width:100%!important}.soft-btn{min-height:32px}}
+.sm-result{padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);overflow-wrap:anywhere}
 html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 .sm-score{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700}
 .sm-score-high{background:rgba(16,185,129,.2);color:#10b981}
