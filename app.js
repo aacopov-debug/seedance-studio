@@ -268,8 +268,10 @@ function applyState(s){if(!s)return;FIELDS.forEach(f=>{if(s[f]!=null&&$(f))$(f).
 function saveState(){try{safeLS('seedance_state',JSON.stringify(collectState()));}catch(e){console.debug(e)}}
 function loadStateFn(){if(location.hash.startsWith('#s=')){try{applyState(JSON.parse(ub64(location.hash.slice(3))));toast('Загружено');return;}catch(e){console.debug(e)}}const r=localStorage.getItem('seedance_state');if(r){try{applyState(JSON.parse(r));}catch(e){console.debug(e)}}}
 
-$('themeBtn').onclick=()=>{const c=document.documentElement.dataset.theme,n=c==='dark'?'light':'dark';document.documentElement.dataset.theme=n;safeLS('seedance_theme',n);};
+function syncThemeIcon(){const t=document.documentElement.dataset.theme;const i=document.querySelector('#themeBtn i[data-lucide]');if(i){i.setAttribute('data-lucide',t==='dark'?'moon':'sun');try{window.refreshIcons&&window.refreshIcons()}catch(e){}}}
+$('themeBtn').onclick=()=>{const c=document.documentElement.dataset.theme,n=c==='dark'?'light':'dark';document.documentElement.dataset.theme=n;safeLS('seedance_theme',n);syncThemeIcon();};
 const sT=localStorage.getItem('seedance_theme');if(sT)document.documentElement.dataset.theme=sT;else if(matchMedia('(prefers-color-scheme: light)').matches)document.documentElement.dataset.theme='light';
+setTimeout(syncThemeIcon,150);
 
 const aiModal=$('aiModal'),varsModal=$('varsModal');
 $('aiSettingsBtn').onclick=()=>{aiModal.classList.remove('hidden');$('aiBase').value=localStorage.getItem('ai_base')||'https://api.openai.com/v1';$('aiKey').value=localStorage.getItem('ai_key')||'';$('aiModel').value=localStorage.getItem('ai_model')||'gpt-4o-mini';};
