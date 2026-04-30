@@ -263,6 +263,205 @@ function registerSW(){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
+/* ============================================================
+   I18N — RU/EN UI translation (selector-based, no HTML pollution)
+   ============================================================ */
+/* EN dictionary: [selector, prop, english] — prop: 'text' | 'title' | 'ph' (placeholder) | 'html' */
+const I18N_EN=[
+  // Header
+  ['[data-i18n="app.subtitle"]','text','Professional prompt generator'],
+  ['#pwaInstall span','text','Install'],
+  ['#pwaInstall','title','Install as app'],
+  ['#modeToggle','title','Toggle Simple ↔ Pro'],
+  ['#themeBtn','title','Theme'],
+  ['#aiSettingsBtn','title','AI settings'],
+  ['#shareBtn','title','Share link'],
+  ['#cmpBtn','title','Compare two prompts'],
+  ['#undoBtn','title','Undo (Ctrl+Z)'],
+  ['#redoBtn','title','Redo (Ctrl+Shift+Z)'],
+
+  // Simple Mode tabs
+  ['.sm-tab[data-smtab="video"]','text','🎬 Video'],
+  ['.sm-tab[data-smtab="image"]','text','🖼 Image'],
+  ['.sm-tab[data-smtab="text"]','text','📝 Text'],
+  ['.sm-tab[data-smtab="i2p"]','text','🔍 Img→Prompt'],
+
+  // Simple Video panel
+  ['#smVideoPanel h2','text','Create AI video prompt'],
+  ['#smVideoPanel > p.subtle','text','Describe your idea, pick a format → get a polished prompt in 30 seconds'],
+  ['#smIdea','ph','Example: a watch ad in blockbuster style'],
+  ['#smGenerate','text','✨ Create prompt'],
+  ['#phOpenBtnVideo span','text','History'],
+  ['#phOpenBtnVideo','title','Prompt history'],
+  ['#smBrand','ph','Rolex Submariner'],
+  ['#smMessage','ph','luxury and precision'],
+
+  // Simple Image panel
+  ['#smImagePanel h2','text','🖼 Create an image'],
+  ['#smImagePanel > p.subtle','text','Text-to-image · DALL·E 3 · reference or final image'],
+  ['#imgIdea','ph','Example: girl with silver hair in a neon coat, cyberpunk city, night'],
+  ['#imgGenerate','text','✨ Create image'],
+
+  // Simple Text panel
+  ['#smTextPanel h2','text','📝 Text → Prompt'],
+  ['#smTextPanel > p.subtle','text','Paste any text — AI will produce 3 professional prompts (action / emotion / visual)'],
+  ['#txtInput','ph','Example: "An old lighthouse on a rocky shore. Fog wraps the tower, the beam cuts through darkness. Seagulls cry, surf roars..."'],
+  ['#txtGenerate','text','✨ Create prompt'],
+  ['#phOpenBtnText span','text','History'],
+  ['#phOpenBtnText','title','Prompt history'],
+
+  // Simple I2P panel
+  ['#smI2pPanel h2','text','🔍 Image → Prompt'],
+  ['#smI2pPanel > p.subtle','text','Upload a reference — AI extracts style, composition, light and creates 3 ready prompts to recreate in Sora/Runway/DALL·E'],
+  ['#i2pDropEmpty > div.text-sm','text','Drag image here or click to upload'],
+  ['#i2pDropEmpty > div.text-xs','text','JPG, PNG, WEBP · up to 10 MB · or paste from clipboard (Ctrl+V)'],
+  ['#i2pClear span','text','Remove image'],
+  ['#i2pMod','ph','e.g. but in a winter landscape / with a cat instead of a dog'],
+  ['#i2pGenerate','text','✨ Create prompt from image'],
+  ['#phOpenBtnI2p span','text','History'],
+  ['#phOpenBtnI2p','title','Prompt history'],
+
+  // Bottom hint
+  ['#simpleMode .text-center.mt-4 #smGoPro','text','Open Pro mode →'],
+
+  // Pro mode tabs
+  ['.tab[data-tab="t2v"]','text','📝 Text-to-Video'],
+  ['.tab[data-tab="i2v"]','text','🖼 Image-to-Video'],
+
+  // Pro: AI auto-fill banner
+  ['#aiAutoFill','text','⚡ Fill'],
+  ['#oneLineIdea','ph','samurai girl cuts sakura under a full moon'],
+
+  // Pro: i2v block
+  ['#i2vBlock h2','text','🖼 Reference frames'],
+  ['#motion','ph','hair flowing, eyes blinking, camera pushes in'],
+
+  // Pro: Idea panel
+  ['#randomBtn span','text','Random'],
+  ['#randomBtn','title','Random idea'],
+  ['#aiEnhanceBtn span','text','Improve'],
+  ['#aiEnhanceBtn','title','AI rewrites the prompt'],
+  ['#aiCritiqueBtn span','text','Critique'],
+  ['#aiCritiqueBtn','title','AI critique'],
+  ['#aiReverseBtn span','text','Reverse'],
+  ['#aiReverseBtn','title','Parse external prompt'],
+  ['#libSubjBtn','title','Subject library'],
+  ['#libSceneBtn','title','Scene library'],
+  ['#libLightBtn','title','Lighting recipes'],
+  ['#subject','ph','girl with silver hair in a neon coat'],
+  ['#character','ph','same character: silver hair, neon raincoat, green eyes'],
+  ['#action','ph','slowly walks through wet streets'],
+  ['#scene','ph','cyberpunk night city in the rain'],
+  ['#details','ph','reflections in puddles, light fog'],
+
+  // Pro: Sound
+  ['#ambient','ph','city traffic, soft rain'],
+  ['#sfx','ph','footsteps, neon hum'],
+  ['#dialogue','ph','woman whispers: "..."'],
+
+  // Pro: Generate area
+  ['#generate','text','✨ Generate'],
+  ['#abBtn span','text','4 variants'],
+  ['#abBtn','title','4 versions with different parameters'],
+  ['#reset span','text','Reset'],
+  ['#reset','title','Reset form'],
+
+  // Pro: Output panel
+  ['#copyEn','title','Copy English'],
+  ['#copyRu','title','Copy Russian'],
+  ['#favBtn','title','Add to favorites'],
+  ['#exportTxt','title','Export .txt'],
+  ['#exportMd','title','Export .md'],
+  ['#exportJson','title','Export .json'],
+  ['#speakBtn','title','Read aloud'],
+  ['#negSuggestBtn','title','AI suggests negative'],
+  ['button[data-refine="shorter"]','text','shorter'],
+  ['button[data-refine="epic"]','text','epic'],
+  ['button[data-refine="more details"]','text','more details'],
+  ['button[data-refine="cinematic"]','text','cinematic'],
+  ['button[data-refine="darker mood"]','text','darker mood'],
+  ['button[data-refine="lighter mood"]','text','lighter mood'],
+
+  // Pro: Sidebar
+  ['.sideTab[data-side="hist"]','text','History'],
+  ['.sideTab[data-side="fav"] span[data-i18n="side.fav"]','text','Favorites'],
+  ['#clearList','text','Clear'],
+  ['#listSearch','ph','🔎 search...'],
+  ['#savePresetBtn span','text','Save'],
+
+  // Pro: Beats / Multi-shot toggles
+  ['#addBeat','text','+ Frame'],
+  ['#addShot','text','+ Shot'],
+
+  // Floating chat
+  ['#chatToggle','title','Chat: edit prompt with text'],
+  ['#chatInput','ph','type a change...'],
+];
+
+/* Apply i18n: when locale=en → swap; when locale=ru → restore originals (saved on first apply) */
+function applyI18n(loc){
+  document.documentElement.lang=loc;
+  I18N_EN.forEach(([sel,prop,en])=>{
+    const els=document.querySelectorAll(sel);if(!els.length)return;
+    els.forEach(el=>{
+      const key='i18nOrig_'+prop;
+      if(loc==='en'){
+        if(!el.dataset[key]){
+          if(prop==='text')el.dataset[key]=(el.querySelector('span')?el.querySelector('span').textContent:el.textContent)||'';
+          else if(prop==='title')el.dataset[key]=el.title||'';
+          else if(prop==='ph')el.dataset[key]=el.placeholder||'';
+        }
+        if(prop==='text'){
+          // Prefer last text node / or replace all children with text only if no icon child
+          if(el.querySelector('span')&&el.children.length>=1&&el.querySelector('i[data-lucide]')){
+            el.querySelector('span').textContent=en;
+          }else{
+            el.textContent=en;
+          }
+        }
+        else if(prop==='title')el.title=en;
+        else if(prop==='ph')el.placeholder=en;
+      }else{
+        const orig=el.dataset[key];if(orig==null)return;
+        if(prop==='text'){
+          if(el.querySelector('span')&&el.querySelector('i[data-lucide]'))el.querySelector('span').textContent=orig;
+          else el.textContent=orig;
+        }
+        else if(prop==='title')el.title=orig;
+        else if(prop==='ph')el.placeholder=orig;
+      }
+    });
+  });
+  try{localStorage.setItem('seedance_locale',loc);}catch(e){}
+}
+window.applyI18n=applyI18n;
+
+/* ============================================================
+   PWA INSTALL — beforeinstallprompt handler
+   ============================================================ */
+let _pwaDeferred=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  _pwaDeferred=e;
+  const btn=document.getElementById('pwaInstall');
+  if(btn)btn.classList.remove('hidden');
+});
+window.addEventListener('appinstalled',()=>{
+  const btn=document.getElementById('pwaInstall');
+  if(btn)btn.classList.add('hidden');
+  _pwaDeferred=null;
+  try{toast&&toast('✓ Приложение установлено','success');}catch(e){}
+});
+function pwaInstallClick(){
+  if(!_pwaDeferred){
+    // iOS / browsers without API: show hint
+    try{toast&&toast('iOS: «Поделиться» → «На экран Домой». Desktop Chrome: иконка установки в адресной строке.','info');}catch(e){}
+    return;
+  }
+  _pwaDeferred.prompt();
+  _pwaDeferred.userChoice.finally(()=>{_pwaDeferred=null;});
+}
+
 /* === INIT === */
 document.addEventListener('DOMContentLoaded',()=>{
   setTimeout(()=>{
@@ -270,6 +469,19 @@ document.addEventListener('DOMContentLoaded',()=>{
     registerSW();
     // Add Templates command to Cmd Palette
     try{if(window.CMDS)CMDS.push({n:'📚 Шаблоны промтов',h:tplOpenModal},{n:'🎓 Запустить тур заново',h:()=>tourStart(true)});}catch(e){}
+    // PWA install button wiring
+    const pwaBtn=document.getElementById('pwaInstall');
+    if(pwaBtn)pwaBtn.onclick=pwaInstallClick;
+    // i18n: restore last-used locale and wire change listener
+    const loc=document.getElementById('locale');
+    if(loc){
+      const saved=localStorage.getItem('seedance_locale');
+      if(saved){loc.value=saved;}
+      // Apply on init only if EN (RU is default rendered HTML)
+      if(loc.value==='en')applyI18n('en');
+      // Listen for changes (in addition to existing listener which only affects speech)
+      loc.addEventListener('change',()=>applyI18n(loc.value));
+    }
     // Auto-start tour on first visit (delay so UI is ready)
     setTimeout(()=>tourStart(),800);
   },200);

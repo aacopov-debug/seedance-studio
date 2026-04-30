@@ -303,10 +303,11 @@ h1{font-feature-settings:'ss03','cv11'}
     <div class="logo-mark w-11 h-11 rounded-xl grid place-items-center"><i data-lucide="play" class="w-6 h-6" style="color:#fff;fill:#fff"></i></div>
     <div>
       <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">Seedance <span class="grad-text">2.0</span> <span class="text-[11px] font-medium subtle ml-1 px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-400/20">Prompt Studio</span></h1>
-      <p class="text-xs subtle mt-0.5">Профессиональный генератор промтов</p>
+      <p class="text-xs subtle mt-0.5" data-i18n="app.subtitle">Профессиональный генератор промтов</p>
     </div>
   </div>
   <div class="flex items-center gap-1.5 text-xs flex-wrap">
+    <button id="pwaInstall" class="soft-btn px-3 py-1.5 inline-flex items-center gap-1.5 hidden" title="Установить приложение" data-i18n-title="pwa.install"><i data-lucide="download"></i><span data-i18n="pwa.install.btn">Установить</span></button>
     <select id="locale" class="field !w-auto !py-1.5 !text-xs"><option value="ru">🇷🇺 RU</option><option value="en">🇬🇧 EN</option></select>
     <button id="modeToggle" class="soft-btn px-3 py-1.5 inline-flex items-center gap-1.5" title="Переключить Simple ↔ Pro"><i data-lucide="sliders-horizontal"></i><span>Pro</span></button>
     <button id="themeBtn" class="soft-btn px-2.5 py-1.5 inline-flex items-center" title="Тема"><i data-lucide="moon"></i></button>
@@ -687,7 +688,7 @@ h1{font-feature-settings:'ss03','cv11'}
   <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
     <div class="inline-flex gap-1 p-1 rounded-lg glass">
       <button class="sideTab tab-active px-3 py-1.5 rounded text-xs" data-side="hist">История</button>
-      <button class="sideTab px-3 py-1.5 rounded text-xs" data-side="fav">★ Избранное</button>
+      <button class="sideTab px-3 py-1.5 rounded text-xs inline-flex items-center gap-1.5" data-side="fav"><i data-lucide="star"></i><span data-i18n="side.fav">Избранное</span></button>
     </div>
     <button id="clearList" class="text-xs subtle">Очистить</button>
   </div>
