@@ -1,8 +1,8 @@
 /* ============================================================
-   LUMEN — EXTRAS v11.5
+   LUMEN — EXTRAS v11.5.1
    Skeleton loaders · Templates Gallery · Onboarding Tour · PWA
    ============================================================ */
-window.LUMEN_VERSION='11.5';
+window.LUMEN_VERSION='11.5.1';
 console.log('%c✨ Lumen v'+window.LUMEN_VERSION+' loaded','color:#a78bfa;font-weight:bold;font-size:13px');
 
 /* === SKELETON LOADER === */
@@ -292,7 +292,7 @@ const TOUR_STEPS=[
        // Trigger input event so any reactive logic (word counter, etc.) updates
        try{target.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
        if(i<text.length){timer=setTimeout(tick,32);}
-       else{console.info('[tour] step1: typewriter done');}
+       else{console.info('[tour] step1: typewriter done, value.length=',target.value.length,'value=',JSON.stringify(target.value.slice(0,30)+'...'));}
      };
      timer=setTimeout(tick,150);
      return ()=>{

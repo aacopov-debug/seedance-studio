@@ -217,7 +217,8 @@ details[open]>summary::before{transform:rotate(90deg)}
 .tour-popover-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .tour-step{font-size:11px;color:var(--violet);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
 .tour-popover{transition:top .42s cubic-bezier(.4,0,.2,1),left .42s cubic-bezier(.4,0,.2,1),opacity .25s ease}
-.tour-typing{box-shadow:0 0 0 2px rgba(167,139,250,.5),0 0 24px rgba(167,139,250,.35)!important;background:rgba(167,139,250,.05)!important;transition:box-shadow .3s ease}
+.tour-typing{box-shadow:0 0 0 2px rgba(167,139,250,.55),0 0 24px rgba(167,139,250,.4)!important;background:rgba(20,15,35,.95)!important;color:#ffffff!important;font-weight:500!important;caret-color:#a78bfa!important;transition:box-shadow .3s ease}
+.tour-typing::placeholder{color:rgba(167,139,250,.4)!important}
 .tour-typing::after{content:'';position:absolute}
 
 /* === TEMPLATES floating preview tooltip === */
@@ -888,8 +889,8 @@ h1{font-feature-settings:'ss03','cv11'}
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=11.5" defer></script>
-<script src="extras.js?v=11.5" defer></script>
+<script src="app.js?v=11.5.1" defer></script>
+<script src="extras.js?v=11.5.1" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){
