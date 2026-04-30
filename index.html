@@ -153,7 +153,7 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 
     <div id="smTextPanel" class="sm-hidden">
       <h2 class="text-2xl sm:text-3xl font-extrabold mb-1">📝 Текст → Промт</h2>
-      <p class="text-sm subtle mb-6">Вставь любой текст (стих, историю, пост, описание) — AI сделает из него готовый промт</p>
+      <p class="text-sm subtle mb-6">Вставь любой текст — AI сделает 3 профессиональных промта (action / emotion / visual)</p>
 
       <label class="block text-sm font-medium mb-2">📋 Твой текст</label>
       <textarea id="txtInput" rows="6" class="field text-base mb-5" placeholder="Например: «Старый маяк на скалистом берегу. Туман окутывает башню, луч прожектора режет тьму. Слышно крики чаек и шум прибоя...»"></textarea>
@@ -161,15 +161,39 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
       <label class="block text-sm font-medium mb-2">🎯 Сделать промт для:</label>
       <div id="txtTargetTiles" class="grid grid-cols-2 gap-2 mb-5"></div>
 
+      <label class="block text-sm font-medium mb-2">📐 Соотношение сторон</label>
+      <div id="txtAspectTiles" class="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-5"></div>
+
       <label class="block text-sm font-medium mb-2">🎨 Стиль</label>
       <div id="txtStyleTiles" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5"></div>
+
+      <details class="mb-5">
+        <summary class="text-xs subtle hover:text-violet-400">⚙ Дополнительно</summary>
+        <div class="mt-3 space-y-3 p-4 rounded-xl bg-white/5 border border-white/10">
+          <div>
+            <label class="block text-xs subtle mb-1">Длина промта</label>
+            <select id="txtLength" class="field text-sm">
+              <option value="short">Краткий (~100 слов · быстро)</option>
+              <option value="standard" selected>Стандарт (~200 слов · ⭐ рекомендуем)</option>
+              <option value="detailed">Детальный (~300 слов · максимум контроля)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs subtle mb-1">Количество вариантов</label>
+            <select id="txtCount" class="field text-sm">
+              <option value="1">1 вариант (1 запрос)</option>
+              <option value="3" selected>3 варианта · action/emotion/visual ⭐</option>
+            </select>
+          </div>
+        </div>
+      </details>
 
       <div class="flex flex-wrap gap-2 items-center">
         <button id="txtGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт</button>
         <span id="txtHint" class="text-xs subtle"></span>
       </div>
 
-      <div id="txtResults" class="mt-8"></div>
+      <div id="txtResults" class="mt-8 space-y-4"></div>
     </div><!-- /smTextPanel -->
 
   </div>

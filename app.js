@@ -2224,130 +2224,242 @@ try{
 }catch(e){console.debug(e)}
 
 /* ============================================================ */
-/* ============ v10: TEXT → PROMPT =========================== */
+/* ============ v10.1: TEXT → PRO PROMPT ===================== */
 /* ============================================================ */
 
 const TXT_TARGETS=[
-  {k:'video',icon:'🎬',label:'Видео',sub:'8с · cinematic'},
+  {k:'video',icon:'🎬',label:'Видео',sub:'8с · multi-shot'},
   {k:'image',icon:'🖼',label:'Картинка',sub:'1 кадр · still'}
 ];
+
+/* Aspect ratios — DALL·E 3 only supports 1:1, 16:9, 9:16. Image targets shows only those. */
+const TXT_ASPECTS_VIDEO=[
+  {k:'9:16',label:'9:16',sub:'TikTok/Reels'},
+  {k:'16:9',label:'16:9',sub:'YouTube/кино'},
+  {k:'1:1',label:'1:1',sub:'Instagram'},
+  {k:'4:5',label:'4:5',sub:'Instagram pro'},
+  {k:'21:9',label:'21:9',sub:'cinematic'}
+];
+const TXT_ASPECTS_IMAGE=[
+  {k:'1:1',label:'1:1',sub:'1024×1024',imgSize:'1024x1024'},
+  {k:'16:9',label:'16:9',sub:'1792×1024',imgSize:'1792x1024'},
+  {k:'9:16',label:'9:16',sub:'1024×1792',imgSize:'1024x1792'}
+];
+
 const TXT_STYLES=[
-  {k:'cinema',icon:'🎬',label:'Кино',sub:'cinematic',suffix:', cinematic, anamorphic, dramatic lighting'},
-  {k:'photo',icon:'📷',label:'Фото',sub:'photoreal',suffix:', photorealistic, 8k, sharp focus, hyperdetailed'},
-  {k:'anime',icon:'🎌',label:'Аниме',sub:'anime',suffix:', anime style, cel-shaded, vibrant'},
-  {k:'fantasy',icon:'🧙',label:'Фэнтези',sub:'fantasy',suffix:', epic fantasy art, magical atmosphere'},
-  {k:'cyber',icon:'🤖',label:'Киберпанк',sub:'cyberpunk',suffix:', cyberpunk, neon, blade runner aesthetic'},
-  {k:'noir',icon:'🎩',label:'Нуар',sub:'noir',suffix:', film noir, black and white, high contrast'},
-  {k:'illust',icon:'🎨',label:'Иллюстрация',sub:'illustration',suffix:', digital illustration, painterly, vivid'},
-  {k:'doc',icon:'📰',label:'Документал',sub:'documentary',suffix:', documentary realism, natural lighting'}
+  {k:'cinema',icon:'🎬',label:'Кино',sub:'cinematic',suffix:'cinematic, anamorphic 2x lens, dramatic chiaroscuro lighting, film grain, color graded teal-orange'},
+  {k:'photo',icon:'📷',label:'Фото',sub:'photoreal',suffix:'photorealistic editorial photography, sharp focus on subject, shallow depth of field, professional studio lighting, hasselblad medium format'},
+  {k:'anime',icon:'🎌',label:'Аниме',sub:'anime',suffix:'anime style, studio ghibli inspired composition, cel-shaded, vibrant saturated palette, hand-drawn aesthetic'},
+  {k:'fantasy',icon:'🧙',label:'Фэнтези',sub:'fantasy',suffix:'epic fantasy concept art, magical volumetric atmosphere, intricate detail, painterly, golden hour rim light'},
+  {k:'cyber',icon:'🤖',label:'Киберпанк',sub:'cyberpunk',suffix:'cyberpunk, neon-drenched wet streets, blade runner 2049 aesthetic, holographic ambient, magenta and cyan palette, atmospheric haze'},
+  {k:'noir',icon:'🎩',label:'Нуар',sub:'noir',suffix:'classic film noir, high-contrast black and white, hard venetian-blind shadows, single source key light, smoke and rain'},
+  {k:'illust',icon:'🎨',label:'Иллюстрация',sub:'illustration',suffix:'digital concept illustration, painterly brushwork, vivid colors, dynamic composition, dramatic perspective'},
+  {k:'doc',icon:'📰',label:'Документал',sub:'documentary',suffix:'documentary realism, natural available lighting, observational handheld camera, neutral color, authentic environment'}
 ];
 
 let _txtTarget='video';
 let _txtStyle='cinema';
+let _txtAspect='9:16';
+
+function _txtAspectList(){return _txtTarget==='image'?TXT_ASPECTS_IMAGE:TXT_ASPECTS_VIDEO;}
 
 function txtRenderTiles(){
   const tWrap=document.getElementById('txtTargetTiles');
+  const aWrap=document.getElementById('txtAspectTiles');
   const sWrap=document.getElementById('txtStyleTiles');
-  if(!tWrap||!sWrap)return;
+  if(!tWrap||!sWrap||!aWrap)return;
+
   tWrap.innerHTML=TXT_TARGETS.map(t=>`
     <div class="sm-tile${t.k===_txtTarget?' active':''}" data-target="${t.k}">
       <span class="sm-tile-icon">${t.icon}</span>
       <div class="sm-tile-label">${t.label}</div>
       <div class="sm-tile-sub">${t.sub}</div>
     </div>`).join('');
+
+  const aspects=_txtAspectList();
+  if(!aspects.find(a=>a.k===_txtAspect))_txtAspect=aspects[0].k;
+  aWrap.innerHTML=aspects.map(a=>`
+    <div class="sm-tile${a.k===_txtAspect?' active':''}" data-aspect="${a.k}">
+      <div class="sm-tile-label">${a.label}</div>
+      <div class="sm-tile-sub">${a.sub}</div>
+    </div>`).join('');
+
   sWrap.innerHTML=TXT_STYLES.map(s=>`
     <div class="sm-tile${s.k===_txtStyle?' active':''}" data-style="${s.k}">
       <span class="sm-tile-icon">${s.icon}</span>
       <div class="sm-tile-label">${s.label}</div>
       <div class="sm-tile-sub">${s.sub}</div>
     </div>`).join('');
-  tWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{_txtTarget=el.dataset.target;tWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.target===_txtTarget));});
-  sWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{_txtStyle=el.dataset.style;sWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.style===_txtStyle));});
+
+  tWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{
+    _txtTarget=el.dataset.target;
+    txtRenderTiles(); // re-render to update aspect list
+  });
+  aWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{
+    _txtAspect=el.dataset.aspect;
+    aWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.aspect===_txtAspect));
+  });
+  sWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{
+    _txtStyle=el.dataset.style;
+    sWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.style===_txtStyle));
+  });
   txtUpdateHint();
 }
 
 function txtUpdateHint(){
   const hint=document.getElementById('txtHint');if(!hint)return;
   const c=aiCfg();
-  if(c.key)hint.textContent='AI вытащит суть и сделает промт';
+  if(c.key)hint.textContent='Структурированный 10-блочный промт · score · 3 подхода';
   else hint.innerHTML='Нужен AI ключ · <button class="underline hover:text-violet-400" onclick="document.getElementById(\'aiSettingsBtn\').click()">Подключить →</button>';
+}
+
+function _aspectToImgSize(aspect){
+  // Map any aspect → closest DALL·E 3 supported size
+  const map={'1:1':'1024x1024','16:9':'1792x1024','9:16':'1024x1792','21:9':'1792x1024','4:5':'1024x1024'};
+  return map[aspect]||'1024x1024';
 }
 
 async function txtGenerate(){
   const text=document.getElementById('txtInput').value.trim();
   if(!text){toast('Вставь текст');document.getElementById('txtInput').focus();return;}
-  if(text.length<20){toast('Текст слишком короткий');return;}
+  if(text.length<20){toast('Текст слишком короткий (минимум 20 символов)');return;}
   if(!needKey())return;
   const target=TXT_TARGETS.find(t=>t.k===_txtTarget);
   const style=TXT_STYLES.find(s=>s.k===_txtStyle);
+  const aspect=_txtAspect;
+  const length=document.getElementById('txtLength').value;
+  const count=parseInt(document.getElementById('txtCount').value,10);
+  const wordCount={short:'80-120',standard:'180-220',detailed:'260-320'}[length]||'180-220';
   const btn=document.getElementById('txtGenerate');
   const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Анализирую...';
   const out=document.getElementById('txtResults');
-  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю суть и собираю промт...</div>';
+  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю суть и собираю '+count+' '+(count===1?'промт':'варианта')+' (профессиональная структура из 10 блоков)...</div>';
 
   try{
     const targetDesc=target.k==='video'
-      ?'a single 8-second cinematic AI-video prompt (Seedance/Runway/Kling/Sora). Include subject, action, camera, lighting, mood, style. Single paragraph in vivid sensory English.'
-      :'a single still-image AI prompt (DALL-E/Midjourney). Include subject, composition, lighting, color, atmosphere. Single paragraph in vivid sensory English.';
+      ?`an 8-second cinematic AI-VIDEO prompt for Sora/Runway/Kling/Veo/Seedance. Aspect ratio: ${aspect}.`
+      :`a still-image AI prompt for DALL-E 3/Midjourney/FLUX. Aspect ratio: ${aspect}.`;
 
-    const sys=`You are a professional prompt engineer. The user gives you arbitrary text (story, poem, post, scene description, brief). Extract the visual essence and convert it into ${targetDesc}
-Stylistic suffix to append: ${style.suffix}
-Length: under 180 words.
+    const variantsSpec=count===3
+      ?`Generate exactly 3 DISTINCT variants with different creative angles:
+1. ACTION-led — emphasis on dynamic motion, kinetic energy, tension. Verbs of action drive the prompt.
+2. EMOTION-led — emphasis on character interior, psychological state, intimacy. Faces, micro-expressions, gestures.
+3. VISUAL-led — emphasis on composition, color, formal beauty, painterly quality. Light and form lead.`
+      :`Generate exactly 1 highly polished prompt combining the strongest elements.`;
+
+    const sys=`You are a senior cinematographer and AI prompt engineer (10+ years). The user gives arbitrary input text (story, poem, post, scene, brief). Extract the visual essence and convert it into ${targetDesc}
+
+REQUIRED PROMPT STRUCTURE — every variant must include ALL 10 elements naturally woven into prose (NOT as a list):
+1. SUBJECT — who/what with concrete physical specifics (age, build, clothing, expression)
+2. ACTION — active verbs, what happens (no static "is standing"; use "strides through", "reaches toward")
+3. ENVIRONMENT — where, with sensory specifics (textures, weather, time of day, ambient sound implications)
+4. CAMERA — shot type (extreme close-up / close-up / medium / medium long / wide / extreme wide / over-shoulder / POV) + angle (eye-level/low/high/Dutch tilt) + movement for video (static/dolly in/dolly out/tracking/orbital/handheld/crane/whip pan)
+5. LENS — focal length specific (24mm wide / 35mm standard / 50mm portrait / 85mm tele / 100mm macro / anamorphic 2x)
+6. LIGHTING — source + quality (golden hour backlight, harsh midday sun, single softbox key with feathered edge, neon ambient bath, candlelight rim, moonlight fill, practical sources)
+7. PALETTE — color grading (teal-orange, desaturated cool, warm amber, monochrome, pastel, high-contrast)
+8. MOOD — emotional tone (intimate, ominous, joyful, contemplative, urgent, melancholic)
+9. STYLE — apply the chosen style: ${style.suffix}
+10. TECHNICAL — aspect ratio ${aspect}${target.k==='video'?', 24fps cinematic motion':''}, sharp focus on key element, shallow depth of field where appropriate
+
+LENGTH: ${wordCount} words per variant — strict.
+
+FORBIDDEN:
+- Vague adjectives ("beautiful", "amazing", "stunning", "gorgeous") — replace with concrete sensory detail
+- Generic markers ("8k", "high quality", "masterpiece") used alone — be specific
+- Telling not showing ("she is sad" → "tear streaking down her cheek, gaze averted to floor")
+- Contradictory descriptors (e.g. both "soft pastel" and "harsh contrast")
+- Generic location names without atmosphere ("city" → "rain-slicked Tokyo backstreet under flickering ramen-shop sign")
+
+${variantsSpec}
 
 Reply ONLY as JSON:
 {
-  "prompt": "the final ready-to-use English prompt",
-  "essence": "1-2 sentences in Russian summarizing what you extracted from the text",
-  "title": "short Russian title for this prompt (3-5 words)"
+  "variants": [
+    {
+      "prompt": "ready-to-paste English prompt, ${wordCount} words",
+      "approach": "${count===3?'action|emotion|visual':'unified'}",
+      "title": "Russian short title (3-5 words)",
+      "score": 0-100,
+      "why": "Russian 1-line rationale why this scores high"
+    }
+  ],
+  "essence": "1-2 sentences in Russian summarizing what you extracted from input text"
 }`;
 
     const res=await aiCall([{role:'system',content:sys},{role:'user',content:text.slice(0,8000)}],{json:true});
     if(!res)throw new Error('Пустой ответ');
     const j=JSON.parse(res);
-    assertShape(j,{prompt:'string',essence:'string'},'txtGenerate');
+    assertShape(j,{variants:'array'},'txtGenerate');
+    j.variants.forEach((v,i)=>assertShape(v,{prompt:'string'},'variant['+i+']'));
+    j.variants.sort((a,b)=>(b.score||0)-(a.score||0));
 
-    out.innerHTML=`
-      <div class="sm-result">
-        <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
-          <div class="font-semibold text-sm">📌 ${(j.title||'Промт').replace(/</g,'&lt;')}</div>
-          <span class="text-xs subtle">${target.icon} ${target.label} · ${style.icon} ${style.label}</span>
-        </div>
-        <div class="text-xs subtle italic mb-3">💡 ${j.essence.replace(/</g,'&lt;')}</div>
-        <div class="text-sm whitespace-pre-wrap leading-relaxed mb-3 p-3 rounded-lg bg-black/20 border border-white/5">${j.prompt.replace(/</g,'&lt;')}</div>
-        <div class="flex flex-wrap gap-2">
-          <button class="soft-btn text-xs px-3 py-1.5" id="txtUseCopy">📋 Копировать</button>
-          ${target.k==='image'?`<button class="soft-btn text-xs px-3 py-1.5" id="txtUseImage">🖼 → Сделать картинку</button>`:''}
-          ${target.k==='video'?`<button class="soft-btn text-xs px-3 py-1.5" id="txtUseVideo">🎬 → В Pro mode</button>`:''}
-          <button class="soft-btn text-xs px-3 py-1.5" id="txtPreview">🖼 Превью</button>
-          <button class="soft-btn text-xs px-3 py-1.5" id="txtRegen">🔄 Ещё раз</button>
-        </div>
-      </div>`;
+    out.innerHTML=`<div class="text-xs subtle italic mb-3">💡 ${(j.essence||'').replace(/</g,'&lt;')}</div>`+
+      j.variants.map((v,i)=>`
+        <div class="sm-result" data-vi="${i}">
+          <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-sm">📌 ${(v.title||('Вариант '+(i+1))).replace(/</g,'&lt;')}</span>
+              ${typeof v.score==='number'?`<span class="sm-score ${smScoreClass(v.score)}">⭐ ${v.score}/100</span>`:''}
+              ${v.approach&&v.approach!=='unified'?`<span class="text-[10px] uppercase tracking-wider subtle">${v.approach}</span>`:''}
+            </div>
+            <span class="text-xs subtle">${target.icon} ${aspect} · ${style.icon} ${style.label}</span>
+          </div>
+          ${v.why?`<div class="text-xs subtle italic mb-2">💡 ${v.why.replace(/</g,'&lt;')}</div>`:''}
+          <div class="text-sm whitespace-pre-wrap leading-relaxed mb-3 p-3 rounded-lg bg-black/20 border border-white/5">${v.prompt.replace(/</g,'&lt;')}</div>
+          <div class="flex flex-wrap gap-2">
+            <button class="soft-btn text-xs px-3 py-1.5" data-act="copy">📋 Копировать</button>
+            <button class="soft-btn text-xs px-3 py-1.5" data-act="image" title="Открыть в Image Mode с aspect ${aspect}">🖼 → В картинку (${aspect})</button>
+            <button class="soft-btn text-xs px-3 py-1.5" data-act="preview" title="Сразу сгенерировать кадр">🖼 Превью</button>
+            ${target.k==='video'?`<button class="soft-btn text-xs px-3 py-1.5" data-act="pro">🎬 → В Pro mode</button>`:''}
+            <button class="soft-btn text-xs px-3 py-1.5" data-act="improve">✨ Ещё детальнее</button>
+          </div>
+        </div>`).join('');
 
-    document.getElementById('txtUseCopy').onclick=()=>{navigator.clipboard.writeText(j.prompt);toast('📋 Скопировано');};
-    const useImg=document.getElementById('txtUseImage');
-    if(useImg)useImg.onclick=()=>{document.getElementById('imgIdea').value=j.prompt;smSetTab('image');toast('🖼 Перенесено в Image Mode');};
-    const useVid=document.getElementById('txtUseVideo');
-    if(useVid)useVid.onclick=()=>{
-      setMode('pro');
-      setTimeout(()=>{const sub=$('subject');if(sub){sub.value=j.prompt.slice(0,200);sub.dispatchEvent(new Event('change'));}const o=$('outEnView');if(o){o.textContent=j.prompt;o.dataset.raw=j.prompt;}toast('🎛 Открыт в Pro mode');},200);
-    };
-    document.getElementById('txtPreview').onclick=async(e)=>{
-      const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
-      try{
-        const urls=await generateImage(j.prompt,{size:target.k==='video'?'1792x1024':'1024x1024'});
-        if(urls&&urls[0]){
-          const card=b.closest('.sm-result');
-          let prev=card.querySelector('.sm-preview');
-          if(!prev){prev=document.createElement('div');prev.className='sm-preview mt-3';card.appendChild(prev);}
-          prev.innerHTML=`<img src="${urls[0]}" class="w-full rounded-lg"/><div class="flex gap-2 mt-2"><a href="${urls[0]}" download="preview.png" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a><button class="soft-btn text-xs px-3 py-1.5" onclick="this.closest('.sm-preview').remove()">✕</button></div>`;
-        }
-      }finally{b.disabled=false;b.textContent=o;}
-    };
-    document.getElementById('txtRegen').onclick=txtGenerate;
-    toast('✨ Промт готов');
+    out.querySelectorAll('.sm-result[data-vi]').forEach((card)=>{
+      const i=+card.dataset.vi;const v=j.variants[i];
+      card.querySelector('[data-act="copy"]').onclick=()=>{navigator.clipboard.writeText(v.prompt);toast('📋 Скопировано');};
+      card.querySelector('[data-act="image"]').onclick=()=>{
+        document.getElementById('imgIdea').value=v.prompt;
+        const sz=_aspectToImgSize(aspect);
+        if(typeof _imgSize!=='undefined'){_imgSize=sz;}
+        try{document.querySelectorAll('#imgSizeTiles .sm-tile').forEach(el=>el.classList.toggle('active',el.dataset.size===sz));}catch(e){}
+        smSetTab('image');
+        toast('🖼 → Image Mode (aspect '+aspect+')');
+      };
+      card.querySelector('[data-act="preview"]').onclick=async(e)=>{
+        const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
+        try{
+          const urls=await generateImage(v.prompt,{size:_aspectToImgSize(aspect)});
+          if(urls&&urls[0]){
+            let prev=card.querySelector('.sm-preview');
+            if(!prev){prev=document.createElement('div');prev.className='sm-preview mt-3';card.appendChild(prev);}
+            prev.innerHTML=`<img src="${urls[0]}" class="w-full rounded-lg"/><div class="flex gap-2 mt-2"><a href="${urls[0]}" download="preview-${i+1}.png" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a><button class="soft-btn text-xs px-3 py-1.5" onclick="this.closest('.sm-preview').remove()">✕</button></div>`;
+          }
+        }finally{b.disabled=false;b.textContent=o;}
+      };
+      const proBtn=card.querySelector('[data-act="pro"]');
+      if(proBtn)proBtn.onclick=()=>{
+        setMode('pro');
+        setTimeout(()=>{const sub=$('subject');if(sub){sub.value=v.prompt.slice(0,200);sub.dispatchEvent(new Event('change'));}const o=$('outEnView');if(o){o.textContent=v.prompt;o.dataset.raw=v.prompt;}toast('🎛 Открыт в Pro mode');},200);
+      };
+      card.querySelector('[data-act="improve"]').onclick=async(e)=>{
+        const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
+        try{
+          const sysImp=`Improve this AI prompt: add more concrete sensory specifics, replace vague adjectives with precise visual detail, strengthen camera/lens/lighting blocks, deepen mood. Keep aspect ratio ${aspect} and same length range. Reply ONLY with the improved English prompt text, no preamble, no JSON.`;
+          const better=await aiCall([{role:'system',content:sysImp},{role:'user',content:v.prompt}]);
+          if(better){
+            v.prompt=better.trim();
+            v.score=Math.min(100,(v.score||70)+5);
+            card.querySelector('.bg-black\\/20').textContent=v.prompt;
+            toast('✨ Улучшено');
+          }
+        }finally{b.disabled=false;b.textContent=o;}
+      };
+    });
+    toast('✨ '+j.variants.length+' '+(j.variants.length===1?'вариант':'вариантов')+' готовы');
   }catch(e){
     logError('txtGenerate',e);
-    out.innerHTML=`<div class="sm-result text-sm text-red-400">⚠ Ошибка: ${e.message.replace(/</g,'&lt;')}<br/><span class="text-xs subtle">Попробуй другой текст или ещё раз.</span></div>`;
+    out.innerHTML=`<div class="sm-result text-sm text-red-400">⚠ Ошибка: ${e.message.replace(/</g,'&lt;')}<br/><span class="text-xs subtle">Попробуй другой текст или уменьши длину/количество вариантов.</span></div>`;
   }finally{
     btn.disabled=false;btn.textContent=orig;
   }
