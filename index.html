@@ -352,7 +352,7 @@ h1{font-feature-settings:'ss03','cv11'}
 
     <div class="flex flex-wrap gap-2 items-center">
       <button id="smGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт</button>
-      <button id="phOpenBtnVideo" class="soft-btn px-4 py-3 rounded-xl text-sm" title="История промтов">🕘 История</button>
+      <button id="phOpenBtnVideo" class="soft-btn px-4 py-3 rounded-xl text-sm inline-flex items-center gap-2" title="История промтов"><i data-lucide="history"></i><span>История</span></button>
       <span id="smHint" class="text-xs subtle"></span>
     </div>
 
@@ -433,7 +433,7 @@ h1{font-feature-settings:'ss03','cv11'}
 
       <div class="flex flex-wrap gap-2 items-center">
         <button id="txtGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт</button>
-        <button id="phOpenBtnText" class="soft-btn px-4 py-3 rounded-xl text-sm" title="История промтов">🕘 История</button>
+        <button id="phOpenBtnText" class="soft-btn px-4 py-3 rounded-xl text-sm inline-flex items-center gap-2" title="История промтов"><i data-lucide="history"></i><span>История</span></button>
         <span id="txtHint" class="text-xs subtle"></span>
       </div>
 
@@ -447,13 +447,13 @@ h1{font-feature-settings:'ss03','cv11'}
       <label class="block text-sm font-medium mb-2">🖼 Референсная картинка</label>
       <div id="i2pDrop" class="border-2 border-dashed border-white/15 rounded-xl p-6 text-center cursor-pointer hover:border-violet-400 transition mb-4" tabindex="0">
         <div id="i2pDropEmpty">
-          <div class="text-3xl mb-2">📤</div>
+          <div class="mb-2 inline-flex w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-violet-400/30 items-center justify-center"><i data-lucide="upload-cloud" style="width:24px;height:24px;color:#c4b5fd"></i></div>
           <div class="text-sm font-medium">Перетащи картинку сюда или кликни для выбора</div>
           <div class="text-xs subtle mt-1">JPG, PNG, WEBP · до 10 MB · также можно вставить из буфера (Ctrl+V)</div>
         </div>
         <div id="i2pDropFilled" class="hidden">
           <img id="i2pPreview" class="max-h-48 mx-auto rounded-lg mb-2" alt="reference"/>
-          <button id="i2pClear" class="soft-btn text-xs px-3 py-1">✕ Убрать картинку</button>
+          <button id="i2pClear" class="soft-btn text-xs px-3 py-1 inline-flex items-center gap-1.5"><i data-lucide="x"></i><span>Убрать картинку</span></button>
         </div>
         <input id="i2pFile" type="file" accept="image/*" class="hidden"/>
       </div>
@@ -487,7 +487,7 @@ h1{font-feature-settings:'ss03','cv11'}
 
       <div class="flex flex-wrap gap-2 items-center">
         <button id="i2pGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт из картинки</button>
-        <button id="phOpenBtnI2p" class="soft-btn px-4 py-3 rounded-xl text-sm" title="История промтов">🕘 История</button>
+        <button id="phOpenBtnI2p" class="soft-btn px-4 py-3 rounded-xl text-sm inline-flex items-center gap-2" title="История промтов"><i data-lucide="history"></i><span>История</span></button>
         <span id="i2pHint" class="text-xs subtle"></span>
       </div>
 
@@ -541,13 +541,13 @@ h1{font-feature-settings:'ss03','cv11'}
   <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
     <h2 class="font-semibold">Идея</h2>
     <div class="flex gap-2 flex-wrap">
-      <button id="randomBtn" class="soft-btn text-xs px-3 py-1.5">🎲 Случайная</button>
-      <button id="aiEnhanceBtn" class="soft-btn text-xs px-3 py-1.5">✨ Улучшить</button>
-      <button id="aiCritiqueBtn" class="soft-btn text-xs px-3 py-1.5" title="AI критика">🩺 Критика</button>
-      <button id="aiReverseBtn" class="soft-btn text-xs px-3 py-1.5" title="Распарсить чужой промт">🔍 Распознать</button>
-      <button id="libSubjBtn" class="soft-btn text-xs px-3 py-1.5" title="Каталог героев">📚 Subject</button>
-      <button id="libSceneBtn" class="soft-btn text-xs px-3 py-1.5" title="Каталог сцен">🌆 Scene</button>
-      <button id="libLightBtn" class="soft-btn text-xs px-3 py-1.5" title="Световые рецепты">💡 Light</button>
+      <button id="randomBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5" title="Случайная идея"><i data-lucide="dices"></i><span>Случайная</span></button>
+      <button id="aiEnhanceBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5" title="AI улучшит формулировку"><i data-lucide="wand-sparkles"></i><span>Улучшить</span></button>
+      <button id="aiCritiqueBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5" title="AI критика"><i data-lucide="stethoscope"></i><span>Критика</span></button>
+      <button id="aiReverseBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5" title="Распарсить чужой промт"><i data-lucide="scan-search"></i><span>Распознать</span></button>
+      <button id="libSubjBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5" title="Каталог героев"><i data-lucide="users"></i><span>Subject</span></button>
+      <button id="libSceneBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5" title="Каталог сцен"><i data-lucide="map"></i><span>Scene</span></button>
+      <button id="libLightBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5" title="Световые рецепты"><i data-lucide="lightbulb"></i><span>Light</span></button>
     </div>
   </div>
   <label class="block text-xs subtle mb-1">Главный объект <span class="text-pink-400">*</span></label>
@@ -587,7 +587,7 @@ h1{font-feature-settings:'ss03','cv11'}
     <div><label class="block text-xs subtle mb-1">Стиль</label><select id="style" class="field"></select></div>
   </div>
   <div><label class="block text-xs subtle mb-2">Жанр-пак</label><div id="genres" class="flex flex-wrap gap-2"></div></div>
-  <div><label class="block text-xs subtle mb-2">Цветовой пресет</label><div id="presets" class="flex flex-wrap gap-2 items-center"><button id="savePresetBtn" class="soft-btn text-xs px-3 py-1.5 rounded-full">💾 Сохранить</button></div></div>
+  <div><label class="block text-xs subtle mb-2">Цветовой пресет</label><div id="presets" class="flex flex-wrap gap-2 items-center"><button id="savePresetBtn" class="soft-btn text-xs px-3 py-1.5 rounded-full inline-flex items-center gap-1.5"><i data-lucide="save"></i><span>Сохранить</span></button></div></div>
 </div>
 
 <div class="glass rounded-2xl p-5">
@@ -639,8 +639,8 @@ h1{font-feature-settings:'ss03','cv11'}
 
 <div class="flex flex-wrap gap-3 items-center">
   <button id="generate" class="btn-primary font-semibold px-5 py-3 rounded-xl">✨ Сгенерировать</button>
-  <button id="abBtn" class="soft-btn px-4 py-3" title="4 версии с разными параметрами">🎲 4 варианта</button>
-  <button id="reset" class="soft-btn px-4 py-3">Сбросить</button>
+  <button id="abBtn" class="soft-btn px-4 py-3 inline-flex items-center gap-2" title="4 версии с разными параметрами"><i data-lucide="shuffle"></i><span>4 варианта</span></button>
+  <button id="reset" class="soft-btn px-4 py-3 inline-flex items-center gap-2" title="Сбросить форму"><i data-lucide="rotate-ccw"></i><span>Сбросить</span></button>
   <span class="text-xs subtle ml-auto self-center">⌨ <kbd class="px-1.5 py-0.5 bg-black/20 rounded">Ctrl+Enter</kbd></span>
 </div>
 </section>
@@ -650,13 +650,13 @@ h1{font-feature-settings:'ss03','cv11'}
   <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
     <h2 class="font-semibold">Промт</h2>
     <div class="flex gap-1.5 flex-wrap">
-      <button id="copyEn" class="soft-btn text-xs px-2.5 py-1.5">📋 EN</button>
-      <button id="copyRu" class="soft-btn text-xs px-2.5 py-1.5">📋 RU</button>
-      <button id="favBtn" class="soft-btn text-xs px-2.5 py-1.5">★</button>
-      <button id="exportTxt" class="soft-btn text-xs px-2.5 py-1.5">.txt</button>
-      <button id="exportMd" class="soft-btn text-xs px-2.5 py-1.5">.md</button>
-      <button id="exportJson" class="soft-btn text-xs px-2.5 py-1.5">.json</button>
-      <button id="speakBtn" class="soft-btn text-xs px-2.5 py-1.5" title="Прочитать вслух">🔊</button>
+      <button id="copyEn" class="soft-btn text-xs px-2.5 py-1.5 inline-flex items-center gap-1.5" title="Копировать English"><i data-lucide="copy"></i><span>EN</span></button>
+      <button id="copyRu" class="soft-btn text-xs px-2.5 py-1.5 inline-flex items-center gap-1.5" title="Копировать Русский"><i data-lucide="copy"></i><span>RU</span></button>
+      <button id="favBtn" class="soft-btn text-xs px-2.5 py-1.5 inline-flex items-center" title="В избранное"><i data-lucide="star"></i></button>
+      <button id="exportTxt" class="soft-btn text-xs px-2.5 py-1.5 inline-flex items-center gap-1" title="Экспорт .txt"><i data-lucide="file-text"></i><span>.txt</span></button>
+      <button id="exportMd" class="soft-btn text-xs px-2.5 py-1.5 inline-flex items-center gap-1" title="Экспорт .md"><i data-lucide="file-code"></i><span>.md</span></button>
+      <button id="exportJson" class="soft-btn text-xs px-2.5 py-1.5 inline-flex items-center gap-1" title="Экспорт .json"><i data-lucide="braces"></i><span>.json</span></button>
+      <button id="speakBtn" class="soft-btn text-xs px-2.5 py-1.5 inline-flex items-center" title="Прочитать вслух"><i data-lucide="volume-2"></i></button>
     </div>
   </div>
   <div class="flex items-center gap-3 mb-3 flex-wrap">
@@ -677,7 +677,7 @@ h1{font-feature-settings:'ss03','cv11'}
     <button data-refine="cinematic" class="soft-btn px-2 py-1 rounded">кинематографичнее</button>
     <button data-refine="darker mood" class="soft-btn px-2 py-1 rounded">мрачнее</button>
     <button data-refine="lighter mood" class="soft-btn px-2 py-1 rounded">легче</button>
-    <button id="negSuggestBtn" class="soft-btn px-2 py-1 rounded" title="AI предложит negative">⛔ neg</button>
+    <button id="negSuggestBtn" class="soft-btn px-2 py-1 rounded inline-flex items-center gap-1" title="AI предложит negative"><i data-lucide="ban"></i><span>neg</span></button>
   </div>
   <div class="text-[11px] uppercase tracking-wider subtle mt-3 mb-1">Русский</div>
   <textarea id="outRu" rows="6" class="scrollbar field text-sm"></textarea>
@@ -734,7 +734,7 @@ h1{font-feature-settings:'ss03','cv11'}
 </div>
 
 <!-- Floating chat (AI edit by natural language) -->
-<button id="chatToggle" class="fixed bottom-5 right-5 z-40 btn-primary w-14 h-14 rounded-full shadow-2xl text-2xl" title="Chat: редактируй промт текстом">💬</button>
+<button id="chatToggle" class="fixed bottom-5 right-5 z-40 btn-primary w-14 h-14 rounded-full shadow-2xl inline-flex items-center justify-center" title="Chat: редактируй промт текстом"><i data-lucide="message-circle" style="width:24px;height:24px;color:white"></i></button>
 <div id="chatPanel" class="hidden fixed bottom-24 right-5 z-40 glass rounded-2xl w-80 sm:w-96 max-h-[70vh] flex flex-col shadow-2xl" style="border:1px solid rgba(255,255,255,.1)">
   <div class="flex justify-between items-center p-3 border-b border-white/10"><span class="font-semibold text-sm">💬 AI чат-редактор</span><button onclick="chatPanel.classList.add('hidden')" class="text-xl subtle">×</button></div>
   <div id="chatLog" class="flex-1 overflow-auto scrollbar p-3 space-y-2 text-sm min-h-[200px]"><div class="text-xs subtle">Пиши на любом языке: «добавь дождь и сделай ночь», «убери диалог», «измени стиль на аниме», «сделай шот крупным планом»…</div></div>
