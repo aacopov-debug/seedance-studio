@@ -166,11 +166,63 @@ function tplApply(t){
 window.tplOpenModal=tplOpenModal;
 
 /* === ONBOARDING TOUR === */
+/* Mini mockup SVGs — show what filled-in state looks like inside popover (premium illustrated tour) */
+const TOUR_PREVIEW={
+  idea:`<svg viewBox="0 0 280 92" xmlns="http://www.w3.org/2000/svg">
+    <rect x="8" y="8" width="264" height="76" rx="9" fill="rgba(255,255,255,0.04)" stroke="rgba(167,139,250,0.45)" stroke-width="1.2"/>
+    <text x="20" y="28" fill="rgba(255,255,255,0.92)" font-size="11" font-family="Inter,sans-serif" font-weight="500">Реклама часов Rolex в стиле блокбастера,</text>
+    <text x="20" y="44" fill="rgba(255,255,255,0.92)" font-size="11" font-family="Inter,sans-serif" font-weight="500">золотой час, kinetic camera, неон в фоне</text>
+    <rect x="208" y="34" width="2" height="12" fill="#a78bfa"><animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/></rect>
+    <text x="20" y="68" fill="rgba(167,139,250,0.85)" font-size="9.5" font-family="Inter,sans-serif" font-weight="600">↑ ТАК ВЫГЛЯДИТ ХОРОШАЯ ИДЕЯ</text>
+  </svg>`,
+  format:`<svg viewBox="0 0 280 92" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(8,10)"><rect width="60" height="56" rx="8" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)"/><text x="30" y="26" text-anchor="middle" font-size="18">🎬</text><text x="30" y="44" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.55)" font-family="Inter,sans-serif">Кино</text></g>
+    <g transform="translate(76,10)"><rect width="60" height="56" rx="8" fill="rgba(167,139,250,.22)" stroke="#a78bfa" stroke-width="1.8"/><text x="30" y="26" text-anchor="middle" font-size="18">📱</text><text x="30" y="44" text-anchor="middle" font-size="9" fill="white" font-weight="700" font-family="Inter,sans-serif">Реклама</text><circle cx="52" cy="8" r="5" fill="#a78bfa"/><path d="M49 8l2 2 4-4" stroke="white" stroke-width="1.4" fill="none"/></g>
+    <g transform="translate(144,10)"><rect width="60" height="56" rx="8" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)"/><text x="30" y="26" text-anchor="middle" font-size="18">🌃</text><text x="30" y="44" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.55)" font-family="Inter,sans-serif">Атмосфера</text></g>
+    <g transform="translate(212,10)"><rect width="60" height="56" rx="8" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)"/><text x="30" y="26" text-anchor="middle" font-size="18">🎵</text><text x="30" y="44" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.55)" font-family="Inter,sans-serif">Клип</text></g>
+    <text x="106" y="84" fill="rgba(167,139,250,0.85)" font-size="9.5" font-family="Inter,sans-serif" font-weight="600">↑ КЛИК ПО ПЛИТКЕ ВЫБИРАЕТ ФОРМАТ</text>
+  </svg>`,
+  ai:`<svg viewBox="0 0 280 110" xmlns="http://www.w3.org/2000/svg">
+    <rect x="30" y="8" width="220" height="94" rx="11" fill="rgba(20,15,35,0.96)" stroke="rgba(167,139,250,.4)" stroke-width="1.2"/>
+    <text x="42" y="26" fill="white" font-size="11" font-weight="700" font-family="Inter,sans-serif">⚙ AI Settings</text>
+    <text x="42" y="44" fill="rgba(255,255,255,.5)" font-size="9" font-family="Inter,sans-serif">PROVIDER</text>
+    <rect x="42" y="48" width="196" height="18" rx="5" fill="rgba(139,92,246,.2)" stroke="rgba(139,92,246,.5)"/>
+    <text x="52" y="60" fill="white" font-size="10" font-family="Inter,sans-serif" font-weight="600">OpenAI</text>
+    <path d="M226 54l4 4 4-4" stroke="rgba(255,255,255,.6)" stroke-width="1.4" fill="none"/>
+    <text x="42" y="80" fill="rgba(255,255,255,.5)" font-size="9" font-family="Inter,sans-serif">API KEY</text>
+    <rect x="42" y="83" width="196" height="14" rx="4" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.1)"/>
+    <text x="50" y="93" fill="rgba(167,139,250,.85)" font-size="9" font-family="ui-monospace,monospace">sk-•••••••••••••••••••••••</text>
+  </svg>`,
+  generate:`<svg viewBox="0 0 280 116" xmlns="http://www.w3.org/2000/svg">
+    <defs><filter id="glow"><feGaussianBlur stdDeviation="3"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    <rect x="92" y="6" width="96" height="22" rx="11" fill="#7c3aed" filter="url(#glow)"/>
+    <text x="140" y="22" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="Inter,sans-serif">✨ Создать промт</text>
+    <path d="M140 34l0 10 m-5 -5 l5 5 l5 -5" stroke="rgba(167,139,250,.7)" stroke-width="1.5" fill="none"/>
+    <g transform="translate(8,52)">
+      <rect width="84" height="56" rx="7" fill="rgba(34,197,94,.08)" stroke="rgba(34,197,94,.35)"/>
+      <text x="8" y="14" font-size="8" fill="rgba(255,255,255,.55)" font-family="Inter,sans-serif" font-weight="600">VARIANT 1</text>
+      <text x="8" y="32" font-size="14" fill="#22c55e" font-weight="700" font-family="Inter,sans-serif">★ 92</text>
+      <text x="8" y="48" font-size="8" fill="rgba(255,255,255,.45)" font-family="Inter,sans-serif">cinematic</text>
+    </g>
+    <g transform="translate(98,52)">
+      <rect width="84" height="56" rx="7" fill="rgba(167,139,250,.12)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="8" y="14" font-size="8" fill="rgba(167,139,250,.85)" font-family="Inter,sans-serif" font-weight="600">VARIANT 2</text>
+      <text x="8" y="32" font-size="14" fill="#a78bfa" font-weight="700" font-family="Inter,sans-serif">★ 87</text>
+      <text x="8" y="48" font-size="8" fill="rgba(255,255,255,.45)" font-family="Inter,sans-serif">epic</text>
+    </g>
+    <g transform="translate(188,52)">
+      <rect width="84" height="56" rx="7" fill="rgba(245,158,11,.08)" stroke="rgba(245,158,11,.35)"/>
+      <text x="8" y="14" font-size="8" fill="rgba(255,255,255,.55)" font-family="Inter,sans-serif" font-weight="600">VARIANT 3</text>
+      <text x="8" y="32" font-size="14" fill="#f59e0b" font-weight="700" font-family="Inter,sans-serif">★ 78</text>
+      <text x="8" y="48" font-size="8" fill="rgba(255,255,255,.45)" font-family="Inter,sans-serif">moody</text>
+    </g>
+  </svg>`,
+};
 const TOUR_STEPS=[
-  {sel:'#smIdea, #imgIdea, #txtInput, #i2pDrop',title:'Опиши идею',body:'Напиши коротко, что хочешь снять или нарисовать. Чем конкретнее — тем точнее результат. Можно по-русски, AI поймёт.',pos:'bottom'},
-  {sel:'#smTiles, #imgStyleTiles, #txtStyleTiles, #i2pModeTiles',title:'Выбери формат',body:'Один клик по плитке — задаёт настроение, кадр, длительность. Можно поменять в любой момент.',pos:'bottom'},
-  {sel:'#aiSettingsBtn',title:'Подключи AI',body:'Открой настройки AI и вставь свой ключ (OpenAI / Groq / Anthropic). Без ключа работает только UI — генерация требует API.',pos:'bottom'},
-  {sel:'#tplOpenBtn, #smGenerate',title:'Запускай генерацию',body:'Жми «Создать промт» — получишь 3 варианта со score. Или открой 📚 Шаблоны для готовых идей.',pos:'top'},
+  {sel:'#smIdea, #imgIdea, #txtInput, #i2pDrop',title:'Опиши идею',body:'Напиши коротко, что хочешь снять или нарисовать. Чем конкретнее — тем точнее результат. Можно по-русски, AI поймёт.',pos:'bottom',preview:TOUR_PREVIEW.idea,previewLabel:'Пример заполнения'},
+  {sel:'#smTiles, #imgStyleTiles, #txtStyleTiles, #i2pModeTiles',title:'Выбери формат',body:'Один клик по плитке — задаёт настроение, кадр, длительность. Можно поменять в любой момент.',pos:'bottom',preview:TOUR_PREVIEW.format,previewLabel:'Как работает выбор'},
+  {sel:'#aiSettingsBtn',title:'Подключи AI',body:'Открой настройки AI и вставь свой ключ (OpenAI / Groq / Anthropic). Без ключа работает только UI — генерация требует API.',pos:'bottom',preview:TOUR_PREVIEW.ai,previewLabel:'Так выглядит окно настроек'},
+  {sel:'#tplOpenBtn, #smGenerate',title:'Запускай генерацию',body:'Жми «Создать промт» — получишь 3 варианта со score. Или открой 📚 Шаблоны для готовых идей.',pos:'top',preview:TOUR_PREVIEW.generate,previewLabel:'Что появится после клика'},
 ];
 
 function tourStart(force=false){
@@ -198,10 +250,12 @@ function tourStart(force=false){
       spotlight.style.width=(r.width+pad*2)+'px';
       spotlight.style.height=(r.height+pad*2)+'px';
       // popover position
+      const previewBlock=step.preview?`<div class="tour-preview">${step.previewLabel?`<div class="tour-preview-label">${step.previewLabel}</div>`:''}${step.preview}</div>`:'';
       popover.innerHTML=`
         <div class="tour-step">Шаг ${idx+1} из ${TOUR_STEPS.length}</div>
         <h4>${step.title}</h4>
         <p>${step.body}</p>
+        ${previewBlock}
         <div class="tour-popover-actions">
           <button class="text-xs subtle hover:text-violet-400" id="tourSkip">Пропустить тур</button>
           <div class="flex gap-2">
@@ -209,13 +263,17 @@ function tourStart(force=false){
             <button class="btn-primary px-4 py-1.5 rounded-lg text-xs font-semibold" id="tourNext">${idx===TOUR_STEPS.length-1?'Готово ✨':'Далее →'}</button>
           </div>
         </div>`;
-      // place popover below or above based on space
-      const ph=180;const pw=340;
+      // place popover below or above based on space — measure actual height now that content is set
+      const pw=340;
+      popover.style.width=pw+'px';
+      popover.style.visibility='hidden';popover.style.top='0px';popover.style.left='0px';
+      const ph=popover.offsetHeight||280;
+      popover.style.visibility='';
       let top=r.bottom+16;let left=r.left+r.width/2-pw/2;
       if(top+ph>innerHeight-16)top=r.top-ph-16;
-      if(top<16)top=Math.min(r.bottom+16,innerHeight-ph-16);
+      if(top<16)top=Math.max(16,Math.min(r.bottom+16,innerHeight-ph-16));
       left=Math.max(16,Math.min(left,innerWidth-pw-16));
-      popover.style.top=top+'px';popover.style.left=left+'px';popover.style.width=pw+'px';
+      popover.style.top=top+'px';popover.style.left=left+'px';
       popover.querySelector('#tourNext').onclick=next;
       const prev=popover.querySelector('#tourPrev');if(prev)prev.onclick=()=>{i--;show(i);};
       popover.querySelector('#tourSkip').onclick=end;
