@@ -2039,3 +2039,185 @@ try{
   CMDS.push({n:'🎛 Pro mode (полный интерфейс)',h:()=>setMode('pro')});
 }catch(e){console.debug(e)}
 
+/* ============================================================ */
+/* ============ v9: TEXT-TO-IMAGE ============================ */
+/* ============================================================ */
+
+/* --- Core helper: generate image from prompt --- */
+async function generateImage(prompt,opts={}){
+  const c=needKey();if(!c)return null;
+  const {size='1024x1024',quality='standard',model='dall-e-3',n=1}=opts;
+  // OpenRouter/Ollama don't support /images/generations
+  if(/openrouter|ollama|11434/i.test(c.base)){
+    toast('⚠ Этот провайдер не поддерживает генерацию картинок. Нужен ключ OpenAI.');
+    return null;
+  }
+  try{
+    const body={model,prompt:prompt.slice(0,3800),size,n};
+    if(model==='dall-e-3')body.quality=quality;
+    const r=await fetch(c.base+'/images/generations',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      body:JSON.stringify(body)
+    });
+    const j=await r.json();
+    if(j.error){toast('Image: '+j.error.message);logError('image',j.error);return null;}
+    return (j.data||[]).map(d=>d.url||(d.b64_json?'data:image/png;base64,'+d.b64_json:null)).filter(Boolean);
+  }catch(e){
+    logError('generateImage',e);
+    toast('⚠ Image: '+e.message.slice(0,80));
+    return null;
+  }
+}
+window.generateImage=generateImage;
+
+/* --- Simple Mode: preview button on each variant --- */
+async function smPreviewVariant(variants,i,btn){
+  if(!needKey())return;
+  const v=variants[i];
+  const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳';
+  try{
+    const tpl=SIMPLE_TEMPLATES[_smTemplate];
+    const size=tpl.aspect==='9:16'?'1024x1792':tpl.aspect==='16:9'?'1792x1024':'1024x1024';
+    const stillPrompt='cinematic still frame from video, '+v.prompt.slice(0,500);
+    const urls=await generateImage(stillPrompt,{size});
+    if(urls&&urls[0]){
+      const card=btn.closest('.sm-result');
+      let preview=card.querySelector('.sm-preview');
+      if(!preview){preview=document.createElement('div');preview.className='sm-preview mt-3';card.appendChild(preview);}
+      preview.innerHTML=`<img src="${urls[0]}" class="w-full rounded-lg"/><div class="flex gap-2 mt-2"><a href="${urls[0]}" download="preview-${i+1}.png" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a><button class="soft-btn text-xs px-3 py-1.5" onclick="this.closest('.sm-preview').remove()">✕</button></div>`;
+      toast('🖼 Кадр готов');
+    }
+  }finally{btn.disabled=false;btn.textContent=orig;}
+}
+
+/* Inject preview button into variant cards by patching smRenderResults */
+const _smRenderResultsOrig=smRenderResults;
+smRenderResults=function(variants){
+  _smRenderResultsOrig(variants);
+  // Add preview button to each card
+  const out=document.getElementById('smResults');if(!out)return;
+  out.querySelectorAll('.sm-result').forEach((card,i)=>{
+    if(card.querySelector('[data-sm-preview]'))return;
+    const btnRow=card.querySelector('.flex.gap-1');
+    if(!btnRow||!aiCfg().key)return;
+    const b=document.createElement('button');
+    b.className='soft-btn text-xs px-2.5 py-1.5';
+    b.dataset.smPreview=i;
+    b.textContent='🖼 Превью';
+    b.title='Сгенерировать референс-картинку';
+    b.onclick=()=>smPreviewVariant(variants,i,b);
+    btnRow.insertBefore(b,btnRow.firstChild);
+  });
+};
+
+/* --- Image Mode (separate text-to-image tool) --- */
+const IMG_SIZES=[
+  {k:'1024x1024',label:'1:1',sub:'квадрат'},
+  {k:'1792x1024',label:'16:9',sub:'горизонталь'},
+  {k:'1024x1792',label:'9:16',sub:'вертикаль'}
+];
+const IMG_STYLES=[
+  {k:'',label:'Без стиля',icon:'⚪',sub:'как описано'},
+  {k:'photo',label:'Фото',icon:'📷',sub:'photoreal',suffix:', photorealistic, professional photography, 8k, sharp focus, hyperdetailed'},
+  {k:'cinema',label:'Кино',icon:'🎬',sub:'cinematic',suffix:', cinematic still, anamorphic, film grain, dramatic lighting, color grading'},
+  {k:'anime',label:'Аниме',icon:'🎌',sub:'anime',suffix:', anime style, studio ghibli inspired, cel-shaded, vibrant'},
+  {k:'illust',label:'Иллюстрация',icon:'🎨',sub:'illustration',suffix:', digital illustration, concept art, painterly, vivid colors'},
+  {k:'3d',label:'3D',icon:'🧊',sub:'3D render',suffix:', 3D render, octane render, volumetric lighting, realistic materials'},
+  {k:'minimal',label:'Минимал',icon:'⬜',sub:'minimalist',suffix:', minimalist, clean composition, geometric, soft pastels'},
+  {k:'noir',label:'Нуар',icon:'🎩',sub:'noir',suffix:', film noir, black and white, high contrast, moody chiaroscuro'},
+  {k:'cyber',label:'Киберпанк',icon:'🤖',sub:'cyberpunk',suffix:', cyberpunk, neon lights, blade runner aesthetic, rain'},
+  {k:'fantasy',label:'Фэнтези',icon:'🧙',sub:'fantasy',suffix:', epic fantasy art, dramatic mood, magical atmosphere, intricate'}
+];
+
+let _imgSize='1024x1024';
+let _imgStyle='';
+
+function imgRenderTiles(){
+  const sizeWrap=document.getElementById('imgSizeTiles');
+  const styleWrap=document.getElementById('imgStyleTiles');
+  if(!sizeWrap||!styleWrap)return;
+  sizeWrap.innerHTML=IMG_SIZES.map(s=>`
+    <div class="sm-tile${s.k===_imgSize?' active':''}" data-size="${s.k}">
+      <div class="sm-tile-label">${s.label}</div>
+      <div class="sm-tile-sub">${s.sub}</div>
+    </div>`).join('');
+  styleWrap.innerHTML=IMG_STYLES.map(s=>`
+    <div class="sm-tile${s.k===_imgStyle?' active':''}" data-style="${s.k}">
+      <span class="sm-tile-icon">${s.icon}</span>
+      <div class="sm-tile-label">${s.label}</div>
+      <div class="sm-tile-sub">${s.sub}</div>
+    </div>`).join('');
+  sizeWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{_imgSize=el.dataset.size;sizeWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.size===_imgSize));});
+  styleWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{_imgStyle=el.dataset.style;styleWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.style===_imgStyle));});
+  imgUpdateHint();
+}
+
+function imgUpdateHint(){
+  const hint=document.getElementById('imgHint');if(!hint)return;
+  const c=aiCfg();
+  if(!c.key){hint.innerHTML='Нужен ключ OpenAI · <button class="underline hover:text-violet-400" onclick="document.getElementById(\'aiSettingsBtn\').click()">Подключить →</button>';return;}
+  if(/openrouter|ollama|11434/i.test(c.base)){hint.textContent='⚠ Этот провайдер не поддерживает картинки';return;}
+  hint.textContent='~$0.04 за картинку';
+}
+
+async function imgGenerate(){
+  const idea=document.getElementById('imgIdea').value.trim();
+  if(!idea){toast('Опиши картинку');document.getElementById('imgIdea').focus();return;}
+  if(!needKey())return;
+  const style=IMG_STYLES.find(s=>s.k===_imgStyle);
+  const fullPrompt=idea+(style?.suffix||'');
+  const quality=document.getElementById('imgQuality').value;
+  const model=document.getElementById('imgModel').value;
+  const btn=document.getElementById('imgGenerate');
+  const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Генерирую (10-30с)...';
+  const out=document.getElementById('imgResults');
+  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю картинку, обычно 10-30 секунд...</div>';
+  try{
+    const urls=await generateImage(fullPrompt,{size:_imgSize,quality,model});
+    if(urls&&urls[0]){
+      const url=urls[0];
+      out.innerHTML=`
+        <div class="sm-result">
+          <img src="${url}" class="w-full rounded-lg mb-3" alt="generated"/>
+          <div class="text-xs subtle mb-2">📝 ${(idea+(style?.suffix||'')).replace(/</g,'&lt;').slice(0,200)}${idea.length>200?'...':''}</div>
+          <div class="flex flex-wrap gap-2">
+            <a href="${url}" download="image.png" target="_blank" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a>
+            <button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText('${url}');toast('🔗 URL скопирован')">🔗 Копировать URL</button>
+            <button class="soft-btn text-xs px-3 py-1.5" onclick="document.getElementById('imgGenerate').click()">🔄 Ещё раз</button>
+          </div>
+        </div>`;
+      toast('🖼 Готово');
+    }else{
+      out.innerHTML='<div class="sm-result text-sm text-red-400">⚠ Не удалось создать картинку. Проверь ключ и попробуй ещё.</div>';
+    }
+  }finally{
+    btn.disabled=false;btn.textContent=orig;
+  }
+}
+
+/* --- Inner tabs (Video / Image) inside Simple Mode --- */
+function smSetTab(tab){
+  document.querySelectorAll('.sm-tab').forEach(b=>b.classList.toggle('tab-active',b.dataset.smtab===tab));
+  const v=document.getElementById('smVideoPanel');
+  const i=document.getElementById('smImagePanel');
+  if(v)v.classList.toggle('sm-hidden',tab!=='video');
+  if(i)i.classList.toggle('sm-hidden',tab!=='image');
+  safeLS('seedance_sm_tab',tab);
+}
+
+(function initImageMode(){
+  imgRenderTiles();
+  document.getElementById('imgGenerate')?.addEventListener('click',imgGenerate);
+  document.getElementById('imgIdea')?.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();imgGenerate();}
+  });
+  document.querySelectorAll('.sm-tab').forEach(b=>b.onclick=()=>smSetTab(b.dataset.smtab));
+  const savedTab=localStorage.getItem('seedance_sm_tab')||'video';
+  smSetTab(savedTab);
+})();
+
+try{
+  CMDS.push({n:'🖼 Image Mode (text-to-image)',h:()=>{setMode('simple');smSetTab('image');document.getElementById('imgIdea')?.focus();}});
+}catch(e){console.debug(e)}
+
