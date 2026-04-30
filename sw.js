@@ -1,5 +1,5 @@
-/* Seedance 2.0 — Service Worker (offline cache) */
-const CACHE='seedance-v10.13';
+/* Lumen — Service Worker (offline cache) */
+const CACHE='lumen-v11.0';
 const ASSETS=['./','./index.html','./app.js','./extras.js','./MANUAL.html'];
 
 self.addEventListener('install',e=>{

@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🎬 Seedance Studio
+# � Lumen — Cinematic Prompt Studio
+
+_by Armen_
 
 **Build cinematic AI-video prompts in seconds**
 
