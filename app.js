@@ -1911,25 +1911,37 @@ function smScoreClass(n){return n>=80?'sm-score-high':n>=60?'sm-score-mid':'sm-s
 function smRenderResults(variants){
   const out=document.getElementById('smResults');if(!out)return;
   if(!variants||!variants.length){out.innerHTML='';return;}
+  // Backward compat: prompt → prompt_en
+  variants.forEach(v=>{if(!v.prompt_en&&v.prompt)v.prompt_en=v.prompt;});
   out.innerHTML=variants.map((v,i)=>`
-    <div class="sm-result">
+    <div class="sm-result" data-vi="${i}">
       <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
         <div class="flex items-center gap-2">
           <span class="font-semibold text-sm">Вариант ${i+1}</span>
           ${typeof v.score==='number'?`<span class="sm-score ${smScoreClass(v.score)}">⭐ ${v.score}/100</span>`:''}
         </div>
-        <div class="flex gap-1">
-          <button class="soft-btn text-xs px-2.5 py-1.5" data-sm-copy="${i}">📋 Копировать</button>
-          ${aiCfg().key?`<button class="soft-btn text-xs px-2.5 py-1.5" data-sm-improve="${i}">✨ Улучшить</button>`:''}
-          <button class="soft-btn text-xs px-2.5 py-1.5" data-sm-pro="${i}" title="Открыть в Pro mode для тонкой настройки">🎛 В Pro</button>
-        </div>
       </div>
-      <div class="text-sm whitespace-pre-wrap leading-relaxed">${(v.prompt||'').replace(/</g,'&lt;')}</div>
+      <div class="mb-2">
+        <div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN — для вставки в Sora/Runway/Kling</div>
+        <div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/20 border border-white/5" data-prompt="en">${(v.prompt_en||'').replace(/</g,'&lt;')}</div>
+      </div>
+      ${v.prompt_ru?`
+      <details class="mb-2">
+        <summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer hover:text-violet-400">🇷🇺 RU — перевод для понимания</summary>
+        <div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/10 border border-white/5 mt-2 italic" data-prompt="ru">${v.prompt_ru.replace(/</g,'&lt;')}</div>
+      </details>`:''}
+      <div class="flex flex-wrap gap-1 mt-2">
+        <button class="soft-btn text-xs px-2.5 py-1.5" data-sm-copy-en="${i}">📋 EN</button>
+        ${v.prompt_ru?`<button class="soft-btn text-xs px-2.5 py-1.5" data-sm-copy-ru="${i}">📋 RU</button>`:''}
+        ${aiCfg().key?`<button class="soft-btn text-xs px-2.5 py-1.5" data-sm-improve="${i}">✨ Улучшить</button>`:''}
+        <button class="soft-btn text-xs px-2.5 py-1.5" data-sm-pro="${i}" title="Открыть в Pro mode для тонкой настройки">🎛 В Pro</button>
+      </div>
       ${v.why?`<div class="text-xs subtle mt-2 italic">💡 ${(v.why||'').replace(/</g,'&lt;')}</div>`:''}
     </div>`).join('');
-  out.querySelectorAll('[data-sm-copy]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smCopy;navigator.clipboard.writeText(variants[i].prompt);toast('📋 Скопировано');});
+  out.querySelectorAll('[data-sm-copy-en]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smCopyEn;navigator.clipboard.writeText(variants[i].prompt_en||'');toast('📋 EN скопирован');});
+  out.querySelectorAll('[data-sm-copy-ru]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smCopyRu;navigator.clipboard.writeText(variants[i].prompt_ru||'');toast('📋 RU скопирован');});
   out.querySelectorAll('[data-sm-improve]').forEach(b=>b.onclick=async()=>{const i=+b.dataset.smImprove;await smImproveVariant(variants,i);});
-  out.querySelectorAll('[data-sm-pro]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smPro;smSendToPro(variants[i].prompt);});
+  out.querySelectorAll('[data-sm-pro]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smPro;smSendToPro(variants[i].prompt_en||'');});
   window._smVariants=variants;
 }
 
@@ -1938,11 +1950,14 @@ async function smImproveVariant(variants,i){
   const v=variants[i];
   toast('✨ Улучшаю...');
   const out=await aiCall([
-    {role:'system',content:'Improve this video prompt: stronger hook, more vivid visuals, better cinematic detail. Keep under 200 words. Reply with ONLY the improved prompt text, no preamble.'},
-    {role:'user',content:v.prompt}
-  ]);
+    {role:'system',content:'Improve this video prompt: stronger hook, more vivid visuals, better cinematic detail. Keep under 200 words. Reply ONLY as JSON: {"prompt_en":"the improved ENGLISH prompt","prompt_ru":"faithful Russian translation, same structure and length"}.'},
+    {role:'user',content:'EN: '+(v.prompt_en||'')}
+  ],{json:true});
   if(out){
-    variants[i]={...v,prompt:out.trim(),score:Math.min(100,(v.score||70)+5),why:'Улучшено: усилен хук и детали'};
+    let en=v.prompt_en,ru=v.prompt_ru;
+    try{const jb=JSON.parse(out);if(jb.prompt_en)en=String(jb.prompt_en).trim();if(jb.prompt_ru)ru=String(jb.prompt_ru).trim();}
+    catch(_){en=out.trim();}
+    variants[i]={...v,prompt_en:en,prompt_ru:ru,score:Math.min(100,(v.score||70)+5),why:'Улучшено: усилен хук и детали'};
     smRenderResults(variants);
     toast('✨ Готово');
   }
@@ -1971,7 +1986,7 @@ async function smGenerate(){
   try{
     if(c.key){
       const sys=`You are a professional video prompt engineer for AI video generators (Seedance, Runway, Kling, Sora).
-Generate exactly 3 DISTINCT cinematic English prompts for the same idea.
+Generate exactly 3 DISTINCT cinematic prompts for the same idea.
 Format: ${tpl.label} — aspect ratio ${tpl.aspect}, duration ${tpl.duration}.
 Style guidance: ${Object.entries(tpl.fields).map(([k,v])=>`${k}: ${v}`).join('; ')}.
 ${brand?`Product/brand: ${brand}.`:''}
@@ -1979,16 +1994,28 @@ ${message?`Core emotional message: ${message}.`:''}
 Tactical hints: ${tpl.aiHint}
 
 Each variant must be DIFFERENT in approach (e.g. v1=action-led, v2=emotion-led, v3=product/visual-led).
-Each prompt under 180 words, vivid sensory English, ready to paste into video model.
+
+🌐 LANGUAGE RULE — STRICT
+- prompt_en: ALWAYS in ENGLISH (this is what gets pasted into Sora/Runway/Kling), under 180 words, vivid sensory.
+- prompt_ru: faithful Russian translation of prompt_en — same structure, same length, technical terms transliterated or kept in parentheses.
+
 Score 0-100 = viral/engagement potential.
 
 Reply ONLY as JSON:
-{"variants":[{"prompt":"...","score":85,"why":"короткое обоснование на русском, 1 строка"},{"prompt":"...","score":...,"why":"..."},{"prompt":"...","score":...,"why":"..."}]}`;
+{"variants":[
+  {"prompt_en":"...","prompt_ru":"...","score":85,"why":"короткое обоснование на русском, 1 строка"},
+  {"prompt_en":"...","prompt_ru":"...","score":...,"why":"..."},
+  {"prompt_en":"...","prompt_ru":"...","score":...,"why":"..."}
+]}`;
       const out=await aiCall([{role:'system',content:sys},{role:'user',content:idea}],{json:true});
       if(!out)throw new Error('Пустой ответ AI');
       const j=JSON.parse(out);
       assertShape(j,{variants:'array'},'smGenerate');
-      j.variants.forEach((v,i)=>assertShape(v,{prompt:'string',score:'number'},'variant['+i+']'));
+      j.variants.forEach((v,i)=>{
+        if(!v.prompt_en&&v.prompt)v.prompt_en=v.prompt;
+        if(!v.prompt_ru)v.prompt_ru='';
+        assertShape(v,{prompt_en:'string',score:'number'},'variant['+i+']');
+      });
       j.variants.sort((a,b)=>(b.score||0)-(a.score||0));
       smRenderResults(j.variants);
       toast('✨ '+j.variants.length+' вариантов готово');
@@ -2162,26 +2189,55 @@ function imgUpdateHint(){
   hint.textContent='~$0.04 за картинку';
 }
 
+async function imgTranslateIfNeeded(idea){
+  // DALL·E works best with English. If input contains Cyrillic, translate via AI first.
+  if(!/[А-Яа-яЁё]/.test(idea))return {en:idea,ru:''};
+  try{
+    const res=await aiCall([
+      {role:'system',content:'Translate the user\'s image idea into vivid, concrete, ENGLISH visual prose optimized for DALL·E 3. Keep all concrete details. Add concrete sensory specifics (lighting, composition, materials) only if input is too vague. Reply ONLY as JSON: {"en":"english version","ru":"slightly polished Russian version of the same idea"}.'},
+      {role:'user',content:idea}
+    ],{json:true});
+    if(res){
+      try{const j=JSON.parse(res);return {en:String(j.en||idea),ru:String(j.ru||idea)};}catch(_){return {en:res.trim(),ru:idea};}
+    }
+  }catch(e){logError('imgTranslate',e);}
+  return {en:idea,ru:idea};
+}
+
 async function imgGenerate(){
   const idea=document.getElementById('imgIdea').value.trim();
   if(!idea){toast('Опиши картинку');document.getElementById('imgIdea').focus();return;}
   if(!needKey())return;
   const style=IMG_STYLES.find(s=>s.k===_imgStyle);
-  const fullPrompt=idea+(style?.suffix||'');
   const quality=document.getElementById('imgQuality').value;
   const model=document.getElementById('imgModel').value;
   const btn=document.getElementById('imgGenerate');
-  const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Генерирую (10-30с)...';
+  const orig=btn.textContent;btn.disabled=true;
   const out=document.getElementById('imgResults');
-  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю картинку, обычно 10-30 секунд...</div>';
+  const hasCyr=/[А-Яа-яЁё]/.test(idea);
+  if(hasCyr){
+    btn.textContent='🌐 Перевод → 🖼 Генерация...';
+    out.innerHTML='<div class="sm-result text-sm subtle">🌐 Перевожу на английский для DALL·E...</div>';
+  }else{
+    btn.textContent='⏳ Генерирую (10-30с)...';
+    out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю картинку, обычно 10-30 секунд...</div>';
+  }
   try{
+    const {en:ideaEn,ru:ideaRu}=await imgTranslateIfNeeded(idea);
+    const fullPrompt=ideaEn+(style?.suffix||'');
+    if(hasCyr){btn.textContent='⏳ Генерирую (10-30с)...';out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю картинку, обычно 10-30 секунд...</div>';}
     const urls=await generateImage(fullPrompt,{size:_imgSize,quality,model});
     if(urls&&urls[0]){
       const url=urls[0];
+      const ruBlock=ideaRu&&ideaRu!==ideaEn?`<details class="mb-2"><summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer hover:text-violet-400">🇷🇺 RU — твой запрос</summary><div class="text-xs subtle p-2 mt-1 rounded bg-black/10 border border-white/5">${ideaRu.replace(/</g,'&lt;')}</div></details>`:'';
       out.innerHTML=`
         <div class="sm-result">
           <img src="${url}" class="w-full rounded-lg mb-3" alt="generated"/>
-          <div class="text-xs subtle mb-2">📝 ${(idea+(style?.suffix||'')).replace(/</g,'&lt;').slice(0,200)}${idea.length>200?'...':''}</div>
+          <div class="mb-2">
+            <div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN — отправлено в DALL·E</div>
+            <div class="text-xs p-2 rounded bg-black/20 border border-white/5">${(ideaEn+(style?.suffix||'')).replace(/</g,'&lt;').slice(0,400)}${(ideaEn+(style?.suffix||'')).length>400?'...':''}</div>
+          </div>
+          ${ruBlock}
           <div class="flex flex-wrap gap-2">
             <a href="${url}" download="image.png" target="_blank" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a>
             <button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText('${url}');toast('🔗 URL скопирован')">🔗 Копировать URL</button>
