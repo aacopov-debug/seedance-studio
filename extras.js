@@ -131,7 +131,7 @@ function tplOpenModal(){
     const grid=m.querySelector('#tplGrid');
     const list=activeCat==='all'?TPL:TPL.filter(t=>t.cat===activeCat);
     if(!list.length){grid.innerHTML='<div class="empty-state col-span-full"><div class="empty-state-title">Пусто</div></div>';return;}
-    grid.innerHTML=list.map((t,i)=>`<button class="sm-tile text-left" data-tpl-i="${TPL.indexOf(t)}" style="padding:14px">
+    grid.innerHTML=list.map((t,i)=>`<button class="sm-tile text-left tpl-card" data-tpl-i="${TPL.indexOf(t)}" style="padding:14px">
       <div class="flex items-start gap-3 mb-2">
         <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/30 to-pink-500/20 border border-violet-400/30 grid place-items-center flex-shrink-0"><i data-lucide="${t.icon}" style="color:#c4b5fd"></i></div>
         <div class="flex-1 min-w-0">
@@ -141,15 +141,62 @@ function tplOpenModal(){
       </div>
       <div class="text-xs subtle leading-relaxed line-clamp-3" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${t.idea}</div>
     </button>`).join('');
-    grid.querySelectorAll('[data-tpl-i]').forEach(btn=>btn.onclick=()=>{
-      const t=TPL[+btn.dataset.tplI];tplApply(t);m.classList.add('sm-hidden');
+    grid.querySelectorAll('[data-tpl-i]').forEach(btn=>{
+      btn.onclick=()=>{const t=TPL[+btn.dataset.tplI];tplApply(t);m.classList.add('sm-hidden');tplHidePreview();};
+      btn.addEventListener('mouseenter',e=>tplShowPreview(TPL[+btn.dataset.tplI],e.currentTarget));
+      btn.addEventListener('mouseleave',tplHidePreview);
+      btn.addEventListener('focus',e=>tplShowPreview(TPL[+btn.dataset.tplI],e.currentTarget));
+      btn.addEventListener('blur',tplHidePreview);
     });
+    // Hide preview when modal scrolls / when leaving grid
+    grid.addEventListener('scroll',tplHidePreview,{passive:true});
     window.refreshIcons&&window.refreshIcons();
   };
   renderCats();renderGrid();
   m.classList.remove('sm-hidden');
   window.refreshIcons&&window.refreshIcons();
 }
+
+/* === TEMPLATES floating preview tooltip === */
+let _tplPreviewEl=null;
+function tplShowPreview(t,anchor){
+  if(!t||window.innerWidth<900)return; // skip on small screens
+  if(!_tplPreviewEl){
+    _tplPreviewEl=document.createElement('div');
+    _tplPreviewEl.className='tpl-preview-floating';
+    document.body.appendChild(_tplPreviewEl);
+  }
+  const modeLabel=t.mode==='video'?'🎬 Видео':t.mode==='text'?'📝 Текст':'🖼 Картинка';
+  const catLabel=TPL_CATS[t.cat]?.label||t.cat;
+  const wordCount=t.idea.trim().split(/\s+/).length;
+  _tplPreviewEl.innerHTML=`
+    <div class="tpl-pv-header">
+      <div class="tpl-pv-icon"><i data-lucide="${t.icon}"></i></div>
+      <div class="flex-1 min-w-0">
+        <div class="tpl-pv-title">${t.title}</div>
+        <div class="tpl-pv-meta">${catLabel} · ${modeLabel}</div>
+      </div>
+    </div>
+    <div class="tpl-pv-badges">
+      ${t.target?`<span class="tpl-pv-badge">🎯 ${t.target}</span>`:''}
+      <span class="tpl-pv-badge">✍️ ${wordCount} слов</span>
+    </div>
+    <div class="tpl-pv-label">ПОЛНЫЙ ТЕКСТ ИДЕИ</div>
+    <div class="tpl-pv-idea">${t.idea.replace(/[<>]/g,'')}</div>
+    <div class="tpl-pv-hint">→ Клик чтобы открыть в Simple Mode</div>`;
+  // Position next to anchor, prefer right side; clamp to viewport
+  const r=anchor.getBoundingClientRect();
+  const pw=320,ph=Math.min(_tplPreviewEl.offsetHeight||280,360);
+  let left=r.right+12;
+  if(left+pw>window.innerWidth-12)left=Math.max(12,r.left-pw-12);
+  let top=r.top;
+  if(top+ph>window.innerHeight-12)top=Math.max(12,window.innerHeight-ph-12);
+  _tplPreviewEl.style.top=top+'px';
+  _tplPreviewEl.style.left=left+'px';
+  _tplPreviewEl.classList.add('tpl-pv-show');
+  window.refreshIcons&&window.refreshIcons();
+}
+function tplHidePreview(){if(_tplPreviewEl)_tplPreviewEl.classList.remove('tpl-pv-show');}
 
 function tplApply(t){
   // Switch to Simple mode if currently in Pro
@@ -219,7 +266,17 @@ const TOUR_PREVIEW={
   </svg>`,
 };
 const TOUR_STEPS=[
-  {sel:'#smIdea, #imgIdea, #txtInput, #i2pDrop',title:'Опиши идею',body:'Напиши коротко, что хочешь снять или нарисовать. Чем конкретнее — тем точнее результат. Можно по-русски, AI поймёт.',pos:'bottom',preview:TOUR_PREVIEW.idea,previewLabel:'Пример заполнения'},
+  {sel:'#smIdea, #imgIdea, #txtInput, #i2pDrop',title:'Опиши идею',body:'Напиши коротко, что хочешь снять или нарисовать. Смотри как AI печатает пример →',pos:'bottom',preview:TOUR_PREVIEW.idea,previewLabel:'Пример заполнения',
+   enter:(el)=>{
+     if(!el||(el.tagName!=='TEXTAREA'&&el.tagName!=='INPUT'))return null;
+     const orig=el.value;
+     el.value='';el.classList.add('tour-typing');
+     const text='Реклама часов Rolex в стиле блокбастера, золотой час, kinetic camera, неон в фоне';
+     let i=0,stopped=false,timer=null;
+     const tick=()=>{if(stopped)return;el.value=text.slice(0,++i);if(i<text.length)timer=setTimeout(tick,38);};
+     timer=setTimeout(tick,300);
+     return ()=>{stopped=true;if(timer)clearTimeout(timer);el.value=orig;el.classList.remove('tour-typing');};
+   }},
   {sel:'#smTiles, #imgStyleTiles, #txtStyleTiles, #i2pModeTiles',title:'Выбери формат',body:'Один клик по плитке — задаёт настроение, кадр, длительность. Можно поменять в любой момент.',pos:'bottom',preview:TOUR_PREVIEW.format,previewLabel:'Как работает выбор'},
   {sel:'#aiSettingsBtn',title:'Подключи AI',body:'Открой настройки AI и вставь свой ключ (OpenAI / Groq / Anthropic). Без ключа работает только UI — генерация требует API.',pos:'bottom',preview:TOUR_PREVIEW.ai,previewLabel:'Так выглядит окно настроек'},
   {sel:'#tplOpenBtn, #smGenerate',title:'Запускай генерацию',body:'Жми «Создать промт» — получишь 3 варианта со score. Или открой 📚 Шаблоны для готовых идей.',pos:'top',preview:TOUR_PREVIEW.generate,previewLabel:'Что появится после клика'},
@@ -228,6 +285,7 @@ const TOUR_STEPS=[
 function tourStart(force=false){
   if(!force&&localStorage.getItem('seedance_tour_done')==='1')return;
   let i=0;
+  let stepCleanup=null;
   const backdrop=document.createElement('div');backdrop.className='tour-backdrop';
   document.body.appendChild(backdrop);
   const spotlight=document.createElement('div');spotlight.className='tour-spotlight';
@@ -235,7 +293,10 @@ function tourStart(force=false){
   const popover=document.createElement('div');popover.className='tour-popover';
   document.body.appendChild(popover);
 
+  function runCleanup(){if(typeof stepCleanup==='function'){try{stepCleanup();}catch(e){console.debug(e);}stepCleanup=null;}}
+
   function show(idx){
+    runCleanup();
     const step=TOUR_STEPS[idx];if(!step){end();return;}
     // find first existing element matching any selector
     const sels=step.sel.split(',').map(s=>s.trim());
@@ -277,10 +338,13 @@ function tourStart(force=false){
       popover.querySelector('#tourNext').onclick=next;
       const prev=popover.querySelector('#tourPrev');if(prev)prev.onclick=()=>{i--;show(i);};
       popover.querySelector('#tourSkip').onclick=end;
+      // Run step's enter() callback (e.g. typewriter demo) and capture its cleanup
+      if(typeof step.enter==='function'){try{stepCleanup=step.enter(el);}catch(e){console.debug(e);}}
     },350);
   }
   function next(){i++;if(i>=TOUR_STEPS.length){end();return;}show(i);}
   function end(){
+    runCleanup();
     backdrop.remove();spotlight.remove();popover.remove();
     localStorage.setItem('seedance_tour_done','1');
     setTimeout(()=>toast('💡 Тур можно перезапустить через Ctrl+K → «Тур»','info'),300);
