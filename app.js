@@ -1908,6 +1908,87 @@ function smBuildOfflinePrompt(idea,tpl,brand,message){
 
 function smScoreClass(n){return n>=80?'sm-score-high':n>=60?'sm-score-mid':'sm-score-low';}
 
+/* ===== Batch Export (Markdown / CSV / JSON / TXT) ===== */
+function _bxDownload(filename,content,mime){
+  try{
+    const blob=new Blob([content],{type:mime+';charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=filename;
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+  }catch(e){logError('bxDownload',e);toast('⚠ Не удалось скачать');}
+}
+function _bxStamp(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;}
+function _bxCsvEscape(s){s=String(s==null?'':s);return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+
+function bxExportMd(meta,variants){
+  const lines=[];
+  lines.push(`# Промты — ${meta.idea||'(без идеи)'}`,'');
+  lines.push(`> Сгенерировано: ${new Date().toLocaleString('ru-RU')}`);
+  if(meta.target)lines.push(`> Цель: ${meta.target}`);
+  if(meta.style)lines.push(`> Стиль: ${meta.style}`);
+  if(meta.aspect)lines.push(`> Aspect: ${meta.aspect}`);
+  if(meta.core)lines.push(`> Ядро: **${meta.core.subject||''}** · **${meta.core.action||''}**${meta.core.object?' · **'+meta.core.object+'**':''}`);
+  lines.push('');
+  variants.forEach((v,i)=>{
+    lines.push(`## ${i+1}. ${v.title||'Вариант '+(i+1)}${typeof v.score==='number'?' — ⭐ '+v.score+'/100':''}`);
+    if(v.why)lines.push(`*${v.why}*`);
+    lines.push('','**🇬🇧 EN:**','',v.prompt_en||'','');
+    if(v.prompt_ru){lines.push('**🇷🇺 RU:**','',v.prompt_ru,'');}
+    lines.push('---','');
+  });
+  return lines.join('\n');
+}
+function bxExportCsv(meta,variants){
+  const head=['#','title','score','approach','prompt_en','prompt_ru','why'];
+  const rows=[head.join(',')];
+  variants.forEach((v,i)=>{
+    rows.push([i+1,v.title||'',v.score==null?'':v.score,v.approach||'',v.prompt_en||'',v.prompt_ru||'',v.why||''].map(_bxCsvEscape).join(','));
+  });
+  return '\uFEFF'+rows.join('\n'); // BOM for Excel UTF-8
+}
+function bxExportJson(meta,variants){
+  return JSON.stringify({
+    app:'seedance-studio',version:'10.7',
+    generated_at:new Date().toISOString(),
+    idea:meta.idea||null,target:meta.target||null,style:meta.style||null,aspect:meta.aspect||null,
+    core:meta.core||null,
+    variants:variants.map(v=>({title:v.title||null,score:v.score==null?null:v.score,approach:v.approach||null,prompt_en:v.prompt_en||'',prompt_ru:v.prompt_ru||'',why:v.why||null}))
+  },null,2);
+}
+function bxExportTxt(variants){
+  return variants.map((v,i)=>`# ${i+1}. ${v.title||'Variant '+(i+1)}\n${v.prompt_en||''}`).join('\n\n---\n\n');
+}
+
+function bxBarHtml(prefix){
+  return `<div class="mt-4 p-3 rounded-lg bg-violet-500/5 border border-violet-500/20 flex flex-wrap items-center gap-2" data-bx="${prefix}">
+    <span class="text-xs subtle mr-1">📦 Экспорт всех вариантов:</span>
+    <button class="soft-btn text-xs px-3 py-1.5" data-bx-fmt="md">📋 Markdown</button>
+    <button class="soft-btn text-xs px-3 py-1.5" data-bx-fmt="csv">📊 CSV</button>
+    <button class="soft-btn text-xs px-3 py-1.5" data-bx-fmt="json">💾 JSON</button>
+    <button class="soft-btn text-xs px-3 py-1.5" data-bx-fmt="txt">📝 TXT (только EN)</button>
+  </div>`;
+}
+function bxWire(container,prefix,meta,variants){
+  const bar=container.querySelector(`[data-bx="${prefix}"]`);if(!bar)return;
+  bar.querySelectorAll('[data-bx-fmt]').forEach(btn=>{
+    btn.onclick=()=>{
+      if(!variants||!variants.length){toast('Нечего экспортировать');return;}
+      const fmt=btn.dataset.bxFmt;
+      const stamp=_bxStamp();
+      const base=`seedance-${prefix}-${stamp}`;
+      try{
+        if(fmt==='md')_bxDownload(base+'.md',bxExportMd(meta,variants),'text/markdown');
+        else if(fmt==='csv')_bxDownload(base+'.csv',bxExportCsv(meta,variants),'text/csv');
+        else if(fmt==='json')_bxDownload(base+'.json',bxExportJson(meta,variants),'application/json');
+        else if(fmt==='txt')_bxDownload(base+'.txt',bxExportTxt(variants),'text/plain');
+        toast('📥 Скачано: '+base+'.'+fmt);
+      }catch(e){logError('bxExport.'+fmt,e);toast('⚠ Ошибка экспорта');}
+    };
+  });
+}
+
 function smRenderResults(variants){
   const out=document.getElementById('smResults');if(!out)return;
   if(!variants||!variants.length){out.innerHTML='';return;}
@@ -1942,6 +2023,13 @@ function smRenderResults(variants){
   out.querySelectorAll('[data-sm-copy-ru]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smCopyRu;navigator.clipboard.writeText(variants[i].prompt_ru||'');toast('📋 RU скопирован');});
   out.querySelectorAll('[data-sm-improve]').forEach(b=>b.onclick=async()=>{const i=+b.dataset.smImprove;await smImproveVariant(variants,i);});
   out.querySelectorAll('[data-sm-pro]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smPro;smSendToPro(variants[i].prompt_en||'');});
+  // Batch export bar
+  if(variants.length){
+    const tpl=SIMPLE_TEMPLATES[_smTemplate];
+    const meta={idea:document.getElementById('smIdea')?.value.trim()||'',target:'video',style:tpl?.label||'',aspect:tpl?.aspect||''};
+    out.insertAdjacentHTML('beforeend',bxBarHtml('video'));
+    bxWire(out,'video',meta,variants);
+  }
   window._smVariants=variants;
 }
 
@@ -2630,6 +2718,10 @@ Reply ONLY as JSON: {"prompt_en":"the improved ENGLISH prompt","prompt_ru":"fait
         }finally{b.disabled=false;if(!v._coreMissing||b.textContent==='⏳')b.textContent=o;}
       };
     });
+    // Batch export bar
+    const meta={idea:text.slice(0,500),target:target.label,style:style.label,aspect,core:j.core||null};
+    out.insertAdjacentHTML('beforeend',bxBarHtml('text'));
+    bxWire(out,'text',meta,j.variants);
     toast('✨ '+j.variants.length+' '+(j.variants.length===1?'вариант':'вариантов')+' готовы');
   }catch(e){
     logError('txtGenerate',e);
