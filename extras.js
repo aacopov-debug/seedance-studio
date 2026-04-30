@@ -1,8 +1,8 @@
 /* ============================================================
-   LUMEN — EXTRAS v11.4.1
+   LUMEN — EXTRAS v11.5
    Skeleton loaders · Templates Gallery · Onboarding Tour · PWA
    ============================================================ */
-window.LUMEN_VERSION='11.4.1';
+window.LUMEN_VERSION='11.5';
 console.log('%c✨ Lumen v'+window.LUMEN_VERSION+' loaded','color:#a78bfa;font-weight:bold;font-size:13px');
 
 /* === SKELETON LOADER === */
@@ -321,7 +321,27 @@ function tourStart(force=false){
   const popover=document.createElement('div');popover.className='tour-popover';
   document.body.appendChild(popover);
 
-  function runCleanup(){if(typeof stepCleanup==='function'){try{stepCleanup();}catch(e){console.debug(e);}stepCleanup=null;}}
+  // Track which element is "elevated" above the tour backdrop so its content is visible (not blurred behind it)
+  let elevatedEl=null,elevatedOrig=null;
+  function elevate(el){
+    unelevate();
+    if(!el)return;
+    elevatedOrig={position:el.style.position,zIndex:el.style.zIndex,boxShadow:el.style.boxShadow};
+    const computed=getComputedStyle(el).position;
+    if(computed==='static')el.style.position='relative';
+    el.style.zIndex='10001'; // above backdrop(9998) and spotlight(9999) so content shows + spotlight glow still wraps it via box-shadow on spotlight element
+    elevatedEl=el;
+  }
+  function unelevate(){
+    if(elevatedEl&&elevatedOrig){
+      elevatedEl.style.position=elevatedOrig.position||'';
+      elevatedEl.style.zIndex=elevatedOrig.zIndex||'';
+      elevatedEl.style.boxShadow=elevatedOrig.boxShadow||'';
+    }
+    elevatedEl=null;elevatedOrig=null;
+  }
+
+  function runCleanup(){if(typeof stepCleanup==='function'){try{stepCleanup();}catch(e){console.debug(e);}stepCleanup=null;}unelevate();}
 
   function show(idx){
     runCleanup();
@@ -330,6 +350,7 @@ function tourStart(force=false){
     const sels=step.sel.split(',').map(s=>s.trim());
     let el=null;for(const s of sels){const e=document.querySelector(s);if(e&&e.offsetParent!==null){el=e;break;}}
     if(!el){next();return;}
+    elevate(el);
     el.scrollIntoView({behavior:'smooth',block:'center'});
     setTimeout(()=>{
       const r=el.getBoundingClientRect();
