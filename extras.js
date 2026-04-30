@@ -268,14 +268,35 @@ const TOUR_PREVIEW={
 const TOUR_STEPS=[
   {sel:'#smIdea, #imgIdea, #txtInput, #i2pDrop',title:'Опиши идею',body:'Напиши коротко, что хочешь снять или нарисовать. Смотри как AI печатает пример →',pos:'bottom',preview:TOUR_PREVIEW.idea,previewLabel:'Пример заполнения',
    enter:(el)=>{
-     if(!el||(el.tagName!=='TEXTAREA'&&el.tagName!=='INPUT'))return null;
-     const orig=el.value;
-     el.value='';el.classList.add('tour-typing');
+     // Find an actual <textarea> or <input> (el itself OR a descendant if wrapper was matched)
+     let target=null;
+     if(el){
+       if(el.tagName==='TEXTAREA'||el.tagName==='INPUT')target=el;
+       else if(el.querySelector)target=el.querySelector('textarea,input[type="text"],input:not([type])');
+     }
+     if(!target){console.debug('[tour] step1 enter: no input target, el=',el);return null;}
+     const orig=target.value;
+     const origPh=target.placeholder||'';
+     target.value='';target.placeholder='';target.classList.add('tour-typing');
      const text='Реклама часов Rolex в стиле блокбастера, золотой час, kinetic camera, неон в фоне';
      let i=0,stopped=false,timer=null;
-     const tick=()=>{if(stopped)return;el.value=text.slice(0,++i);if(i<text.length)timer=setTimeout(tick,38);};
-     timer=setTimeout(tick,300);
-     return ()=>{stopped=true;if(timer)clearTimeout(timer);el.value=orig;el.classList.remove('tour-typing');};
+     const tick=()=>{
+       if(stopped)return;
+       i++;
+       target.value=text.slice(0,i);
+       // Trigger input event so any reactive logic (word counter, etc.) updates
+       try{target.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
+       if(i<text.length)timer=setTimeout(tick,42);
+     };
+     timer=setTimeout(tick,400);
+     return ()=>{
+       stopped=true;
+       if(timer)clearTimeout(timer);
+       target.value=orig;
+       target.placeholder=origPh;
+       target.classList.remove('tour-typing');
+       try{target.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
+     };
    }},
   {sel:'#smTiles, #imgStyleTiles, #txtStyleTiles, #i2pModeTiles',title:'Выбери формат',body:'Один клик по плитке — задаёт настроение, кадр, длительность. Можно поменять в любой момент.',pos:'bottom',preview:TOUR_PREVIEW.format,previewLabel:'Как работает выбор'},
   {sel:'#aiSettingsBtn',title:'Подключи AI',body:'Открой настройки AI и вставь свой ключ (OpenAI / Groq / Anthropic). Без ключа работает только UI — генерация требует API.',pos:'bottom',preview:TOUR_PREVIEW.ai,previewLabel:'Так выглядит окно настроек'},
