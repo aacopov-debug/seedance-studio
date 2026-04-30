@@ -1,8 +1,8 @@
 /* ============================================================
-   LUMEN — EXTRAS v11.4
+   LUMEN — EXTRAS v11.4.1
    Skeleton loaders · Templates Gallery · Onboarding Tour · PWA
    ============================================================ */
-window.LUMEN_VERSION='11.4';
+window.LUMEN_VERSION='11.4.1';
 console.log('%c✨ Lumen v'+window.LUMEN_VERSION+' loaded','color:#a78bfa;font-weight:bold;font-size:13px');
 
 /* === SKELETON LOADER === */
@@ -270,16 +270,19 @@ const TOUR_PREVIEW={
 const TOUR_STEPS=[
   {sel:'#smIdea, #imgIdea, #txtInput, #i2pDrop',title:'Опиши идею',body:'Напиши коротко, что хочешь снять или нарисовать. Смотри как AI печатает пример →',pos:'bottom',preview:TOUR_PREVIEW.idea,previewLabel:'Пример заполнения',
    enter:(el)=>{
+     console.info('[tour] step1 enter() called, el=',el,'tagName=',el?.tagName);
      // Find an actual <textarea> or <input> (el itself OR a descendant if wrapper was matched)
      let target=null;
      if(el){
        if(el.tagName==='TEXTAREA'||el.tagName==='INPUT')target=el;
        else if(el.querySelector)target=el.querySelector('textarea,input[type="text"],input:not([type])');
      }
-     if(!target){console.debug('[tour] step1 enter: no input target, el=',el);return null;}
+     if(!target){console.warn('[tour] step1: NO input target found, el=',el);return null;}
+     console.info('[tour] step1: typewriter starting on',target.id||target.tagName);
      const orig=target.value;
      const origPh=target.placeholder||'';
      target.value='';target.placeholder='';target.classList.add('tour-typing');
+     target.focus();
      const text='Реклама часов Rolex в стиле блокбастера, золотой час, kinetic camera, неон в фоне';
      let i=0,stopped=false,timer=null;
      const tick=()=>{
@@ -288,10 +291,12 @@ const TOUR_STEPS=[
        target.value=text.slice(0,i);
        // Trigger input event so any reactive logic (word counter, etc.) updates
        try{target.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
-       if(i<text.length)timer=setTimeout(tick,32);
+       if(i<text.length){timer=setTimeout(tick,32);}
+       else{console.info('[tour] step1: typewriter done');}
      };
      timer=setTimeout(tick,150);
      return ()=>{
+       console.info('[tour] step1: cleanup running, restoring orig value');
        stopped=true;
        if(timer)clearTimeout(timer);
        target.value=orig;
