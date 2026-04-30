@@ -2155,7 +2155,10 @@ const IMG_STYLES=[
   {k:'noir',label:'Нуар',icon:'🎩',sub:'noir',suffix:', film noir, black and white, high contrast, moody chiaroscuro'},
   {k:'cyber',label:'Киберпанк',icon:'🤖',sub:'cyberpunk',suffix:', cyberpunk, neon lights, blade runner aesthetic, rain'},
   {k:'fantasy',label:'Фэнтези',icon:'🧙',sub:'fantasy',suffix:', epic fantasy art, dramatic mood, magical atmosphere, intricate'},
-  {k:'pixar',label:'Pixar',icon:'🧸',sub:'3D animation',suffix:', Pixar-style 3D animation, expressive cartoon character with oversized eyes and rounded features, soft subsurface scattering, warm cinematic lighting, vibrant saturated colors, family-film aesthetic, octane render'}
+  {k:'pixar',label:'Pixar',icon:'🧸',sub:'3D animation',suffix:', Pixar-style 3D animation, expressive cartoon character with oversized eyes and rounded features, soft subsurface scattering, warm cinematic lighting, vibrant saturated colors, family-film aesthetic, octane render'},
+  {k:'ghibli',label:'Ghibli',icon:'🌸',sub:'painterly anime',suffix:', Studio Ghibli inspired hand-painted aesthetic, soft watercolor backgrounds, lush mossy greenery, pastel palette, warm nostalgic mood, dreamy bokeh, Miyazaki-style'},
+  {k:'unreal',label:'Hyperreal',icon:'🎮',sub:'Unreal Engine 5',suffix:', Unreal Engine 5 cinematic render, PS5-quality materials, ray-traced global illumination, volumetric fog, photogrammetry textures, AAA game cinematic'},
+  {k:'wes',label:'Wes Anderson',icon:'🏛',sub:'symmetric pastel',suffix:', Wes Anderson aesthetic, perfectly symmetric centered composition, flat planar staging, retro pastel palette of mint salmon mustard and dusty pink, deadpan whimsical, vintage production design'}
 ];
 
 let _imgSize='1024x1024';
@@ -2312,7 +2315,10 @@ const TXT_STYLES=[
   {k:'noir',icon:'🎩',label:'Нуар',sub:'noir',suffix:'classic film noir, high-contrast black and white, hard venetian-blind shadows, single source key light, smoke and rain'},
   {k:'illust',icon:'🎨',label:'Иллюстрация',sub:'illustration',suffix:'digital concept illustration, painterly brushwork, vivid colors, dynamic composition, dramatic perspective'},
   {k:'doc',icon:'📰',label:'Документал',sub:'documentary',suffix:'documentary realism, natural available lighting, observational handheld camera, neutral color, authentic environment'},
-  {k:'pixar',icon:'🧸',label:'Pixar',sub:'3D animation',suffix:'Pixar-style 3D animation, expressive cartoon character design with oversized eyes and rounded features, soft subsurface scattering on skin, warm friendly cinematic lighting, vibrant saturated colors, family-film aesthetic, polished volumetric atmosphere, octane render quality'}
+  {k:'pixar',icon:'🧸',label:'Pixar',sub:'3D animation',suffix:'Pixar-style 3D animation, expressive cartoon character design with oversized eyes and rounded features, soft subsurface scattering on skin, warm friendly cinematic lighting, vibrant saturated colors, family-film aesthetic, polished volumetric atmosphere, octane render quality'},
+  {k:'ghibli',icon:'🌸',label:'Ghibli',sub:'painterly anime',suffix:'Studio Ghibli inspired hand-painted aesthetic, soft watercolor backgrounds with cumulus clouds and lush mossy greenery, gentle pastel palette, warm nostalgic mood, dreamy bokeh, painterly brushwork on natural light, Miyazaki-style character expressions'},
+  {k:'unreal',icon:'🎮',label:'Hyperreal',sub:'Unreal Engine 5',suffix:'Unreal Engine 5 cinematic render, hyperreal PS5-quality materials with nanite micro-detail, ray-traced global illumination, dynamic volumetric fog, photogrammetry-grade textures, cinematic depth of field, atmospheric god rays, AAA game cinematic'},
+  {k:'wes',icon:'🏛',label:'Wes Anderson',sub:'symmetric pastel',suffix:'Wes Anderson aesthetic, perfectly symmetric centered composition, flat planar staging, retro pastel color palette of mint salmon mustard and dusty pink, deadpan whimsical mood, vintage 1970s production design, soft even lighting, meticulously curated frame'}
 ];
 
 let _txtTarget='video';
