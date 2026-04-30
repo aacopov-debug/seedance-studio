@@ -2201,8 +2201,10 @@ function smSetTab(tab){
   document.querySelectorAll('.sm-tab').forEach(b=>b.classList.toggle('tab-active',b.dataset.smtab===tab));
   const v=document.getElementById('smVideoPanel');
   const i=document.getElementById('smImagePanel');
+  const t=document.getElementById('smTextPanel');
   if(v)v.classList.toggle('sm-hidden',tab!=='video');
   if(i)i.classList.toggle('sm-hidden',tab!=='image');
+  if(t)t.classList.toggle('sm-hidden',tab!=='text');
   safeLS('seedance_sm_tab',tab);
 }
 
@@ -2219,5 +2221,147 @@ function smSetTab(tab){
 
 try{
   CMDS.push({n:'🖼 Image Mode (text-to-image)',h:()=>{setMode('simple');smSetTab('image');document.getElementById('imgIdea')?.focus();}});
+}catch(e){console.debug(e)}
+
+/* ============================================================ */
+/* ============ v10: TEXT → PROMPT =========================== */
+/* ============================================================ */
+
+const TXT_TARGETS=[
+  {k:'video',icon:'🎬',label:'Видео',sub:'8с · cinematic'},
+  {k:'image',icon:'🖼',label:'Картинка',sub:'1 кадр · still'}
+];
+const TXT_STYLES=[
+  {k:'cinema',icon:'🎬',label:'Кино',sub:'cinematic',suffix:', cinematic, anamorphic, dramatic lighting'},
+  {k:'photo',icon:'📷',label:'Фото',sub:'photoreal',suffix:', photorealistic, 8k, sharp focus, hyperdetailed'},
+  {k:'anime',icon:'🎌',label:'Аниме',sub:'anime',suffix:', anime style, cel-shaded, vibrant'},
+  {k:'fantasy',icon:'🧙',label:'Фэнтези',sub:'fantasy',suffix:', epic fantasy art, magical atmosphere'},
+  {k:'cyber',icon:'🤖',label:'Киберпанк',sub:'cyberpunk',suffix:', cyberpunk, neon, blade runner aesthetic'},
+  {k:'noir',icon:'🎩',label:'Нуар',sub:'noir',suffix:', film noir, black and white, high contrast'},
+  {k:'illust',icon:'🎨',label:'Иллюстрация',sub:'illustration',suffix:', digital illustration, painterly, vivid'},
+  {k:'doc',icon:'📰',label:'Документал',sub:'documentary',suffix:', documentary realism, natural lighting'}
+];
+
+let _txtTarget='video';
+let _txtStyle='cinema';
+
+function txtRenderTiles(){
+  const tWrap=document.getElementById('txtTargetTiles');
+  const sWrap=document.getElementById('txtStyleTiles');
+  if(!tWrap||!sWrap)return;
+  tWrap.innerHTML=TXT_TARGETS.map(t=>`
+    <div class="sm-tile${t.k===_txtTarget?' active':''}" data-target="${t.k}">
+      <span class="sm-tile-icon">${t.icon}</span>
+      <div class="sm-tile-label">${t.label}</div>
+      <div class="sm-tile-sub">${t.sub}</div>
+    </div>`).join('');
+  sWrap.innerHTML=TXT_STYLES.map(s=>`
+    <div class="sm-tile${s.k===_txtStyle?' active':''}" data-style="${s.k}">
+      <span class="sm-tile-icon">${s.icon}</span>
+      <div class="sm-tile-label">${s.label}</div>
+      <div class="sm-tile-sub">${s.sub}</div>
+    </div>`).join('');
+  tWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{_txtTarget=el.dataset.target;tWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.target===_txtTarget));});
+  sWrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>{_txtStyle=el.dataset.style;sWrap.querySelectorAll('.sm-tile').forEach(e=>e.classList.toggle('active',e.dataset.style===_txtStyle));});
+  txtUpdateHint();
+}
+
+function txtUpdateHint(){
+  const hint=document.getElementById('txtHint');if(!hint)return;
+  const c=aiCfg();
+  if(c.key)hint.textContent='AI вытащит суть и сделает промт';
+  else hint.innerHTML='Нужен AI ключ · <button class="underline hover:text-violet-400" onclick="document.getElementById(\'aiSettingsBtn\').click()">Подключить →</button>';
+}
+
+async function txtGenerate(){
+  const text=document.getElementById('txtInput').value.trim();
+  if(!text){toast('Вставь текст');document.getElementById('txtInput').focus();return;}
+  if(text.length<20){toast('Текст слишком короткий');return;}
+  if(!needKey())return;
+  const target=TXT_TARGETS.find(t=>t.k===_txtTarget);
+  const style=TXT_STYLES.find(s=>s.k===_txtStyle);
+  const btn=document.getElementById('txtGenerate');
+  const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Анализирую...';
+  const out=document.getElementById('txtResults');
+  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю суть и собираю промт...</div>';
+
+  try{
+    const targetDesc=target.k==='video'
+      ?'a single 8-second cinematic AI-video prompt (Seedance/Runway/Kling/Sora). Include subject, action, camera, lighting, mood, style. Single paragraph in vivid sensory English.'
+      :'a single still-image AI prompt (DALL-E/Midjourney). Include subject, composition, lighting, color, atmosphere. Single paragraph in vivid sensory English.';
+
+    const sys=`You are a professional prompt engineer. The user gives you arbitrary text (story, poem, post, scene description, brief). Extract the visual essence and convert it into ${targetDesc}
+Stylistic suffix to append: ${style.suffix}
+Length: under 180 words.
+
+Reply ONLY as JSON:
+{
+  "prompt": "the final ready-to-use English prompt",
+  "essence": "1-2 sentences in Russian summarizing what you extracted from the text",
+  "title": "short Russian title for this prompt (3-5 words)"
+}`;
+
+    const res=await aiCall([{role:'system',content:sys},{role:'user',content:text.slice(0,8000)}],{json:true});
+    if(!res)throw new Error('Пустой ответ');
+    const j=JSON.parse(res);
+    assertShape(j,{prompt:'string',essence:'string'},'txtGenerate');
+
+    out.innerHTML=`
+      <div class="sm-result">
+        <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <div class="font-semibold text-sm">📌 ${(j.title||'Промт').replace(/</g,'&lt;')}</div>
+          <span class="text-xs subtle">${target.icon} ${target.label} · ${style.icon} ${style.label}</span>
+        </div>
+        <div class="text-xs subtle italic mb-3">💡 ${j.essence.replace(/</g,'&lt;')}</div>
+        <div class="text-sm whitespace-pre-wrap leading-relaxed mb-3 p-3 rounded-lg bg-black/20 border border-white/5">${j.prompt.replace(/</g,'&lt;')}</div>
+        <div class="flex flex-wrap gap-2">
+          <button class="soft-btn text-xs px-3 py-1.5" id="txtUseCopy">📋 Копировать</button>
+          ${target.k==='image'?`<button class="soft-btn text-xs px-3 py-1.5" id="txtUseImage">🖼 → Сделать картинку</button>`:''}
+          ${target.k==='video'?`<button class="soft-btn text-xs px-3 py-1.5" id="txtUseVideo">🎬 → В Pro mode</button>`:''}
+          <button class="soft-btn text-xs px-3 py-1.5" id="txtPreview">🖼 Превью</button>
+          <button class="soft-btn text-xs px-3 py-1.5" id="txtRegen">🔄 Ещё раз</button>
+        </div>
+      </div>`;
+
+    document.getElementById('txtUseCopy').onclick=()=>{navigator.clipboard.writeText(j.prompt);toast('📋 Скопировано');};
+    const useImg=document.getElementById('txtUseImage');
+    if(useImg)useImg.onclick=()=>{document.getElementById('imgIdea').value=j.prompt;smSetTab('image');toast('🖼 Перенесено в Image Mode');};
+    const useVid=document.getElementById('txtUseVideo');
+    if(useVid)useVid.onclick=()=>{
+      setMode('pro');
+      setTimeout(()=>{const sub=$('subject');if(sub){sub.value=j.prompt.slice(0,200);sub.dispatchEvent(new Event('change'));}const o=$('outEnView');if(o){o.textContent=j.prompt;o.dataset.raw=j.prompt;}toast('🎛 Открыт в Pro mode');},200);
+    };
+    document.getElementById('txtPreview').onclick=async(e)=>{
+      const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
+      try{
+        const urls=await generateImage(j.prompt,{size:target.k==='video'?'1792x1024':'1024x1024'});
+        if(urls&&urls[0]){
+          const card=b.closest('.sm-result');
+          let prev=card.querySelector('.sm-preview');
+          if(!prev){prev=document.createElement('div');prev.className='sm-preview mt-3';card.appendChild(prev);}
+          prev.innerHTML=`<img src="${urls[0]}" class="w-full rounded-lg"/><div class="flex gap-2 mt-2"><a href="${urls[0]}" download="preview.png" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a><button class="soft-btn text-xs px-3 py-1.5" onclick="this.closest('.sm-preview').remove()">✕</button></div>`;
+        }
+      }finally{b.disabled=false;b.textContent=o;}
+    };
+    document.getElementById('txtRegen').onclick=txtGenerate;
+    toast('✨ Промт готов');
+  }catch(e){
+    logError('txtGenerate',e);
+    out.innerHTML=`<div class="sm-result text-sm text-red-400">⚠ Ошибка: ${e.message.replace(/</g,'&lt;')}<br/><span class="text-xs subtle">Попробуй другой текст или ещё раз.</span></div>`;
+  }finally{
+    btn.disabled=false;btn.textContent=orig;
+  }
+}
+
+(function initTextMode(){
+  txtRenderTiles();
+  document.getElementById('txtGenerate')?.addEventListener('click',txtGenerate);
+  document.getElementById('txtInput')?.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();txtGenerate();}
+  });
+})();
+
+try{
+  CMDS.push({n:'📝 Text Mode (любой текст → промт)',h:()=>{setMode('simple');smSetTab('text');document.getElementById('txtInput')?.focus();}});
 }catch(e){console.debug(e)}
 

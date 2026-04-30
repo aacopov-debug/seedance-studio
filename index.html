@@ -81,9 +81,10 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 <section id="simpleMode" class="max-w-3xl mx-auto px-6 pb-16 pt-2">
   <div class="glass rounded-2xl p-6 sm:p-8">
 
-    <div class="inline-flex gap-1 p-1 rounded-xl glass mb-5">
+    <div class="inline-flex gap-1 p-1 rounded-xl glass mb-5 flex-wrap">
       <button class="sm-tab tab-active px-4 py-2 rounded-lg text-sm font-medium" data-smtab="video">🎬 Видео</button>
       <button class="sm-tab px-4 py-2 rounded-lg text-sm font-medium" data-smtab="image">🖼 Картинка</button>
+      <button class="sm-tab px-4 py-2 rounded-lg text-sm font-medium" data-smtab="text">📝 Текст</button>
     </div>
 
     <div id="smVideoPanel">
@@ -149,6 +150,27 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 
       <div id="imgResults" class="mt-8"></div>
     </div><!-- /smImagePanel -->
+
+    <div id="smTextPanel" class="sm-hidden">
+      <h2 class="text-2xl sm:text-3xl font-extrabold mb-1">📝 Текст → Промт</h2>
+      <p class="text-sm subtle mb-6">Вставь любой текст (стих, историю, пост, описание) — AI сделает из него готовый промт</p>
+
+      <label class="block text-sm font-medium mb-2">📋 Твой текст</label>
+      <textarea id="txtInput" rows="6" class="field text-base mb-5" placeholder="Например: «Старый маяк на скалистом берегу. Туман окутывает башню, луч прожектора режет тьму. Слышно крики чаек и шум прибоя...»"></textarea>
+
+      <label class="block text-sm font-medium mb-2">🎯 Сделать промт для:</label>
+      <div id="txtTargetTiles" class="grid grid-cols-2 gap-2 mb-5"></div>
+
+      <label class="block text-sm font-medium mb-2">🎨 Стиль</label>
+      <div id="txtStyleTiles" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5"></div>
+
+      <div class="flex flex-wrap gap-2 items-center">
+        <button id="txtGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт</button>
+        <span id="txtHint" class="text-xs subtle"></span>
+      </div>
+
+      <div id="txtResults" class="mt-8"></div>
+    </div><!-- /smTextPanel -->
 
   </div>
 
