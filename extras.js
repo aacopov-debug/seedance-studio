@@ -1,7 +1,9 @@
 /* ============================================================
-   SEEDANCE 2.0 — EXTRAS v10.13
+   LUMEN — EXTRAS v11.4
    Skeleton loaders · Templates Gallery · Onboarding Tour · PWA
    ============================================================ */
+window.LUMEN_VERSION='11.4';
+console.log('%c✨ Lumen v'+window.LUMEN_VERSION+' loaded','color:#a78bfa;font-weight:bold;font-size:13px');
 
 /* === SKELETON LOADER === */
 window.skel=function(out,opts={}){
@@ -286,9 +288,9 @@ const TOUR_STEPS=[
        target.value=text.slice(0,i);
        // Trigger input event so any reactive logic (word counter, etc.) updates
        try{target.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
-       if(i<text.length)timer=setTimeout(tick,42);
+       if(i<text.length)timer=setTimeout(tick,32);
      };
-     timer=setTimeout(tick,400);
+     timer=setTimeout(tick,150);
      return ()=>{
        stopped=true;
        if(timer)clearTimeout(timer);

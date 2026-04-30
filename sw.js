@@ -1,6 +1,6 @@
 /* Lumen — Service Worker (offline cache) */
-const CACHE='lumen-v11.3.1';
-const ASSETS=['./','./index.html','./app.js','./extras.js','./MANUAL.html'];
+const CACHE='lumen-v11.4';
+const ASSETS=['./','./index.html','./app.js?v=11.4','./extras.js?v=11.4','./MANUAL.html'];
 
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).catch(()=>{}));

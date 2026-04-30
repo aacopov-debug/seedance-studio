@@ -888,7 +888,23 @@ h1{font-feature-settings:'ss03','cv11'}
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js" defer></script>
-<script src="extras.js" defer></script>
+<script src="app.js?v=11.4" defer></script>
+<script src="extras.js?v=11.4" defer></script>
+<script>
+  // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
+  window.addEventListener('load',function(){
+    setTimeout(function(){
+      if(!window.LUMEN_VERSION){
+        console.warn('[Lumen] old cached version detected — forcing SW unregister + reload');
+        if('serviceWorker' in navigator){
+          navigator.serviceWorker.getRegistrations().then(function(rs){
+            rs.forEach(function(r){r.unregister();});
+            location.reload();
+          });
+        } else { location.reload(); }
+      }
+    },2000);
+  });
+</script>
 </body>
 </html>
