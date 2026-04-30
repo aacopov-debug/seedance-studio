@@ -39,6 +39,23 @@ details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-
 .weight-token{background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(236,72,153,.25));padding:0 3px;border-radius:3px}
 .dir-card{transition:all .15s}.dir-card:hover{transform:translateY(-2px);border-color:#a855f7!important}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ============ v8: Simple Mode ============ */
+.sm-hidden{display:none!important}
+.sm-tile{cursor:pointer;padding:14px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);text-align:center;transition:all .15s}
+.sm-tile:hover{border-color:#a78bfa;transform:translateY(-1px)}
+.sm-tile.active{background:linear-gradient(135deg,rgba(139,92,246,.25),rgba(236,72,153,.25));border-color:#a78bfa}
+html[data-theme="light"] .sm-tile{background:#fff;border-color:#e2e8f0}
+html[data-theme="light"] .sm-tile:hover{border-color:#a78bfa}
+.sm-tile-icon{font-size:24px;display:block;margin-bottom:4px;line-height:1}
+.sm-tile-label{font-size:13px;font-weight:600}
+.sm-tile-sub{font-size:10px;opacity:.6;margin-top:2px;line-height:1.2}
+.sm-result{padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03)}
+html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
+.sm-score{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700}
+.sm-score-high{background:rgba(16,185,129,.2);color:#10b981}
+.sm-score-mid{background:rgba(245,158,11,.2);color:#f59e0b}
+.sm-score-low{background:rgba(239,68,68,.2);color:#ef4444}
 </style>
 </head>
 <body class="min-h-screen">
@@ -50,6 +67,7 @@ details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-
   </div>
   <div class="flex items-center gap-2 text-xs flex-wrap">
     <select id="locale" class="field !w-auto !py-1.5"><option value="ru">🇷🇺</option><option value="en">🇬🇧</option></select>
+    <button id="modeToggle" class="soft-btn px-3 py-1.5" title="Переключить Simple ↔ Pro">🎛 Pro</button>
     <button id="themeBtn" class="soft-btn px-3 py-1.5">🌓</button>
     <button id="aiSettingsBtn" class="soft-btn px-3 py-1.5">⚙ AI</button>
     <button id="shareBtn" class="soft-btn px-3 py-1.5">🔗</button>
@@ -59,6 +77,43 @@ details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-
   </div>
 </header>
 
+<!-- ============ v8: SIMPLE MODE ============ -->
+<section id="simpleMode" class="max-w-3xl mx-auto px-6 pb-16 pt-2">
+  <div class="glass rounded-2xl p-6 sm:p-8">
+    <h2 class="text-2xl sm:text-3xl font-extrabold mb-1">Создай промт для AI-видео</h2>
+    <p class="text-sm subtle mb-6">Опиши идею, выбери формат → получи готовый промт за 30 секунд</p>
+
+    <label class="block text-sm font-medium mb-2">💡 Что снимаем?</label>
+    <textarea id="smIdea" rows="2" class="field text-base mb-5" placeholder="Например: реклама часов в стиле блокбастера"></textarea>
+
+    <label class="block text-sm font-medium mb-2">🎬 Формат</label>
+    <div id="smTiles" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5"></div>
+
+    <div id="smAdFields" class="sm-hidden mb-5 space-y-3 p-4 rounded-xl bg-white/5 border border-white/10">
+      <div>
+        <label class="block text-xs subtle mb-1">🛍 Бренд / продукт</label>
+        <input id="smBrand" class="field text-sm" placeholder="Rolex Submariner"/>
+      </div>
+      <div>
+        <label class="block text-xs subtle mb-1">📣 Главный посыл (что чувствует зритель?)</label>
+        <input id="smMessage" class="field text-sm" placeholder="роскошь и точность"/>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2 items-center">
+      <button id="smGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт</button>
+      <span id="smHint" class="text-xs subtle"></span>
+    </div>
+
+    <div id="smResults" class="mt-8 space-y-4"></div>
+  </div>
+
+  <div class="text-center mt-4 text-xs subtle">
+    Нужны точные настройки lens/lighting/color? <button id="smGoPro" class="underline hover:text-violet-400">Открыть Pro mode →</button>
+  </div>
+</section>
+
+<div id="proModeWrap">
 <div class="max-w-7xl mx-auto px-6 pb-4">
   <div class="inline-flex gap-1 p-1 rounded-xl glass">
     <button class="tab tab-active px-4 py-2 rounded-lg text-sm font-medium" data-tab="t2v">📝 Text-to-Video</button>
@@ -253,6 +308,7 @@ details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-
 </div>
 </aside>
 </main>
+</div><!-- /proModeWrap -->
 
 <!-- Library modal -->
 <div id="libModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">

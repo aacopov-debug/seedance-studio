@@ -1822,3 +1822,220 @@ try{
 setTimeout(()=>checkLSQuota(),3000);
 setInterval(()=>checkLSQuota(true),60000);
 
+/* ============================================================ */
+/* ============ v8: SIMPLE MODE (for SMM/marketing) =========== */
+/* ============================================================ */
+
+const SIMPLE_TEMPLATES={
+  tiktok:{
+    icon:'📱',label:'TikTok',sub:'9:16 · 8с · хук',
+    aspect:'9:16',duration:'8s',
+    fields:{style:'cinematic, dynamic, trending',shot:'medium close-up',camera:'handheld energetic, fast cuts',speed:'fast-paced',mood:'energetic, attention-grabbing',details:'strong hook in first second, vertical framing optimized for mobile, scroll-stopping visual'},
+    aiHint:'Hook in 1st second. Fast pacing. Scroll-stopping. Mobile-vertical.'
+  },
+  reels:{
+    icon:'📷',label:'Reels',sub:'9:16 · lifestyle',
+    aspect:'9:16',duration:'8s',
+    fields:{style:'polished aesthetic, lifestyle premium',shot:'medium shot',camera:'smooth gimbal, slow motion accents',lighting:'soft natural lighting',palette:'pastel dreamy',mood:'aspirational, beautiful'},
+    aiHint:'Polished aesthetic. Aspirational. Smooth motion. Lifestyle vibe.'
+  },
+  shorts:{
+    icon:'▶',label:'Shorts',sub:'9:16 · retention',
+    aspect:'9:16',duration:'5s',
+    fields:{style:'punchy, retention-optimized',shot:'close-up to wide reveal',camera:'dynamic punch-in',speed:'fast',mood:'curiosity, surprise',details:'pattern interrupt, high contrast'},
+    aiHint:'Pattern interrupt. Curiosity gap. Punchy reveal.'
+  },
+  ad:{
+    icon:'🛍',label:'Реклама',sub:'продукт-фокус',
+    aspect:'9:16',duration:'6s',askProduct:true,askMessage:true,
+    fields:{style:'product cinematography, premium commercial',shot:'macro to medium',camera:'slow dolly in, smooth orbital',lighting:'studio softbox hero lighting',palette:'clean, brand colors',mood:'desirable, premium, trustworthy'},
+    aiHint:'Product hero. Premium feel. Clean lighting. Buy-now energy.'
+  },
+  cinema:{
+    icon:'🎬',label:'Кино',sub:'16:9 · cinematic',
+    aspect:'16:9',duration:'8s',
+    fields:{style:'photorealistic, cinematic, film grain',shot:'wide cinematic to medium',camera:'anamorphic dolly, smooth tracking',lens:'anamorphic 50mm',lighting:'cinematic chiaroscuro',palette:'teal and orange',mood:'epic, atmospheric'},
+    aiHint:'Cinematic. Anamorphic. Epic mood. Photorealistic.'
+  }
+};
+
+let _smTemplate='tiktok';
+
+function smRenderTiles(){
+  const wrap=document.getElementById('smTiles');if(!wrap)return;
+  wrap.innerHTML=Object.entries(SIMPLE_TEMPLATES).map(([k,t])=>`
+    <div class="sm-tile${k===_smTemplate?' active':''}" data-tpl="${k}">
+      <span class="sm-tile-icon">${t.icon}</span>
+      <div class="sm-tile-label">${t.label}</div>
+      <div class="sm-tile-sub">${t.sub}</div>
+    </div>`).join('');
+  wrap.querySelectorAll('.sm-tile').forEach(el=>el.onclick=()=>smSelectTemplate(el.dataset.tpl));
+  smUpdateAdFields();
+  smUpdateHint();
+}
+
+function smSelectTemplate(id){
+  _smTemplate=id;
+  document.querySelectorAll('#smTiles .sm-tile').forEach(el=>el.classList.toggle('active',el.dataset.tpl===id));
+  smUpdateAdFields();
+  smUpdateHint();
+}
+
+function smUpdateAdFields(){
+  const tpl=SIMPLE_TEMPLATES[_smTemplate];
+  const ad=document.getElementById('smAdFields');
+  if(!ad)return;
+  if(tpl.askProduct||tpl.askMessage)ad.classList.remove('sm-hidden');
+  else ad.classList.add('sm-hidden');
+}
+
+function smUpdateHint(){
+  const hint=document.getElementById('smHint');if(!hint)return;
+  const c=aiCfg();
+  if(c.key)hint.textContent='AI-режим: 3 варианта со score';
+  else hint.innerHTML='Без AI: 1 готовый промт. <button class="underline hover:text-violet-400" onclick="document.getElementById(\'aiSettingsBtn\').click()">Подключить AI →</button> для 3 вариантов';
+}
+
+function smBuildOfflinePrompt(idea,tpl,brand,message){
+  const parts=[];
+  if(brand)parts.push(brand);
+  if(idea)parts.push(idea);
+  if(message)parts.push(`conveying ${message}`);
+  Object.values(tpl.fields).forEach(v=>parts.push(v));
+  parts.push(`aspect ratio ${tpl.aspect}`,`duration ${tpl.duration}`,'high quality, sharp focus, professional');
+  return parts.filter(Boolean).join(', ');
+}
+
+function smScoreClass(n){return n>=80?'sm-score-high':n>=60?'sm-score-mid':'sm-score-low';}
+
+function smRenderResults(variants){
+  const out=document.getElementById('smResults');if(!out)return;
+  if(!variants||!variants.length){out.innerHTML='';return;}
+  out.innerHTML=variants.map((v,i)=>`
+    <div class="sm-result">
+      <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-sm">Вариант ${i+1}</span>
+          ${typeof v.score==='number'?`<span class="sm-score ${smScoreClass(v.score)}">⭐ ${v.score}/100</span>`:''}
+        </div>
+        <div class="flex gap-1">
+          <button class="soft-btn text-xs px-2.5 py-1.5" data-sm-copy="${i}">📋 Копировать</button>
+          ${aiCfg().key?`<button class="soft-btn text-xs px-2.5 py-1.5" data-sm-improve="${i}">✨ Улучшить</button>`:''}
+          <button class="soft-btn text-xs px-2.5 py-1.5" data-sm-pro="${i}" title="Открыть в Pro mode для тонкой настройки">🎛 В Pro</button>
+        </div>
+      </div>
+      <div class="text-sm whitespace-pre-wrap leading-relaxed">${(v.prompt||'').replace(/</g,'&lt;')}</div>
+      ${v.why?`<div class="text-xs subtle mt-2 italic">💡 ${(v.why||'').replace(/</g,'&lt;')}</div>`:''}
+    </div>`).join('');
+  out.querySelectorAll('[data-sm-copy]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smCopy;navigator.clipboard.writeText(variants[i].prompt);toast('📋 Скопировано');});
+  out.querySelectorAll('[data-sm-improve]').forEach(b=>b.onclick=async()=>{const i=+b.dataset.smImprove;await smImproveVariant(variants,i);});
+  out.querySelectorAll('[data-sm-pro]').forEach(b=>b.onclick=()=>{const i=+b.dataset.smPro;smSendToPro(variants[i].prompt);});
+  window._smVariants=variants;
+}
+
+async function smImproveVariant(variants,i){
+  if(!needKey())return;
+  const v=variants[i];
+  toast('✨ Улучшаю...');
+  const out=await aiCall([
+    {role:'system',content:'Improve this video prompt: stronger hook, more vivid visuals, better cinematic detail. Keep under 200 words. Reply with ONLY the improved prompt text, no preamble.'},
+    {role:'user',content:v.prompt}
+  ]);
+  if(out){
+    variants[i]={...v,prompt:out.trim(),score:Math.min(100,(v.score||70)+5),why:'Улучшено: усилен хук и детали'};
+    smRenderResults(variants);
+    toast('✨ Готово');
+  }
+}
+
+function smSendToPro(prompt){
+  setMode('pro');
+  setTimeout(()=>{
+    const sub=$('subject');if(sub){sub.value=prompt.slice(0,200);sub.dispatchEvent(new Event('change'));}
+    const out=$('outEnView');if(out){out.textContent=prompt;out.dataset.raw=prompt;}
+    toast('🎛 Открыт в Pro mode');
+  },200);
+}
+
+async function smGenerate(){
+  const idea=document.getElementById('smIdea').value.trim();
+  if(!idea){toast('Опиши идею');document.getElementById('smIdea').focus();return;}
+  const tpl=SIMPLE_TEMPLATES[_smTemplate];
+  const brand=document.getElementById('smBrand')?.value.trim();
+  const message=document.getElementById('smMessage')?.value.trim();
+  const btn=document.getElementById('smGenerate');
+  const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Генерирую...';
+  document.getElementById('smResults').innerHTML='<div class="text-sm subtle">⏳ Создаю промт...</div>';
+
+  const c=aiCfg();
+  try{
+    if(c.key){
+      const sys=`You are a professional video prompt engineer for AI video generators (Seedance, Runway, Kling, Sora).
+Generate exactly 3 DISTINCT cinematic English prompts for the same idea.
+Format: ${tpl.label} — aspect ratio ${tpl.aspect}, duration ${tpl.duration}.
+Style guidance: ${Object.entries(tpl.fields).map(([k,v])=>`${k}: ${v}`).join('; ')}.
+${brand?`Product/brand: ${brand}.`:''}
+${message?`Core emotional message: ${message}.`:''}
+Tactical hints: ${tpl.aiHint}
+
+Each variant must be DIFFERENT in approach (e.g. v1=action-led, v2=emotion-led, v3=product/visual-led).
+Each prompt under 180 words, vivid sensory English, ready to paste into video model.
+Score 0-100 = viral/engagement potential.
+
+Reply ONLY as JSON:
+{"variants":[{"prompt":"...","score":85,"why":"короткое обоснование на русском, 1 строка"},{"prompt":"...","score":...,"why":"..."},{"prompt":"...","score":...,"why":"..."}]}`;
+      const out=await aiCall([{role:'system',content:sys},{role:'user',content:idea}],{json:true});
+      if(!out)throw new Error('Пустой ответ AI');
+      const j=JSON.parse(out);
+      assertShape(j,{variants:'array'},'smGenerate');
+      j.variants.forEach((v,i)=>assertShape(v,{prompt:'string',score:'number'},'variant['+i+']'));
+      j.variants.sort((a,b)=>(b.score||0)-(a.score||0));
+      smRenderResults(j.variants);
+      toast('✨ '+j.variants.length+' вариантов готово');
+    }else{
+      const prompt=smBuildOfflinePrompt(idea,tpl,brand,message);
+      smRenderResults([{prompt,why:'Шаблонная сборка без AI. Подключи AI для 3 вариантов со score.'}]);
+      toast('✨ Промт готов');
+    }
+  }catch(e){
+    logError('smGenerate',e);
+    document.getElementById('smResults').innerHTML=`<div class="sm-result text-sm text-red-400">⚠ Ошибка: ${e.message.replace(/</g,'&lt;')}<br/><span class="text-xs subtle">Попробуй ещё раз или открой Pro mode.</span></div>`;
+  }finally{
+    btn.disabled=false;btn.textContent=orig;
+  }
+}
+
+/* --- Mode toggle --- */
+function setMode(m){
+  document.body.dataset.mode=m;
+  const sm=document.getElementById('simpleMode');
+  const pro=document.getElementById('proModeWrap');
+  if(sm)sm.classList.toggle('sm-hidden',m!=='simple');
+  if(pro)pro.classList.toggle('sm-hidden',m!=='pro');
+  const btn=document.getElementById('modeToggle');
+  if(btn)btn.innerHTML=m==='simple'?'🎛 Pro':'🟢 Simple';
+  safeLS('seedance_ui_mode',m);
+  if(m==='simple')smUpdateHint();
+}
+
+(function initSimpleMode(){
+  smRenderTiles();
+  document.getElementById('smGenerate')?.addEventListener('click',smGenerate);
+  document.getElementById('smGoPro')?.addEventListener('click',()=>setMode('pro'));
+  document.getElementById('modeToggle')?.addEventListener('click',()=>{
+    const cur=localStorage.getItem('seedance_ui_mode')||'simple';
+    setMode(cur==='simple'?'pro':'simple');
+  });
+  document.getElementById('smIdea')?.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();smGenerate();}
+  });
+  // Default mode: simple for first-time users, otherwise last-used
+  const saved=localStorage.getItem('seedance_ui_mode');
+  setMode(saved||'simple');
+})();
+
+try{
+  CMDS.push({n:'🟢 Simple mode (для блогеров)',h:()=>setMode('simple')});
+  CMDS.push({n:'🎛 Pro mode (полный интерфейс)',h:()=>setMode('pro')});
+}catch(e){console.debug(e)}
+
