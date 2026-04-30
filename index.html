@@ -2,6 +2,9 @@
 <html lang="ru" data-theme="dark">
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#7c3aed"/>
+<meta name="description" content="Премиум генератор промтов для AI-видео и картинок — Sora, Runway, Kling, DALL·E"/>
+<link rel="manifest" href="manifest.json"/>
 <title>Seedance 2.0 — Prompt Studio</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -152,8 +155,63 @@ details[open]>summary::before{transform:rotate(90deg)}
   color:#ece8f7;padding:.7rem 1.1rem;border-radius:12px;
   border:1px solid var(--border-strong);z-index:100;font-size:.85rem;font-weight:500;
   box-shadow:var(--shadow-elevated);backdrop-filter:blur(16px);
+  display:inline-flex;align-items:center;gap:.6rem;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast-success{border-color:rgba(16,185,129,.4);box-shadow:var(--shadow-elevated),0 0 0 1px rgba(16,185,129,.2)}
+.toast-success .toast-ico{color:#34d399}
+.toast-error{border-color:rgba(239,68,68,.45);box-shadow:var(--shadow-elevated),0 0 0 1px rgba(239,68,68,.2)}
+.toast-error .toast-ico{color:#fca5a5}
+.toast-info{border-color:rgba(56,189,248,.4)}
+.toast-info .toast-ico{color:#7dd3fc}
+.toast-loading .toast-ico{color:var(--violet);animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.toast-ico{width:18px;height:18px;flex-shrink:0;display:inline-flex}
+
+/* === SKELETON LOADER === */
+.skeleton{
+  position:relative;overflow:hidden;
+  background:linear-gradient(135deg,rgba(167,139,250,.06),rgba(244,114,182,.04));
+  border-radius:10px;border:1px solid var(--border);
+}
+.skeleton::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(167,139,250,.12) 50%,transparent 100%);
+  animation:shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.skeleton-line{height:14px;border-radius:6px;margin-bottom:8px}
+.skeleton-line.short{width:60%}
+.skeleton-line.long{width:90%}
+.skeleton-card{padding:18px;margin-bottom:12px}
+.skeleton-progress{display:flex;align-items:center;gap:.6rem;font-size:.85rem;color:var(--violet);font-weight:500;margin-bottom:14px}
+.skeleton-progress-dot{width:6px;height:6px;border-radius:50%;background:var(--violet);animation:pulse-dot 1.2s ease-in-out infinite}
+.skeleton-progress-dot:nth-child(2){animation-delay:.2s}
+.skeleton-progress-dot:nth-child(3){animation-delay:.4s}
+@keyframes pulse-dot{0%,80%,100%{transform:scale(.8);opacity:.4}40%{transform:scale(1.2);opacity:1}}
+
+/* === MODAL ENTRANCE === */
+[id$="Modal"]:not(.sm-hidden):not(.hidden) > div,
+#phModal:not(.sm-hidden) > div{
+  animation:modalIn .25s cubic-bezier(.4,0,.2,1);
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+/* === EMPTY STATE === */
+.empty-state{padding:48px 24px;text-align:center;color:var(--violet);opacity:.7}
+.empty-state-icon{width:48px;height:48px;margin:0 auto 12px;opacity:.5}
+.empty-state-title{font-size:14px;font-weight:600;margin-bottom:4px;color:#e9e4f5}
+.empty-state-sub{font-size:12px;opacity:.7}
+
+/* === ONBOARDING TOUR === */
+.tour-backdrop{position:fixed;inset:0;background:rgba(7,5,13,.85);backdrop-filter:blur(8px);z-index:9998;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.tour-spotlight{position:fixed;border-radius:16px;box-shadow:0 0 0 4px rgba(167,139,250,.5),0 0 0 9999px rgba(7,5,13,.85),0 0 80px 20px rgba(167,139,250,.4);z-index:9999;pointer-events:none;transition:all .35s cubic-bezier(.4,0,.2,1)}
+.tour-popover{position:fixed;z-index:10000;max-width:340px;padding:18px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(19,16,43,.98),rgba(13,10,26,.98));border:1px solid var(--border-strong);box-shadow:var(--shadow-elevated);backdrop-filter:blur(16px);animation:fadeIn .3s ease}
+.tour-popover h4{font-size:15px;font-weight:700;margin-bottom:6px;color:#fff;letter-spacing:-.01em}
+.tour-popover p{font-size:13px;line-height:1.5;color:#c4b5fd;margin-bottom:14px}
+.tour-popover-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.tour-step{font-size:11px;color:var(--violet);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
 
 /* === DRAG / WEIGHT === */
 .drag-handle{cursor:grab;user-select:none}.dragging{opacity:.4}
@@ -736,5 +794,6 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <script src="app.js" defer></script>
+<script src="extras.js" defer></script>
 </body>
 </html>

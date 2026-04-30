@@ -77,7 +77,27 @@ const AIP={openai:{base:'https://api.openai.com/v1',model:'gpt-4o-mini'},ollama:
 
 const $=id=>document.getElementById(id);
 const v=id=>($(id)?.value||'').trim();
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),1800);}
+function toast(m,type){
+  const t=$('toast');if(!t)return;
+  // auto-detect type from leading emoji if not explicit
+  if(!type){
+    if(/^(✓|✅|🎉|💾|★)/.test(m))type='success';
+    else if(/^(❌|✗|⚠|🚫)/.test(m))type='error';
+    else if(/^(⏳|🔄)/.test(m))type='loading';
+    else if(/^(ℹ|💡|📋|🔗|🕘|📥|🌓|📊)/.test(m))type='info';
+  }
+  const icons={success:'check-circle-2',error:'x-circle',loading:'loader-2',info:'info'};
+  t.className='toast';
+  if(type)t.classList.add('toast-'+type);
+  // strip leading icon emoji if we have a Lucide icon
+  const cleaned=type?m.replace(/^[^\w\s\dа-яё]+\s*/iu,'').trim():m;
+  const ico=type?`<span class="toast-ico"><i data-lucide="${icons[type]}"></i></span>`:'';
+  t.innerHTML=ico+'<span>'+cleaned+'</span>';
+  if(type&&window.refreshIcons)window.refreshIcons();
+  t.classList.add('show');
+  clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),type==='error'?2800:1900);
+}
+toast.dismiss=()=>{const t=$('toast');t&&t.classList.remove('show');};
 
 ['shot','camera','lens','speed','lighting','time','weather','palette','mood','style'].forEach(id=>{const s=$(id);O[id].forEach((x,i)=>{const o=document.createElement('option');o.textContent=x;if(i===0)o.selected=1;s.appendChild(o);});});
 
@@ -2221,7 +2241,9 @@ async function smGenerate(){
   const message=document.getElementById('smMessage')?.value.trim();
   const btn=document.getElementById('smGenerate');
   const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Генерирую...';
-  document.getElementById('smResults').innerHTML='<div class="text-sm subtle">⏳ Создаю промт...</div>';
+  const _smOut=document.getElementById('smResults');
+  if(window.skel)window.skel(_smOut,{stages:['Анализирую идею','Подбираю кинематографию','Генерирую 3 варианта'],count:3});
+  else _smOut.innerHTML='<div class="text-sm subtle">⏳ Создаю промт...</div>';
 
   const c=aiCfg();
   try{
@@ -2641,7 +2663,8 @@ async function txtGenerate(){
   const btn=document.getElementById('txtGenerate');
   const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳ Анализирую...';
   const out=document.getElementById('txtResults');
-  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю суть и собираю '+count+' '+(count===1?'промт':'варианта')+' (профессиональная структура из 10 блоков)...</div>';
+  if(window.skel)window.skel(out,{stages:['Извлекаю ядро идеи','Строю 10-блочную структуру','Генерирую '+count+' '+(count===1?'промт':'варианта')],count:Math.min(count,3)});
+  else out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю суть...</div>';
 
   try{
     const targetDesc=target.k==='video'
@@ -2991,7 +3014,8 @@ async function i2pGenerate(){
   const btn=document.getElementById('i2pGenerate');
   const orig=btn.textContent;btn.disabled=true;btn.textContent='👁 AI смотрит на картинку...';
   const out=document.getElementById('i2pResults');
-  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю композицию, свет, стиль, цвета...</div>';
+  if(window.skel)window.skel(out,{stages:['Анализирую композицию','Извлекаю свет и стиль','Генерирую 3 промта'],count:3});
+  else out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю композицию...</div>';
 
   try{
     const modeInstruction={
