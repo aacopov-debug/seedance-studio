@@ -269,7 +269,9 @@ function registerSW(){
 /* EN dictionary: [selector, prop, english] — prop: 'text' | 'title' | 'ph' (placeholder) | 'html' */
 const I18N_EN=[
   // Header
-  ['[data-i18n="app.subtitle"]','text','Professional prompt generator'],
+  ['[data-i18n="app.subtitle"]','text','Cinematic Prompt Studio · by Armen'],
+  ['[data-i18n="footer.brand"]','text','Lumen — Cinematic Prompt Studio'],
+  ['[data-i18n="footer.crafted"]','text','Crafted with ✨ by'],
   ['#pwaInstall span','text','Install'],
   ['#pwaInstall','title','Install as app'],
   ['#modeToggle','title','Toggle Simple ↔ Pro'],
