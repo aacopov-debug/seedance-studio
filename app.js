@@ -2349,6 +2349,29 @@ async function txtGenerate(){
 
     const sys=`You are a senior cinematographer and AI prompt engineer (10+ years). The user gives arbitrary input text (story, poem, post, scene, brief). Extract the visual essence and convert it into ${targetDesc}
 
+🔒 RULE #1 — CORE PRESERVATION (HIGHEST PRIORITY, OVERRIDES EVERYTHING ELSE)
+Before writing the prompt, identify literally from user's input:
+- SUBJECT — the main noun (e.g. "boy", "detective", "lighthouse")
+- ACTION — the main verb (e.g. "watches", "fights", "sleeps")
+- OBJECT/TARGET — what they interact with (e.g. "cartoon on TV", "dragon", "old photograph")
+
+This trio is SACRED. It MUST be visible and DOMINANT in every variant.
+Every variant MUST literally include the subject performing the action toward/with the object.
+Do NOT poetically substitute the action with atmospheric description.
+Do NOT lose the object — if user mentioned "TV" or "cartoon" or "phone", it must physically appear in the prompt.
+
+❌ WRONG (loses core):
+Input: "boy watches cartoon"
+Output: "boy sits gazing up at ethereal moonlight, dreamlike room, scattered toys..."  
+[LOST: the cartoon, the act of watching TV]
+
+✅ CORRECT (preserves core):
+Input: "boy watches cartoon"
+Output: "boy sits cross-legged on floor, eyes locked on TV screen displaying brightly-colored animated cartoon, animated characters reflected in his wide pupils, blue-pink screen light dancing across his face..."
+[PRESERVED: boy + watches + cartoon-on-TV, all three visible]
+
+If the user's input is ambiguous about the object, INVENT a specific one and STATE IT CLEARLY. Do not abstract it away.
+
 REQUIRED PROMPT STRUCTURE — every variant must include ALL 10 elements naturally woven into prose (NOT as a list):
 1. SUBJECT — who/what with concrete physical specifics (age, build, clothing, expression)
 2. ACTION — active verbs, what happens (no static "is standing"; use "strides through", "reaches toward")
@@ -2374,16 +2397,21 @@ ${variantsSpec}
 
 Reply ONLY as JSON:
 {
+  "core": {
+    "subject": "the literal main subject extracted from input (English, 1-3 words)",
+    "action": "the literal main verb/action (English, 1-3 words)",
+    "object": "the literal object/target the action is on (English, 1-5 words, or empty if truly none)"
+  },
   "variants": [
     {
-      "prompt": "ready-to-paste English prompt, ${wordCount} words",
+      "prompt": "ready-to-paste English prompt, ${wordCount} words. MUST include core subject+action+object literally and prominently.",
       "approach": "${count===3?'action|emotion|visual':'unified'}",
       "title": "Russian short title (3-5 words)",
       "score": 0-100,
       "why": "Russian 1-line rationale why this scores high"
     }
   ],
-  "essence": "1-2 sentences in Russian summarizing what you extracted from input text"
+  "essence": "1-2 sentences in Russian summarizing what you extracted from input text — must mention core action explicitly"
 }`;
 
     const res=await aiCall([{role:'system',content:sys},{role:'user',content:text.slice(0,8000)}],{json:true});
@@ -2393,7 +2421,28 @@ Reply ONLY as JSON:
     j.variants.forEach((v,i)=>assertShape(v,{prompt:'string'},'variant['+i+']'));
     j.variants.sort((a,b)=>(b.score||0)-(a.score||0));
 
-    out.innerHTML=`<div class="text-xs subtle italic mb-3">💡 ${(j.essence||'').replace(/</g,'&lt;')}</div>`+
+    // CORE PRESERVATION CHECK — verify each variant includes core action/object
+    const core=j.core||{};
+    const coreWords=[(core.action||''),(core.object||'')].filter(Boolean).join(' ').toLowerCase().split(/\W+/).filter(w=>w.length>=3);
+    j.variants.forEach(v=>{
+      const lc=(v.prompt||'').toLowerCase();
+      const missing=coreWords.filter(w=>!lc.includes(w));
+      v._coreMissing=missing.length>0?missing:null;
+    });
+
+    const coreHtml=core.subject?`
+      <div class="mb-3 p-3 rounded-lg bg-violet-500/10 border border-violet-500/30">
+        <div class="text-[10px] uppercase tracking-wider subtle mb-1">🔒 Зафиксированное ядро (должно быть в каждом варианте)</div>
+        <div class="text-sm font-medium">
+          <span class="text-violet-300">${(core.subject||'').replace(/</g,'&lt;')}</span>
+          <span class="subtle"> · </span>
+          <span class="text-pink-300">${(core.action||'').replace(/</g,'&lt;')}</span>
+          ${core.object?`<span class="subtle"> · </span><span class="text-amber-300">${core.object.replace(/</g,'&lt;')}</span>`:''}
+        </div>
+      </div>`:'';
+
+    out.innerHTML=coreHtml+
+      `<div class="text-xs subtle italic mb-3">💡 ${(j.essence||'').replace(/</g,'&lt;')}</div>`+
       j.variants.map((v,i)=>`
         <div class="sm-result" data-vi="${i}">
           <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
@@ -2405,13 +2454,14 @@ Reply ONLY as JSON:
             <span class="text-xs subtle">${target.icon} ${aspect} · ${style.icon} ${style.label}</span>
           </div>
           ${v.why?`<div class="text-xs subtle italic mb-2">💡 ${v.why.replace(/</g,'&lt;')}</div>`:''}
+          ${v._coreMissing?`<div class="text-xs mb-2 p-2 rounded bg-red-500/15 border border-red-500/40 text-red-300">⚠ Возможно потеряно ядро: <b>${v._coreMissing.join(', ')}</b> — нажми «✨ Восстановить ядро»</div>`:''}
           <div class="text-sm whitespace-pre-wrap leading-relaxed mb-3 p-3 rounded-lg bg-black/20 border border-white/5">${v.prompt.replace(/</g,'&lt;')}</div>
           <div class="flex flex-wrap gap-2">
             <button class="soft-btn text-xs px-3 py-1.5" data-act="copy">📋 Копировать</button>
             <button class="soft-btn text-xs px-3 py-1.5" data-act="image" title="Открыть в Image Mode с aspect ${aspect}">🖼 → В картинку (${aspect})</button>
             <button class="soft-btn text-xs px-3 py-1.5" data-act="preview" title="Сразу сгенерировать кадр">🖼 Превью</button>
             ${target.k==='video'?`<button class="soft-btn text-xs px-3 py-1.5" data-act="pro">🎬 → В Pro mode</button>`:''}
-            <button class="soft-btn text-xs px-3 py-1.5" data-act="improve">✨ Ещё детальнее</button>
+            <button class="soft-btn text-xs px-3 py-1.5" data-act="improve">${v._coreMissing?'🔒 Восстановить ядро':'✨ Ещё детальнее'}</button>
           </div>
         </div>`).join('');
 
@@ -2445,15 +2495,37 @@ Reply ONLY as JSON:
       card.querySelector('[data-act="improve"]').onclick=async(e)=>{
         const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
         try{
-          const sysImp=`Improve this AI prompt: add more concrete sensory specifics, replace vague adjectives with precise visual detail, strengthen camera/lens/lighting blocks, deepen mood. Keep aspect ratio ${aspect} and same length range. Reply ONLY with the improved English prompt text, no preamble, no JSON.`;
+          let sysImp;
+          if(v._coreMissing){
+            sysImp=`The user's CORE IDEA is: subject="${core.subject}", action="${core.action}"${core.object?', object="'+core.object+'"':''}.
+This prompt LOST the core. Rewrite it so the subject literally and visibly performs the action${core.object?' on/with the object':''}. Keep all cinematic detail (camera, lens, lighting, mood, style) but make sure the central act of "${core.subject} ${core.action}${core.object?' '+core.object:''}" is the visible focal point of the frame, not background atmosphere.
+Keep aspect ratio ${aspect} and same length range. Reply ONLY with the rewritten English prompt text, no preamble, no JSON.`;
+          }else{
+            sysImp=`Improve this AI prompt: add more concrete sensory specifics, replace vague adjectives with precise visual detail, strengthen camera/lens/lighting blocks, deepen mood. CRITICAL: the subject "${core.subject||''}" performing action "${core.action||''}"${core.object?' with "'+core.object+'"':''} must remain the visible focal point. Do NOT lose the core action. Keep aspect ratio ${aspect} and same length range. Reply ONLY with the improved English prompt text, no preamble, no JSON.`;
+          }
           const better=await aiCall([{role:'system',content:sysImp},{role:'user',content:v.prompt}]);
           if(better){
             v.prompt=better.trim();
             v.score=Math.min(100,(v.score||70)+5);
+            // Re-check core
+            const lc=v.prompt.toLowerCase();
+            const stillMissing=coreWords.filter(w=>!lc.includes(w));
+            v._coreMissing=stillMissing.length>0?stillMissing:null;
+            // Re-render this card
             card.querySelector('.bg-black\\/20').textContent=v.prompt;
-            toast('✨ Улучшено');
+            const warn=card.querySelector('.bg-red-500\\/15');
+            if(warn)warn.remove();
+            if(v._coreMissing){
+              const w=document.createElement('div');
+              w.className='text-xs mb-2 p-2 rounded bg-red-500/15 border border-red-500/40 text-red-300';
+              w.innerHTML=`⚠ Всё ещё потеряно: <b>${v._coreMissing.join(', ')}</b>`;
+              card.querySelector('.bg-black\\/20').before(w);
+            }else{
+              b.textContent='✨ Ещё детальнее';
+            }
+            toast(v._coreMissing?'⚠ Ядро всё ещё неполное':'✨ Готово');
           }
-        }finally{b.disabled=false;b.textContent=o;}
+        }finally{b.disabled=false;if(!v._coreMissing||b.textContent==='⏳')b.textContent=o;}
       };
     });
     toast('✨ '+j.variants.length+' '+(j.variants.length===1?'вариант':'вариантов')+' готовы');
