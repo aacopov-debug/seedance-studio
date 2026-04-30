@@ -2037,8 +2037,8 @@ function phRender(){
     return;
   }
   list.innerHTML=arr.map(e=>{
-    const modeIcon=e.mode==='text'?'📝':e.mode==='video'?'🎬':'•';
-    const modeLabel=e.mode==='text'?'Текст':e.mode==='video'?'Видео':e.mode;
+    const modeIcon=e.mode==='text'?'📝':e.mode==='video'?'🎬':e.mode==='i2p'?'🔍':'•';
+    const modeLabel=e.mode==='text'?'Текст':e.mode==='video'?'Видео':e.mode==='i2p'?'Img→Prompt':e.mode;
     const top=(e.variants[0]?.prompt_en||e.variants[0]?.prompt||'').slice(0,160);
     const coreStr=e.meta?.core?`${e.meta.core.subject||''} · ${e.meta.core.action||''}${e.meta.core.object?' · '+e.meta.core.object:''}`:'';
     const meta=[e.meta?.style,e.meta?.aspect].filter(Boolean).join(' · ');
@@ -2096,6 +2096,23 @@ function phOpenEntry(entry){
     smRenderResults(entry.variants);
     document.getElementById('smIdea').value=entry.idea||'';
     toast('🕘 Открыто из истории');
+  }else if(entry.mode==='i2p'){
+    smSetTab('i2p');
+    const out=document.getElementById('i2pResults');
+    if(out){
+      out.innerHTML=`<div class="text-xs subtle mb-3">🕘 Из истории · ${phFmtTs(entry.ts)} · ${entry.variants.length} вар. · ${(entry.idea||'').replace(/</g,'&lt;')}</div>`+
+        entry.variants.map((v,i)=>`<div class="sm-result">
+          <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <div class="flex items-center gap-2"><span class="font-semibold text-sm">📌 ${(v.title||'Вариант '+(i+1)).replace(/</g,'&lt;')}</span>${typeof v.score==='number'?`<span class="sm-score ${smScoreClass(v.score)}">⭐ ${v.score}/100</span>`:''}</div>
+          </div>
+          <div class="mb-2"><div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN</div><div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/20 border border-white/5">${(v.prompt_en||'').replace(/</g,'&lt;')}</div></div>
+          ${v.prompt_ru?`<details class="mb-2"><summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer">🇷🇺 RU</summary><div class="text-sm whitespace-pre-wrap p-3 rounded-lg bg-black/10 border border-white/5 mt-2 italic">${v.prompt_ru.replace(/</g,'&lt;')}</div></details>`:''}
+          <div class="flex gap-2"><button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText(${JSON.stringify(v.prompt_en||'')});toast('📋 EN')">📋 EN</button>${v.prompt_ru?`<button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText(${JSON.stringify(v.prompt_ru)});toast('📋 RU')">📋 RU</button>`:''}</div>
+        </div>`).join('');
+      out.insertAdjacentHTML('beforeend',bxBarHtml('i2p-history'));
+      bxWire(out,'i2p-history',entry.meta||{},entry.variants);
+    }
+    toast('🕘 Открыто из истории (картинка не сохранена)');
   }
 }
 function phToggle(show){
@@ -2475,9 +2492,11 @@ function smSetTab(tab){
   const v=document.getElementById('smVideoPanel');
   const i=document.getElementById('smImagePanel');
   const t=document.getElementById('smTextPanel');
+  const ip=document.getElementById('smI2pPanel');
   if(v)v.classList.toggle('sm-hidden',tab!=='video');
   if(i)i.classList.toggle('sm-hidden',tab!=='image');
   if(t)t.classList.toggle('sm-hidden',tab!=='text');
+  if(ip)ip.classList.toggle('sm-hidden',tab!=='i2p');
   safeLS('seedance_sm_tab',tab);
 }
 
@@ -2867,5 +2886,277 @@ Reply ONLY as JSON: {"prompt_en":"the improved ENGLISH prompt","prompt_ru":"fait
 
 try{
   CMDS.push({n:'📝 Text Mode (любой текст → промт)',h:()=>{setMode('simple');smSetTab('text');document.getElementById('txtInput')?.focus();}});
+}catch(e){console.debug(e)}
+
+/* ============ Img → Prompt (Vision-based) ============ */
+const I2P_MODES=[
+  {k:'recreate',icon:'🎯',label:'Воссоздать',sub:'точная репликация'},
+  {k:'stylize',icon:'🎨',label:'Стиль-реф',sub:'тот же стиль, новый сюжет'},
+  {k:'extend',icon:'🎬',label:'Кинематично',sub:'усилить как кадр'}
+];
+const I2P_TARGETS=[
+  {k:'video',icon:'🎬',label:'Видео',sub:'для Sora/Runway/Kling'},
+  {k:'image',icon:'🖼',label:'Картинка',sub:'для DALL·E/MJ'}
+];
+const I2P_ASPECTS_VIDEO=[
+  {k:'9:16',label:'9:16',sub:'TikTok/Reels'},
+  {k:'16:9',label:'16:9',sub:'YouTube/кино'},
+  {k:'1:1',label:'1:1',sub:'Instagram'},
+  {k:'4:5',label:'4:5',sub:'Insta pro'},
+  {k:'21:9',label:'21:9',sub:'cinematic'}
+];
+const I2P_ASPECTS_IMAGE=[
+  {k:'1:1',label:'1:1',sub:'1024×1024'},
+  {k:'16:9',label:'16:9',sub:'1792×1024'},
+  {k:'9:16',label:'9:16',sub:'1024×1792'}
+];
+
+const i2pState={img:null};
+let _i2pMode='recreate';
+let _i2pTarget='video';
+let _i2pAspect='9:16';
+
+function _i2pAspectList(){return _i2pTarget==='image'?I2P_ASPECTS_IMAGE:I2P_ASPECTS_VIDEO;}
+
+function i2pRenderTiles(){
+  const m=document.getElementById('i2pModeTiles');
+  const t=document.getElementById('i2pTargetTiles');
+  const a=document.getElementById('i2pAspectTiles');
+  if(!m||!t||!a)return;
+  const tile=(active,k,icon,label,sub,attr)=>`<div class="sm-tile${active?' active':''}" ${attr}="${k}"><span class="sm-tile-icon">${icon}</span><div class="sm-tile-label">${label}</div><div class="sm-tile-sub">${sub}</div></div>`;
+  m.innerHTML=I2P_MODES.map(x=>tile(x.k===_i2pMode,x.k,x.icon,x.label,x.sub,'data-mode')).join('');
+  t.innerHTML=I2P_TARGETS.map(x=>tile(x.k===_i2pTarget,x.k,x.icon,x.label,x.sub,'data-target')).join('');
+  a.innerHTML=_i2pAspectList().map(x=>tile(x.k===_i2pAspect,x.k,'📐',x.label,x.sub,'data-aspect')).join('');
+  m.querySelectorAll('[data-mode]').forEach(el=>el.onclick=()=>{_i2pMode=el.dataset.mode;i2pRenderTiles();});
+  t.querySelectorAll('[data-target]').forEach(el=>el.onclick=()=>{
+    _i2pTarget=el.dataset.target;
+    const list=_i2pAspectList();
+    if(!list.find(x=>x.k===_i2pAspect))_i2pAspect=list[0].k;
+    i2pRenderTiles();
+  });
+  a.querySelectorAll('[data-aspect]').forEach(el=>el.onclick=()=>{_i2pAspect=el.dataset.aspect;i2pRenderTiles();});
+}
+
+function i2pSetImage(dataUrl){
+  i2pState.img=dataUrl;
+  const empty=document.getElementById('i2pDropEmpty');
+  const filled=document.getElementById('i2pDropFilled');
+  const prev=document.getElementById('i2pPreview');
+  if(dataUrl){
+    if(prev)prev.src=dataUrl;
+    empty?.classList.add('hidden');
+    filled?.classList.remove('hidden');
+  }else{
+    empty?.classList.remove('hidden');
+    filled?.classList.add('hidden');
+    if(prev)prev.src='';
+  }
+}
+
+function i2pHandleFile(file){
+  if(!file||!file.type.startsWith('image/')){toast('Это не картинка');return;}
+  if(file.size>10*1024*1024){toast('Файл больше 10 MB');return;}
+  const r=new FileReader();
+  r.onload=e=>i2pSetImage(e.target.result);
+  r.onerror=()=>toast('⚠ Не удалось прочитать файл');
+  r.readAsDataURL(file);
+}
+
+async function i2pGenerate(){
+  if(!i2pState.img){toast('Загрузи картинку');return;}
+  if(!needKey())return;
+  const c=aiCfg();
+  if(!/openai|gpt|claude|anthropic|groq/i.test(c.base+c.model)){
+    if(!confirm('⚠ Текущая модель может не поддерживать vision (картинки). Рекомендуем gpt-4o, gpt-4o-mini, claude-3-5-sonnet или llama vision. Продолжить?'))return;
+  }
+  const mode=I2P_MODES.find(x=>x.k===_i2pMode);
+  const target=I2P_TARGETS.find(x=>x.k===_i2pTarget);
+  const aspect=_i2pAspect;
+  const length=document.getElementById('i2pLength').value;
+  const mod=document.getElementById('i2pMod').value.trim();
+  const wordCount=length==='compact'?'45-60':length==='detailed'?'160-200':'90-110';
+
+  const btn=document.getElementById('i2pGenerate');
+  const orig=btn.textContent;btn.disabled=true;btn.textContent='👁 AI смотрит на картинку...';
+  const out=document.getElementById('i2pResults');
+  out.innerHTML='<div class="sm-result text-sm subtle">⏳ Извлекаю композицию, свет, стиль, цвета...</div>';
+
+  try{
+    const modeInstruction={
+      recreate:'RECREATE the image faithfully — same subject, same composition, same lighting, same mood. The prompt should let the AI model produce an image/video that looks as close to the reference as possible.',
+      stylize:'EXTRACT the visual STYLE only (lighting, color palette, mood, art style, camera language, atmosphere) and apply it to a NEW subject described by the user modification. If no modification is given, suggest a fitting subject in the same style.',
+      extend:'AMPLIFY the cinematic quality of this image. Keep the core subject and composition, but add stronger camera language (specific lens, movement), enhanced lighting (rim light, volumetric god rays), richer mood, and more concrete details to elevate it to a cinema-grade frame.'
+    }[_i2pMode];
+
+    const sys=`You are a professional cinematic prompt engineer for AI video/image generation models (Sora, Runway, Kling, DALL·E, Midjourney).
+
+The user provides a REFERENCE IMAGE and wants a ${target.k==='video'?'VIDEO':'STILL IMAGE'} prompt at aspect ratio ${aspect}, length ${wordCount} words.
+
+MODE: ${mode.label} (${_i2pMode}). ${modeInstruction}
+${mod?`USER MODIFICATION: "${mod}" — apply this on top of the mode.`:''}
+
+For each variant build a 10-block cinematic prompt: subject · action · environment · camera angle · lens · lighting · color palette · mood · style · technical specs.
+
+🌐 LANGUAGE RULE
+- prompt_en: ENGLISH (for AI models), ${wordCount} words
+- prompt_ru: faithful Russian translation, same structure and length, technical terms transliterated or in parentheses
+
+Generate 3 DISTINCT variants:
+- v1: closest to the source (faithful)
+- v2: alternative interpretation (different camera/lens/angle but same mood)
+- v3: bold creative variation (push the style further)
+
+Reply ONLY as JSON:
+{
+  "description": "1-2 sentences in Russian describing what you see in the image (subject, environment, mood, key visual cues)",
+  "extracted": {
+    "subject": "main subject (English, short)",
+    "lighting": "lighting type (English, short)",
+    "palette": "color palette (English, short)",
+    "mood": "mood (English, short)",
+    "style": "style (English, short)"
+  },
+  "variants": [
+    {"prompt_en":"...","prompt_ru":"...","title":"Russian short title","score":0-100,"why":"Russian 1-line rationale"},
+    {"prompt_en":"...","prompt_ru":"...","title":"...","score":...,"why":"..."},
+    {"prompt_en":"...","prompt_ru":"...","title":"...","score":...,"why":"..."}
+  ]
+}`;
+
+    const userMsg='Analyze this reference image and produce the prompts.'+(mod?' User modification: '+mod:'');
+    const r=await fetch(c.base+'/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      body:JSON.stringify({
+        model:c.model,
+        response_format:{type:'json_object'},
+        messages:[
+          {role:'system',content:sys},
+          {role:'user',content:[
+            {type:'text',text:userMsg},
+            {type:'image_url',image_url:{url:i2pState.img}}
+          ]}
+        ]
+      })
+    });
+    const j=await r.json();
+    if(j.error)throw new Error(j.error.message||'Vision API error');
+    const txt=j.choices?.[0]?.message?.content;
+    if(!txt)throw new Error('Пустой ответ AI');
+    const data=JSON.parse(txt);
+    assertShape(data,{variants:'array'},'i2pGenerate');
+    data.variants.forEach((v,i)=>{
+      if(!v.prompt_en&&v.prompt)v.prompt_en=v.prompt;
+      if(!v.prompt_ru)v.prompt_ru='';
+      assertShape(v,{prompt_en:'string'},'i2p variant['+i+']');
+    });
+    data.variants.sort((a,b)=>(b.score||0)-(a.score||0));
+
+    const ex=data.extracted||{};
+    const exHtml=ex.subject?`
+      <div class="mb-3 p-3 rounded-lg bg-violet-500/10 border border-violet-500/30">
+        <div class="text-[10px] uppercase tracking-wider subtle mb-1">🔍 Что видит AI</div>
+        <div class="text-sm flex flex-wrap gap-x-3 gap-y-1">
+          ${ex.subject?`<span><b class="text-violet-300">subject:</b> ${ex.subject.replace(/</g,'&lt;')}</span>`:''}
+          ${ex.lighting?`<span><b class="text-violet-300">light:</b> ${ex.lighting.replace(/</g,'&lt;')}</span>`:''}
+          ${ex.palette?`<span><b class="text-violet-300">palette:</b> ${ex.palette.replace(/</g,'&lt;')}</span>`:''}
+          ${ex.mood?`<span><b class="text-violet-300">mood:</b> ${ex.mood.replace(/</g,'&lt;')}</span>`:''}
+          ${ex.style?`<span><b class="text-violet-300">style:</b> ${ex.style.replace(/</g,'&lt;')}</span>`:''}
+        </div>
+      </div>`:'';
+    const descHtml=data.description?`<div class="text-xs subtle italic mb-3">💡 ${data.description.replace(/</g,'&lt;')}</div>`:'';
+
+    out.innerHTML=exHtml+descHtml+
+      data.variants.map((v,i)=>`
+        <div class="sm-result" data-i2pvi="${i}">
+          <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-sm">📌 ${(v.title||('Вариант '+(i+1))).replace(/</g,'&lt;')}</span>
+              ${typeof v.score==='number'?`<span class="sm-score ${smScoreClass(v.score)}">⭐ ${v.score}/100</span>`:''}
+            </div>
+            <span class="text-xs subtle">${target.icon} ${aspect} · ${mode.icon} ${mode.label}</span>
+          </div>
+          ${v.why?`<div class="text-xs subtle italic mb-2">💡 ${v.why.replace(/</g,'&lt;')}</div>`:''}
+          <div class="mb-2">
+            <div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN — для вставки в Sora/Runway/DALL·E</div>
+            <div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/20 border border-white/5">${(v.prompt_en||'').replace(/</g,'&lt;')}</div>
+          </div>
+          ${v.prompt_ru?`
+          <details class="mb-2">
+            <summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer hover:text-violet-400">🇷🇺 RU — перевод</summary>
+            <div class="text-sm whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-black/10 border border-white/5 mt-2 italic">${v.prompt_ru.replace(/</g,'&lt;')}</div>
+          </details>`:''}
+          <div class="flex flex-wrap gap-2">
+            <button class="soft-btn text-xs px-3 py-1.5" data-i2p-act="copyEn">📋 EN</button>
+            ${v.prompt_ru?`<button class="soft-btn text-xs px-3 py-1.5" data-i2p-act="copyRu">📋 RU</button>`:''}
+            <button class="soft-btn text-xs px-3 py-1.5" data-i2p-act="image">🖼 Превью</button>
+            ${target.k==='video'?`<button class="soft-btn text-xs px-3 py-1.5" data-i2p-act="pro">🎬 → В Pro</button>`:''}
+          </div>
+        </div>`).join('');
+
+    out.querySelectorAll('.sm-result[data-i2pvi]').forEach(card=>{
+      const i=+card.dataset.i2pvi;const v=data.variants[i];
+      card.querySelector('[data-i2p-act="copyEn"]').onclick=()=>{navigator.clipboard.writeText(v.prompt_en||'');toast('📋 EN скопирован');};
+      const ruBtn=card.querySelector('[data-i2p-act="copyRu"]');
+      if(ruBtn)ruBtn.onclick=()=>{navigator.clipboard.writeText(v.prompt_ru||'');toast('📋 RU скопирован');};
+      card.querySelector('[data-i2p-act="image"]').onclick=async(e)=>{
+        const b=e.currentTarget;const o=b.textContent;b.disabled=true;b.textContent='⏳';
+        try{
+          const sz=_aspectToImgSize(aspect);
+          const urls=await generateImage(v.prompt_en||'',{size:sz});
+          if(urls&&urls[0]){
+            let prev=card.querySelector('.sm-preview');
+            if(!prev){prev=document.createElement('div');prev.className='sm-preview mt-3';card.appendChild(prev);}
+            prev.innerHTML=`<img src="${urls[0]}" class="w-full rounded-lg"/><div class="flex gap-2 mt-2"><a href="${urls[0]}" download="i2p-${i+1}.png" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a><button class="soft-btn text-xs px-3 py-1.5" onclick="this.closest('.sm-preview').remove()">✕</button></div>`;
+          }
+        }finally{b.disabled=false;b.textContent=o;}
+      };
+      const proBtn=card.querySelector('[data-i2p-act="pro"]');
+      if(proBtn)proBtn.onclick=()=>{
+        setMode('pro');
+        const en=v.prompt_en||'';
+        setTimeout(()=>{const sub=$('subject');if(sub){sub.value=en.slice(0,200);sub.dispatchEvent(new Event('change'));}const o=$('outEnView');if(o){o.textContent=en;o.dataset.raw=en;}toast('🎛 Открыт в Pro mode');},200);
+      };
+    });
+
+    // Batch export bar
+    const meta={idea:'(image reference)'+(mod?' · '+mod:''),target:target.label,style:mode.label,aspect,extracted:data.extracted||null};
+    out.insertAdjacentHTML('beforeend',bxBarHtml('i2p'));
+    bxWire(out,'i2p',meta,data.variants);
+    // History
+    phPush({mode:'i2p',idea:(mod||'(reference image)')+' · '+mode.label,meta,variants:data.variants});
+
+    toast('✨ '+data.variants.length+' вариантов готовы');
+  }catch(e){
+    logError('i2pGenerate',e);
+    out.innerHTML=`<div class="sm-result text-sm text-red-400">⚠ Ошибка: ${e.message.replace(/</g,'&lt;')}<br/><span class="text-xs subtle">Убедись что модель поддерживает vision (gpt-4o-mini, gpt-4o, claude-3-5-sonnet, llama-3.2-vision).</span></div>`;
+  }finally{
+    btn.disabled=false;btn.textContent=orig;
+  }
+}
+
+(function initI2pMode(){
+  i2pRenderTiles();
+  const drop=document.getElementById('i2pDrop');
+  const file=document.getElementById('i2pFile');
+  const clr=document.getElementById('i2pClear');
+  drop?.addEventListener('click',e=>{if(e.target.closest('button'))return;file?.click();});
+  drop?.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('border-violet-400');});
+  drop?.addEventListener('dragleave',()=>drop.classList.remove('border-violet-400'));
+  drop?.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('border-violet-400');i2pHandleFile(e.dataTransfer.files?.[0]);});
+  file?.addEventListener('change',e=>i2pHandleFile(e.target.files?.[0]));
+  clr?.addEventListener('click',e=>{e.stopPropagation();i2pSetImage(null);if(file)file.value='';});
+  // Paste from clipboard
+  document.addEventListener('paste',e=>{
+    if(document.getElementById('smI2pPanel')?.classList.contains('sm-hidden'))return;
+    const items=e.clipboardData?.items;if(!items)return;
+    for(const it of items){if(it.type.startsWith('image/')){i2pHandleFile(it.getAsFile());break;}}
+  });
+  document.getElementById('i2pGenerate')?.addEventListener('click',i2pGenerate);
+  document.getElementById('phOpenBtnI2p')?.addEventListener('click',()=>phToggle(true));
+})();
+
+try{
+  CMDS.push({n:'🔍 Img→Prompt (картинка → промт)',h:()=>{setMode('simple');smSetTab('i2p');}});
 }catch(e){console.debug(e)}
 

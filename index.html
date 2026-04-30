@@ -85,6 +85,7 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
       <button class="sm-tab tab-active px-4 py-2 rounded-lg text-sm font-medium" data-smtab="video">🎬 Видео</button>
       <button class="sm-tab px-4 py-2 rounded-lg text-sm font-medium" data-smtab="image">🖼 Картинка</button>
       <button class="sm-tab px-4 py-2 rounded-lg text-sm font-medium" data-smtab="text">📝 Текст</button>
+      <button class="sm-tab px-4 py-2 rounded-lg text-sm font-medium" data-smtab="i2p">🔍 Img→Prompt</button>
     </div>
 
     <div id="smVideoPanel">
@@ -197,6 +198,60 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 
       <div id="txtResults" class="mt-8 space-y-4"></div>
     </div><!-- /smTextPanel -->
+
+    <div id="smI2pPanel" class="sm-hidden">
+      <h2 class="text-2xl sm:text-3xl font-extrabold mb-1">🔍 Картинка → Промт</h2>
+      <p class="text-sm subtle mb-6">Загрузи референс — AI извлечёт стиль, композицию, свет и сделает 3 готовых промта для воссоздания в Sora/Runway/DALL·E</p>
+
+      <label class="block text-sm font-medium mb-2">🖼 Референсная картинка</label>
+      <div id="i2pDrop" class="border-2 border-dashed border-white/15 rounded-xl p-6 text-center cursor-pointer hover:border-violet-400 transition mb-4" tabindex="0">
+        <div id="i2pDropEmpty">
+          <div class="text-3xl mb-2">📤</div>
+          <div class="text-sm font-medium">Перетащи картинку сюда или кликни для выбора</div>
+          <div class="text-xs subtle mt-1">JPG, PNG, WEBP · до 10 MB · также можно вставить из буфера (Ctrl+V)</div>
+        </div>
+        <div id="i2pDropFilled" class="hidden">
+          <img id="i2pPreview" class="max-h-48 mx-auto rounded-lg mb-2" alt="reference"/>
+          <button id="i2pClear" class="soft-btn text-xs px-3 py-1">✕ Убрать картинку</button>
+        </div>
+        <input id="i2pFile" type="file" accept="image/*" class="hidden"/>
+      </div>
+
+      <label class="block text-sm font-medium mb-2">🎯 Что сделать с этой картинкой?</label>
+      <div id="i2pModeTiles" class="sm-grid mb-4"></div>
+
+      <label class="block text-sm font-medium mb-2">🎬 Цель промта</label>
+      <div id="i2pTargetTiles" class="sm-grid mb-4"></div>
+
+      <label class="block text-sm font-medium mb-2">📐 Соотношение сторон</label>
+      <div id="i2pAspectTiles" class="sm-grid mb-4"></div>
+
+      <details class="mb-4">
+        <summary class="text-sm subtle cursor-pointer hover:text-violet-400">⚙ Дополнительно</summary>
+        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs subtle mb-1">✏ Модификация (опционально)</label>
+            <input id="i2pMod" class="field text-sm" placeholder="например: но в зимнем пейзаже / с котом вместо собаки"/>
+          </div>
+          <div>
+            <label class="block text-xs subtle mb-1">📏 Длина промта</label>
+            <select id="i2pLength" class="field text-sm">
+              <option value="compact">Компактный (~50 слов)</option>
+              <option value="standard" selected>Стандартный (~100 слов)</option>
+              <option value="detailed">Детальный (~180 слов)</option>
+            </select>
+          </div>
+        </div>
+      </details>
+
+      <div class="flex flex-wrap gap-2 items-center">
+        <button id="i2pGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт из картинки</button>
+        <button id="phOpenBtnI2p" class="soft-btn px-4 py-3 rounded-xl text-sm" title="История промтов">🕘 История</button>
+        <span id="i2pHint" class="text-xs subtle"></span>
+      </div>
+
+      <div id="i2pResults" class="mt-8 space-y-4"></div>
+    </div><!-- /smI2pPanel -->
 
   </div>
 
