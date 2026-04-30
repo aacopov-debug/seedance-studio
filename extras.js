@@ -1,8 +1,8 @@
 /* ============================================================
-   LUMEN — EXTRAS v11.5.1
+   LUMEN — EXTRAS v11.6
    Skeleton loaders · Templates Gallery · Onboarding Tour · PWA
    ============================================================ */
-window.LUMEN_VERSION='11.5.1';
+window.LUMEN_VERSION='11.6';
 console.log('%c✨ Lumen v'+window.LUMEN_VERSION+' loaded','color:#a78bfa;font-weight:bold;font-size:13px');
 
 /* === SKELETON LOADER === */
@@ -217,13 +217,8 @@ window.tplOpenModal=tplOpenModal;
 /* === ONBOARDING TOUR === */
 /* Mini mockup SVGs — show what filled-in state looks like inside popover (premium illustrated tour) */
 const TOUR_PREVIEW={
-  idea:`<svg viewBox="0 0 280 92" xmlns="http://www.w3.org/2000/svg">
-    <rect x="8" y="8" width="264" height="76" rx="9" fill="rgba(255,255,255,0.04)" stroke="rgba(167,139,250,0.45)" stroke-width="1.2"/>
-    <text x="20" y="28" fill="rgba(255,255,255,0.92)" font-size="11" font-family="Inter,sans-serif" font-weight="500">Реклама часов Rolex в стиле блокбастера,</text>
-    <text x="20" y="44" fill="rgba(255,255,255,0.92)" font-size="11" font-family="Inter,sans-serif" font-weight="500">золотой час, kinetic camera, неон в фоне</text>
-    <rect x="208" y="34" width="2" height="12" fill="#a78bfa"><animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/></rect>
-    <text x="20" y="68" fill="rgba(167,139,250,0.85)" font-size="9.5" font-family="Inter,sans-serif" font-weight="600">↑ ТАК ВЫГЛЯДИТ ХОРОШАЯ ИДЕЯ</text>
-  </svg>`,
+  // Step 1 preview is rendered as live HTML (fake textarea typewriter) — see TOUR_STEPS[0].previewHTML
+  idea:'<div class="tour-fake-textarea" data-typewriter><span class="tour-typed"></span><span class="tour-caret">|</span></div><div class="tour-typed-hint">↑ ТАК ВЫГЛЯДИТ ХОРОШАЯ ИДЕЯ</div>',
   format:`<svg viewBox="0 0 280 92" xmlns="http://www.w3.org/2000/svg">
     <g transform="translate(8,10)"><rect width="60" height="56" rx="8" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.12)"/><text x="30" y="26" text-anchor="middle" font-size="18">🎬</text><text x="30" y="44" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.55)" font-family="Inter,sans-serif">Кино</text></g>
     <g transform="translate(76,10)"><rect width="60" height="56" rx="8" fill="rgba(167,139,250,.22)" stroke="#a78bfa" stroke-width="1.8"/><text x="30" y="26" text-anchor="middle" font-size="18">📱</text><text x="30" y="44" text-anchor="middle" font-size="9" fill="white" font-weight="700" font-family="Inter,sans-serif">Реклама</text><circle cx="52" cy="8" r="5" fill="#a78bfa"/><path d="M49 8l2 2 4-4" stroke="white" stroke-width="1.4" fill="none"/></g>
@@ -269,40 +264,25 @@ const TOUR_PREVIEW={
 };
 const TOUR_STEPS=[
   {sel:'#smIdea, #imgIdea, #txtInput, #i2pDrop',title:'Опиши идею',body:'Напиши коротко, что хочешь снять или нарисовать. Смотри как AI печатает пример →',pos:'bottom',preview:TOUR_PREVIEW.idea,previewLabel:'Пример заполнения',
-   enter:(el)=>{
-     console.info('[tour] step1 enter() called, el=',el,'tagName=',el?.tagName);
-     // Find an actual <textarea> or <input> (el itself OR a descendant if wrapper was matched)
-     let target=null;
-     if(el){
-       if(el.tagName==='TEXTAREA'||el.tagName==='INPUT')target=el;
-       else if(el.querySelector)target=el.querySelector('textarea,input[type="text"],input:not([type])');
-     }
-     if(!target){console.warn('[tour] step1: NO input target found, el=',el);return null;}
-     console.info('[tour] step1: typewriter starting on',target.id||target.tagName);
-     const orig=target.value;
-     const origPh=target.placeholder||'';
-     target.value='';target.placeholder='';target.classList.add('tour-typing');
-     target.focus();
+   enter:()=>{
+     // Find the typewriter span inside the popover (NOT the real textarea — that had invisible-text rendering issues)
+     const typedEl=document.querySelector('.tour-popover .tour-typed');
+     if(!typedEl){console.warn('[tour] step1: .tour-typed span not found in popover');return null;}
+     console.info('[tour] step1: typewriter starting in popover');
+     typedEl.textContent='';
      const text='Реклама часов Rolex в стиле блокбастера, золотой час, kinetic camera, неон в фоне';
      let i=0,stopped=false,timer=null;
      const tick=()=>{
        if(stopped)return;
        i++;
-       target.value=text.slice(0,i);
-       // Trigger input event so any reactive logic (word counter, etc.) updates
-       try{target.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
-       if(i<text.length){timer=setTimeout(tick,32);}
-       else{console.info('[tour] step1: typewriter done, value.length=',target.value.length,'value=',JSON.stringify(target.value.slice(0,30)+'...'));}
+       typedEl.textContent=text.slice(0,i);
+       if(i<text.length){timer=setTimeout(tick,38);}
+       else{console.info('[tour] step1: typewriter done');}
      };
-     timer=setTimeout(tick,150);
+     timer=setTimeout(tick,250);
      return ()=>{
-       console.info('[tour] step1: cleanup running, restoring orig value');
        stopped=true;
        if(timer)clearTimeout(timer);
-       target.value=orig;
-       target.placeholder=origPh;
-       target.classList.remove('tour-typing');
-       try{target.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
      };
    }},
   {sel:'#smTiles, #imgStyleTiles, #txtStyleTiles, #i2pModeTiles',title:'Выбери формат',body:'Один клик по плитке — задаёт настроение, кадр, длительность. Можно поменять в любой момент.',pos:'bottom',preview:TOUR_PREVIEW.format,previewLabel:'Как работает выбор'},
