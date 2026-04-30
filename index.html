@@ -110,6 +110,7 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 
     <div class="flex flex-wrap gap-2 items-center">
       <button id="smGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт</button>
+      <button id="phOpenBtnVideo" class="soft-btn px-4 py-3 rounded-xl text-sm" title="История промтов">🕘 История</button>
       <span id="smHint" class="text-xs subtle"></span>
     </div>
 
@@ -190,6 +191,7 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 
       <div class="flex flex-wrap gap-2 items-center">
         <button id="txtGenerate" class="btn-primary font-semibold px-6 py-3 rounded-xl text-base">✨ Создать промт</button>
+        <button id="phOpenBtnText" class="soft-btn px-4 py-3 rounded-xl text-sm" title="История промтов">🕘 История</button>
         <span id="txtHint" class="text-xs subtle"></span>
       </div>
 
@@ -466,6 +468,27 @@ html[data-theme="light"] .sm-result{background:#fff;border-color:#e2e8f0}
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<div id="phModal" class="sm-hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+  <div class="card max-w-3xl w-full max-h-[85vh] flex flex-col" style="background:rgba(20,20,30,0.98)">
+    <div class="flex items-center justify-between gap-2 p-4 border-b border-white/10">
+      <h3 class="text-lg font-bold">🕘 История промтов</h3>
+      <div class="flex items-center gap-2">
+        <button id="phClearAll" class="soft-btn text-xs px-3 py-1.5" title="Очистить всю историю">🗑 Очистить всё</button>
+        <button id="phCloseBtn" class="soft-btn text-xs px-3 py-1.5">✕ Закрыть</button>
+      </div>
+    </div>
+    <div class="p-4 border-b border-white/10">
+      <input id="phSearch" type="text" class="field text-sm w-full" placeholder="🔎 Поиск по идее, промту, ядру..."/>
+    </div>
+    <div id="phList" class="overflow-y-auto p-4 space-y-2 flex-1">
+      <div class="text-sm subtle text-center py-12">Пусто. Сгенерируй первый промт — он появится здесь.</div>
+    </div>
+    <div class="text-xs subtle p-3 border-t border-white/10 text-center">
+      Хранится последних 50 генераций · только локально в браузере · можно экспортировать каждую запись
+    </div>
+  </div>
+</div>
 
 <script src="app.js" defer></script>
 </body>
