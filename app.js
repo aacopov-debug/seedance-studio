@@ -153,17 +153,67 @@ function makeDrag(c){c.addEventListener('dragstart',e=>{const r=e.target.closest
     if(a)c.insertBefore(d,a);else c.appendChild(d);});}
 
 const beatsEl=$('beats');
-function addBeat(t="0–3s",cam="camera slowly pushes in",sub="subject begins to move"){
+
+/* Build <option> html for per-beat preset dropdown. */
+function _beatPresetOptionsHtml(selectedId){
+  let html='<option value="">🎨 —</option>';
+  try{
+    const list=(typeof lumenPresets!=='undefined')?lumenPresets.list():[];
+    list.forEach(p=>{
+      const sel=p.id===selectedId?' selected':'';
+      const nm=String(p.name||'').replace(/</g,'&lt;').slice(0,28);
+      html+=`<option value="${p.id}"${sel}>🎨 ${nm}</option>`;
+    });
+  }catch(e){}
+  return html;
+}
+
+/* Called whenever the preset library changes (save/delete/import) to
+   refresh options in every existing beat dropdown while preserving selection. */
+function _refreshBeatPresetSelects(){
+  document.querySelectorAll('#beats select.bp').forEach(sel=>{
+    const cur=sel.value;
+    sel.innerHTML=_beatPresetOptionsHtml(cur);
+  });
+}
+
+function addBeat(t="0–3s",cam="camera slowly pushes in",sub="subject begins to move",presetId=""){
   const r=document.createElement('div');r.className="grid grid-cols-12 gap-2";r.draggable=true;
   r.innerHTML=`<div class="drag-handle col-span-1 pt-2.5 text-center subtle">⠿</div>
-    <input class="field col-span-2 bt" value="${t}"/><input class="field col-span-4 bc" value="${cam}"/><input class="field col-span-4 bs" value="${sub}"/>
+    <input class="field col-span-2 bt" value="${t}"/>
+    <input class="field col-span-3 bc" value="${cam}"/>
+    <input class="field col-span-3 bs" value="${sub}"/>
+    <select class="field col-span-2 bp text-xs" title="Прикрепить сохранённый стиль к этому кадру">${_beatPresetOptionsHtml(presetId)}</select>
     <div class="col-span-1 flex gap-1"><button class="soft-btn text-xs flex-1" data-dup>📋</button><button class="soft-btn text-xs flex-1" data-rm>✕</button></div>`;
-  r.querySelector('[data-rm]').onclick=()=>{r.remove();saveState();};
-  r.querySelector('[data-dup]').onclick=()=>{addBeat(r.querySelector('.bt').value,r.querySelector('.bc').value,r.querySelector('.bs').value);saveState();};
+  r.querySelector('[data-rm]').onclick=()=>{r.remove();saveState();generate();};
+  r.querySelector('[data-dup]').onclick=()=>{addBeat(r.querySelector('.bt').value,r.querySelector('.bc').value,r.querySelector('.bs').value,r.querySelector('.bp').value);saveState();};
+  // Per-beat preset change: regenerate so Timeline reflects new style
+  r.querySelector('.bp').addEventListener('change',()=>{saveState&&saveState();try{generate();}catch(e){}});
   beatsEl.appendChild(r);
 }
-makeDrag(beatsEl);$('addBeat').onclick=()=>{addBeat("","","");saveState();};
-const getBeats=()=>!$('useTimeline').checked?[]:[...beatsEl.querySelectorAll('[draggable]')].map(r=>({t:r.querySelector('.bt').value.trim(),cam:r.querySelector('.bc').value.trim(),sub:r.querySelector('.bs').value.trim()})).filter(b=>b.cam||b.sub);
+makeDrag(beatsEl);$('addBeat').onclick=()=>{addBeat("","","","");saveState();};
+const getBeats=()=>{
+  if(!$('useTimeline').checked)return[];
+  return[...beatsEl.querySelectorAll('[draggable]')].map(r=>{
+    const presetId=r.querySelector('.bp')?.value||'';
+    let presetName='',presetSuffix='';
+    if(presetId){
+      try{
+        const p=(typeof lumenPresets!=='undefined')?lumenPresets.list().find(x=>x.id===presetId):null;
+        if(p){
+          presetName=p.name||'';
+          presetSuffix=(typeof _txtPresetToStyleSuffix==='function')?_txtPresetToStyleSuffix(p.data):'';
+        }
+      }catch(e){}
+    }
+    return{
+      t:r.querySelector('.bt').value.trim(),
+      cam:r.querySelector('.bc').value.trim(),
+      sub:r.querySelector('.bs').value.trim(),
+      presetId,presetName,presetSuffix
+    };
+  }).filter(b=>b.cam||b.sub);
+};
 
 const shotsEl=$('shots');
 function addShot(dur="3s",cam="medium shot, slow dolly in",act="subject walks toward camera",tr="cut"){
@@ -217,7 +267,11 @@ function buildEn(opts={}){
   if($('autoQuality').checked)p.push("ultra-detailed, sharp focus, high dynamic range, professional cinematography");
   let en=p.join(", ")+".";
   if(shots.length)en+="\n\nShots (multi-shot, same character throughout):\n"+shots.map((s,i)=>`Shot ${i+1} (${s.dur||'?'}, ${s.tr}): ${s.cam}. ${s.act}`).join('\n');
-  if(beats.length)en+="\n\nTimeline:\n"+beats.map(b=>`• ${b.t||''}: camera — ${b.cam}; subject — ${b.sub}`).join('\n');
+  if(beats.length)en+="\n\nTimeline:\n"+beats.map(b=>{
+    let line=`• ${b.t||''}: camera — ${b.cam}; subject — ${b.sub}`;
+    if(b.presetSuffix)line+=`; style — ${b.presetSuffix}`;
+    return line;
+  }).join('\n');
   const au=[v('ambient')&&`ambient: ${v('ambient')}`,v('sfx')&&`sfx: ${v('sfx')}`,v('dialogue')&&`dialogue: ${v('dialogue')}`].filter(Boolean);
   if(au.length)en+=`\n\nAudio: ${au.join(' | ')}`;
   en+=`\n\nAspect ratio: ${v('aspect')} | Duration: ${v('duration')} | Resolution: ${v('res')}`;
@@ -244,7 +298,11 @@ function generate(){
   let rus=r.join('. ')+'.';
   const sh=getShots(),be=getBeats();
   if(sh.length)rus+='\n\nШоты:\n'+sh.map((s,i)=>`Шот ${i+1} (${s.dur},${s.tr}): ${s.cam}. ${s.act}`).join('\n');
-  if(be.length)rus+='\n\nКадры:\n'+be.map(b=>`• ${b.t}: ${b.cam}; ${b.sub}`).join('\n');
+  if(be.length)rus+='\n\nКадры:\n'+be.map(b=>{
+    let line=`• ${b.t}: ${b.cam}; ${b.sub}`;
+    if(b.presetName)line+=` [🎨 ${b.presetName}]`;
+    return line;
+  }).join('\n');
   rus+=`\n\nФормат: ${v('aspect')} | ${v('duration')} | ${v('res')}`;
   $('outRu').value=rus;renderEn(en);
   $('aspectLabel').textContent=v('aspect');updAspect();
@@ -4087,6 +4145,8 @@ function presetsUpdateCount(){
   if(typeof proPresetsUpdateCount==='function')proPresetsUpdateCount();
   // Sync Pro mode Cinematic library grid
   if(typeof renderDirectors==='function'){try{renderDirectors();}catch(e){console.debug('renderDirectors',e);}}
+  // Sync per-beat preset dropdowns
+  if(typeof _refreshBeatPresetSelects==='function'){try{_refreshBeatPresetSelects();}catch(e){console.debug('refreshBeatSelects',e);}}
 }
 
 async function presetSaveCurrent(){
