@@ -3257,7 +3257,7 @@ function i2pRenderAnalysis(d){
   const directors=Array.isArray(d.director_match)?d.director_match:[];
   const keywords=Array.isArray(d.keywords)?d.keywords:[];
 
-  const paletteHtml=palette.length?'<div class="i2p-palette">'+palette.map(p=>`<div class="i2p-swatch" style="background:${esc(p.hex)}" data-hex="${esc(p.hex)}" title="${esc(p.name)} · ${esc(p.role)} · клик чтобы скопировать"></div>`).join('')+'</div>':'<div class="text-xs subtle">—</div>';
+  const paletteHtml=palette.length?'<div class="i2p-palette">'+palette.map(p=>`<div class="i2p-swatch-wrap"><div class="i2p-swatch" style="background:${esc(p.hex)}" data-hex="${esc(p.hex)}" title="${esc(p.name)} · ${esc(p.role)} · клик — копировать"></div><div class="i2p-swatch-cap">${esc((p.hex||'').toUpperCase())}</div><div class="i2p-swatch-name">${esc(p.name||'')}</div></div>`).join('')+'</div>':'<div class="text-xs subtle">—</div>';
 
   const compHtml=`
     ${comp.rule?`<div class="i2p-comp-row"><b>Правило:</b>${esc(comp.rule)}</div>`:''}
@@ -3276,10 +3276,12 @@ function i2pRenderAnalysis(d){
 
   const kwHtml=keywords.length?'<div class="i2p-tags">'+keywords.map(k=>`<span class="i2p-tag" data-kw="${esc(k)}">${esc(k)}</span>`).join('')+'</div>':'';
 
+  const isBlendResult=!!d.blend_prompt;
+  const badgeLabel=isBlendResult?'PHASE 2 • BLEND':'PHASE 1';
   panel.innerHTML=`
     <div class="i2p-an-header">
       <h3>🔬 AI Vision Analysis</h3>
-      <span class="i2p-an-badge">PHASE 1</span>
+      <span class="i2p-an-badge">${badgeLabel}</span>
     </div>
     <div class="i2p-an-grid">
       <div class="i2p-an-section">
@@ -3302,10 +3304,13 @@ function i2pRenderAnalysis(d){
     ${d.summary_ru?`<div class="i2p-an-summary">💡 ${esc(d.summary_ru)}</div>`:''}
     ${d.blend_prompt?`<div class="i2p-blend-prompt"><div class="i2p-blend-prompt-label"><span>🎭 BLEND PROMPT (RU)</span><button class="i2p-blend-copy" data-blend-copy>КОПИРОВАТЬ</button></div>${esc(d.blend_prompt)}${Array.isArray(d.blend_notes)&&d.blend_notes.length?'<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(236,72,153,.2);font-size:11.5px;opacity:.85">'+d.blend_notes.map(n=>'· '+esc(n)).join('<br>')+'</div>':''}</div>`:''}
     <div class="i2p-an-actions">
+      ${isBlendResult?'<button class="i2p-an-action i2p-an-action-primary" data-act="use-blend"><span>🎯</span><span>В финальный промт</span></button>':''}
       <button class="i2p-an-action" data-act="copy-palette"><span>📋</span><span>Копировать HEX'ы</span></button>
       <button class="i2p-an-action" data-act="apply-mod"><span>✏️</span><span>Добавить в «Модификацию»</span></button>
       <button class="i2p-an-action" data-act="reanalyze"><span>🔄</span><span>Переанализировать</span></button>
     </div>`;
+  // Smooth scroll panel into view
+  setTimeout(()=>{try{panel.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}},80);
 
   // Wire palette swatch click → copy hex
   panel.querySelectorAll('.i2p-swatch').forEach(sw=>{
@@ -3341,7 +3346,16 @@ function i2pRenderAnalysis(d){
   panel.querySelectorAll('.i2p-an-action').forEach(b=>{
     b.addEventListener('click',()=>{
       const act=b.dataset.act;
-      if(act==='copy-palette'){
+      if(act==='use-blend'){
+        const mod=document.getElementById('i2pMod');
+        const text=d.blend_prompt||d.summary_ru||'';
+        if(mod&&text){
+          mod.value=text;
+          toast('🎯 Blend prompt вставлен в «Модификацию»');
+          mod.scrollIntoView({behavior:'smooth',block:'center'});
+          mod.focus();
+        }
+      }else if(act==='copy-palette'){
         const hexes=palette.map(p=>p.hex).join(', ');
         navigator.clipboard.writeText(hexes).then(()=>toast('📋 Палитра скопирована')).catch(()=>{});
       }else if(act==='apply-mod'){

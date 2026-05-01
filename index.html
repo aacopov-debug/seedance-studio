@@ -228,11 +228,17 @@ details[open]>summary::before{transform:rotate(90deg)}
 [data-theme=light] .i2p-an-section{background:rgba(255,255,255,.6);border-color:rgba(15,23,42,.06)}
 .i2p-an-label{font-size:9.5px;color:rgba(167,139,250,.85);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:5px}
 [data-theme=light] .i2p-an-label{color:#7c3aed}
-.i2p-palette{display:flex;flex-wrap:wrap;gap:6px}
-.i2p-swatch{width:38px;height:38px;border-radius:8px;cursor:pointer;position:relative;border:1.5px solid rgba(255,255,255,.12);box-shadow:0 2px 8px rgba(0,0,0,.3);transition:transform .15s ease,box-shadow .15s ease}
+.i2p-palette{display:flex;flex-wrap:wrap;gap:10px}
+.i2p-swatch-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;width:54px}
+.i2p-swatch{width:48px;height:42px;border-radius:8px;cursor:pointer;position:relative;border:1.5px solid rgba(255,255,255,.12);box-shadow:0 2px 8px rgba(0,0,0,.3);transition:transform .15s ease,box-shadow .15s ease}
 .i2p-swatch:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.4)}
-.i2p-swatch::after{content:attr(data-hex);position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:9px;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,.65);white-space:nowrap;opacity:0;transition:opacity .15s ease;pointer-events:none}
-.i2p-swatch:hover::after{opacity:1}
+.i2p-swatch:active{transform:translateY(0) scale(.96)}
+.i2p-swatch-cap{font-size:8.5px;font-family:'JetBrains Mono',ui-monospace,monospace;color:rgba(255,255,255,.7);letter-spacing:.02em;font-weight:600;text-align:center;line-height:1}
+[data-theme=light] .i2p-swatch-cap{color:rgba(15,23,42,.7)}
+.i2p-swatch-name{font-size:9px;color:rgba(255,255,255,.45);text-align:center;line-height:1.1;text-transform:lowercase;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[data-theme=light] .i2p-swatch-name{color:rgba(15,23,42,.5)}
+.i2p-an-action-primary{background:linear-gradient(135deg,rgba(236,72,153,.3),rgba(139,92,246,.3))!important;color:#fff!important;border-color:rgba(236,72,153,.5)!important}
+.i2p-an-action-primary:hover{background:linear-gradient(135deg,rgba(236,72,153,.45),rgba(139,92,246,.45))!important}
 [data-theme=light] .i2p-swatch::after{color:#475569}
 .i2p-tags{display:flex;flex-wrap:wrap;gap:5px}
 .i2p-tag{font-size:11px;padding:3px 9px;border-radius:99px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.25);color:#c4b5fd;font-weight:500;cursor:pointer;transition:all .15s ease}
@@ -979,8 +985,8 @@ h1{font-feature-settings:'ss03','cv11'}
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=12.2" defer></script>
-<script src="extras.js?v=12.2" defer></script>
+<script src="app.js?v=12.3" defer></script>
+<script src="extras.js?v=12.3" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){
