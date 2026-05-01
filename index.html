@@ -217,6 +217,52 @@ details[open]>summary::before{transform:rotate(90deg)}
 .tour-popover-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .tour-step{font-size:11px;color:var(--violet);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
 .tour-popover{transition:top .42s cubic-bezier(.4,0,.2,1),left .42s cubic-bezier(.4,0,.2,1),opacity .25s ease}
+/* === I2P AI VISION ANALYSIS PANEL === */
+.i2p-analysis-panel{padding:18px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(236,72,153,.05));border:1px solid rgba(167,139,250,.25);box-shadow:0 4px 20px -8px rgba(139,92,246,.15)}
+[data-theme=light] .i2p-analysis-panel{background:linear-gradient(135deg,rgba(139,92,246,.06),rgba(236,72,153,.04));border-color:rgba(139,92,246,.2)}
+.i2p-an-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.i2p-an-header h3{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.i2p-an-header .i2p-an-badge{font-size:10px;padding:3px 9px;border-radius:99px;background:linear-gradient(135deg,rgba(139,92,246,.25),rgba(236,72,153,.18));color:#c4b5fd;font-weight:600;letter-spacing:.04em;border:1px solid rgba(167,139,250,.35)}
+.i2p-an-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.i2p-an-section{padding:12px 14px;border-radius:10px;background:rgba(7,5,13,.4);border:1px solid rgba(167,139,250,.12)}
+[data-theme=light] .i2p-an-section{background:rgba(255,255,255,.6);border-color:rgba(15,23,42,.06)}
+.i2p-an-label{font-size:9.5px;color:rgba(167,139,250,.85);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+[data-theme=light] .i2p-an-label{color:#7c3aed}
+.i2p-palette{display:flex;flex-wrap:wrap;gap:6px}
+.i2p-swatch{width:38px;height:38px;border-radius:8px;cursor:pointer;position:relative;border:1.5px solid rgba(255,255,255,.12);box-shadow:0 2px 8px rgba(0,0,0,.3);transition:transform .15s ease,box-shadow .15s ease}
+.i2p-swatch:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.4)}
+.i2p-swatch::after{content:attr(data-hex);position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:9px;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,.65);white-space:nowrap;opacity:0;transition:opacity .15s ease;pointer-events:none}
+.i2p-swatch:hover::after{opacity:1}
+[data-theme=light] .i2p-swatch::after{color:#475569}
+.i2p-tags{display:flex;flex-wrap:wrap;gap:5px}
+.i2p-tag{font-size:11px;padding:3px 9px;border-radius:99px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.25);color:#c4b5fd;font-weight:500;cursor:pointer;transition:all .15s ease}
+.i2p-tag:hover{background:rgba(167,139,250,.25);transform:translateY(-1px)}
+[data-theme=light] .i2p-tag{background:rgba(139,92,246,.1);color:#6d28d9;border-color:rgba(139,92,246,.25)}
+.i2p-director{padding:10px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(139,92,246,.05));border:1px solid rgba(245,158,11,.25);margin-bottom:6px}
+.i2p-director:last-child{margin-bottom:0}
+.i2p-director-name{font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px}
+[data-theme=light] .i2p-director-name{color:#b45309}
+.i2p-director-conf{font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;padding:1px 6px;border-radius:99px;display:inline-block;margin-left:6px;vertical-align:middle}
+.i2p-director-conf.high{background:rgba(34,197,94,.2);color:#86efac}
+.i2p-director-conf.medium{background:rgba(234,179,8,.2);color:#fde047}
+.i2p-director-conf.low{background:rgba(148,163,184,.2);color:#cbd5e1}
+.i2p-director-why{font-size:11px;color:rgba(255,255,255,.7);line-height:1.4;font-style:italic}
+[data-theme=light] .i2p-director-why{color:#475569}
+.i2p-comp-row{font-size:11.5px;line-height:1.6;color:rgba(255,255,255,.85)}
+.i2p-comp-row b{color:#a78bfa;font-weight:600;margin-right:4px}
+[data-theme=light] .i2p-comp-row{color:#1e293b}
+[data-theme=light] .i2p-comp-row b{color:#7c3aed}
+.i2p-an-summary{margin-top:14px;padding:10px 14px;border-radius:8px;background:rgba(167,139,250,.06);border-left:3px solid #a78bfa;font-size:12.5px;line-height:1.55;color:rgba(255,255,255,.85);font-style:italic}
+[data-theme=light] .i2p-an-summary{color:#1e293b;background:rgba(139,92,246,.06)}
+.i2p-an-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.i2p-an-action{font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(167,139,250,.15);color:#c4b5fd;border:1px solid rgba(167,139,250,.3);cursor:pointer;font-weight:600;transition:all .15s ease;display:inline-flex;align-items:center;gap:5px}
+.i2p-an-action:hover{background:rgba(167,139,250,.28);transform:translateY(-1px)}
+.i2p-an-loading{display:flex;align-items:center;gap:10px;font-size:13px;color:#c4b5fd;padding:10px 0}
+.i2p-an-loading-dot{width:8px;height:8px;border-radius:50%;background:#a78bfa;animation:i2pPulse 1.4s ease-in-out infinite}
+.i2p-an-loading-dot:nth-child(2){animation-delay:.2s}
+.i2p-an-loading-dot:nth-child(3){animation-delay:.4s}
+@keyframes i2pPulse{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
 .tour-fake-textarea{margin:0;padding:12px 14px;min-height:74px;background:rgba(7,5,13,.85);border:1px solid rgba(167,139,250,.45);border-radius:8px;color:#ffffff;font-family:Inter,system-ui,sans-serif;font-size:12.5px;line-height:1.5;font-weight:500;letter-spacing:.005em;box-shadow:inset 0 0 12px rgba(167,139,250,.08);word-break:break-word}
 .tour-typed{color:#fff;white-space:pre-wrap}
 .tour-caret{display:inline-block;width:2px;background:#a78bfa;color:transparent;margin-left:1px;animation:tourCaretBlink 1s step-end infinite;vertical-align:text-bottom}
@@ -545,10 +591,16 @@ h1{font-feature-settings:'ss03','cv11'}
         </div>
         <div id="i2pDropFilled" class="hidden">
           <img id="i2pPreview" class="max-h-48 mx-auto rounded-lg mb-2" alt="reference"/>
-          <button id="i2pClear" class="soft-btn text-xs px-3 py-1 inline-flex items-center gap-1.5"><i data-lucide="x"></i><span>Убрать картинку</span></button>
+          <div class="flex justify-center gap-2 flex-wrap">
+            <button id="i2pAnalyzeBtn" class="btn-primary text-xs px-4 py-1.5 rounded-lg inline-flex items-center gap-1.5 font-semibold"><i data-lucide="sparkles" style="width:14px;height:14px"></i><span>🔬 Анализировать</span></button>
+            <button id="i2pClear" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5"><i data-lucide="x"></i><span>Убрать</span></button>
+          </div>
         </div>
         <input id="i2pFile" type="file" accept="image/*" class="hidden"/>
       </div>
+
+      <!-- ============ AI VISION ANALYSIS PANEL (Phase 1) ============ -->
+      <div id="i2pAnalysisPanel" class="i2p-analysis-panel hidden mb-5"></div>
 
       <label class="block text-sm font-medium mb-2">🎯 Что сделать с этой картинкой?</label>
       <div id="i2pModeTiles" class="sm-grid mb-4"></div>
@@ -891,8 +943,8 @@ h1{font-feature-settings:'ss03','cv11'}
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=11.6.1" defer></script>
-<script src="extras.js?v=11.6.1" defer></script>
+<script src="app.js?v=12.0" defer></script>
+<script src="extras.js?v=12.0" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

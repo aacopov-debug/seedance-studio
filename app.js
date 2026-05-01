@@ -2977,6 +2977,7 @@ function i2pSetImage(dataUrl){
   const empty=document.getElementById('i2pDropEmpty');
   const filled=document.getElementById('i2pDropFilled');
   const prev=document.getElementById('i2pPreview');
+  const panel=document.getElementById('i2pAnalysisPanel');
   if(dataUrl){
     if(prev)prev.src=dataUrl;
     empty?.classList.add('hidden');
@@ -2985,7 +2986,194 @@ function i2pSetImage(dataUrl){
     empty?.classList.remove('hidden');
     filled?.classList.add('hidden');
     if(prev)prev.src='';
+    if(panel){panel.classList.add('hidden');panel.innerHTML='';}
+    i2pState.analysis=null;
   }
+}
+
+/* ============ AI VISION AUTO-ANALYSIS (Phase 1) ============ */
+async function i2pAnalyze(){
+  if(!i2pState.img){toast('Сначала загрузи картинку');return;}
+  if(!needKey())return;
+  const c=aiCfg();
+  if(!/openai|gpt|claude|anthropic|groq/i.test(c.base+c.model)){
+    if(!confirm('⚠ Текущая модель может не поддерживать vision. Рекомендуем gpt-4o-mini, claude-3-5-sonnet или llama vision. Продолжить?'))return;
+  }
+  const panel=document.getElementById('i2pAnalysisPanel');
+  const btn=document.getElementById('i2pAnalyzeBtn');
+  if(!panel)return;
+  panel.classList.remove('hidden');
+  panel.innerHTML='<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3><span class="i2p-an-badge">PHASE 1</span></div><div class="i2p-an-loading"><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span>AI разбирает композицию, палитру и стиль...</span></div>';
+  if(btn){btn.disabled=true;btn.style.opacity='.6';}
+
+  const sys=`You are an expert cinematographer and visual style analyst. Analyze the reference image and return STRUCTURED JSON only.
+
+Return this exact schema (no extra fields, no markdown, no commentary):
+{
+  "palette": [
+    {"hex":"#RRGGBB","name":"short color name in English","role":"primary|secondary|accent|background|highlight"}
+  ],
+  "composition": {
+    "rule": "primary compositional rule in Russian (правило третей, центральная, диагональная, симметричная, рамка)",
+    "techniques": ["3-5 techniques in Russian: ведущие линии, негативное пространство, глубина резкости, рамка в рамке, low-angle, etc."],
+    "framing": "shot size in Russian (крупный, средний, общий, wide, medium close-up)"
+  },
+  "lighting": {
+    "type": "lighting setup in Russian (golden hour rim light, low-key chiaroscuro, soft natural, etc.)",
+    "direction": "фронтальный / боковой / контровой / верхний / rim",
+    "quality": "мягкий / жёсткий / рассеянный",
+    "contrast": "низкий / средний / высокий"
+  },
+  "camera": {
+    "lens_guess": "likely focal length in mm (e.g. 35mm wide, 50mm normal, 85mm portrait, 135mm tele, anamorphic) + DoF hint in English",
+    "angle": "low / eye-level / high / dutch / overhead",
+    "movement_hint": "static / slow push-in / handheld / dolly / crane (best guess in English)"
+  },
+  "director_match": [
+    {"name":"director or DP name","confidence":"high|medium|low","why":"1-line reasoning in Russian"}
+  ],
+  "keywords": ["5-8 short style keywords in English: cinematic, moody, anamorphic, golden hour, etc."],
+  "summary_ru": "1-2 sentence cinematic-style description in Russian summarizing the visual mood and style"
+}
+
+Rules:
+- palette: exactly 5 colors, sorted by visual importance, hex must be 6-digit uppercase
+- director_match: 1-3 matches, sorted by confidence
+- keywords: lowercase, no duplicates
+- Be specific. No generic answers like "good lighting" — say WHICH lighting.`;
+
+  try{
+    const r=await fetch(c.base+'/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      body:JSON.stringify({
+        model:c.model,
+        response_format:{type:'json_object'},
+        temperature:0.4,
+        messages:[
+          {role:'system',content:sys},
+          {role:'user',content:[
+            {type:'text',text:'Analyze this reference image and return the JSON.'},
+            {type:'image_url',image_url:{url:i2pState.img}}
+          ]}
+        ]
+      })
+    });
+    const j=await r.json();
+    if(j.error)throw new Error(j.error.message||'Vision API error');
+    const txt=j.choices?.[0]?.message?.content;
+    if(!txt)throw new Error('Пустой ответ AI');
+    const data=JSON.parse(txt);
+    i2pState.analysis=data;
+    i2pRenderAnalysis(data);
+  }catch(e){
+    console.error('[i2pAnalyze]',e);
+    panel.innerHTML='<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3></div><div class="text-sm" style="color:#f87171">⚠ Ошибка: '+(e.message||'не удалось проанализировать').replace(/</g,'&lt;')+'</div>';
+  }finally{
+    if(btn){btn.disabled=false;btn.style.opacity='';}
+  }
+}
+
+function i2pRenderAnalysis(d){
+  const panel=document.getElementById('i2pAnalysisPanel');
+  if(!panel||!d)return;
+  const esc=s=>String(s||'').replace(/</g,'&lt;');
+  const palette=Array.isArray(d.palette)?d.palette:[];
+  const comp=d.composition||{};
+  const light=d.lighting||{};
+  const cam=d.camera||{};
+  const directors=Array.isArray(d.director_match)?d.director_match:[];
+  const keywords=Array.isArray(d.keywords)?d.keywords:[];
+
+  const paletteHtml=palette.length?'<div class="i2p-palette">'+palette.map(p=>`<div class="i2p-swatch" style="background:${esc(p.hex)}" data-hex="${esc(p.hex)}" title="${esc(p.name)} · ${esc(p.role)} · клик чтобы скопировать"></div>`).join('')+'</div>':'<div class="text-xs subtle">—</div>';
+
+  const compHtml=`
+    ${comp.rule?`<div class="i2p-comp-row"><b>Правило:</b>${esc(comp.rule)}</div>`:''}
+    ${comp.framing?`<div class="i2p-comp-row"><b>Кадр:</b>${esc(comp.framing)}</div>`:''}
+    ${Array.isArray(comp.techniques)&&comp.techniques.length?`<div class="i2p-comp-row"><b>Техники:</b>${comp.techniques.map(esc).join(', ')}</div>`:''}
+    ${light.type?`<div class="i2p-comp-row"><b>Свет:</b>${esc(light.type)}${light.direction?' · '+esc(light.direction):''}${light.quality?' · '+esc(light.quality):''}</div>`:''}
+    ${cam.lens_guess?`<div class="i2p-comp-row"><b>Объектив:</b>${esc(cam.lens_guess)}</div>`:''}
+    ${cam.angle?`<div class="i2p-comp-row"><b>Ракурс:</b>${esc(cam.angle)}${cam.movement_hint?' · '+esc(cam.movement_hint):''}</div>`:''}
+  `;
+
+  const dirHtml=directors.length?directors.map(dr=>`
+    <div class="i2p-director">
+      <div><span class="i2p-director-name">${esc(dr.name)}</span><span class="i2p-director-conf ${(dr.confidence||'low').toLowerCase()}">${esc(dr.confidence||'low')}</span></div>
+      ${dr.why?`<div class="i2p-director-why">${esc(dr.why)}</div>`:''}
+    </div>`).join(''):'<div class="text-xs subtle">Не определено</div>';
+
+  const kwHtml=keywords.length?'<div class="i2p-tags">'+keywords.map(k=>`<span class="i2p-tag" data-kw="${esc(k)}">${esc(k)}</span>`).join('')+'</div>':'';
+
+  panel.innerHTML=`
+    <div class="i2p-an-header">
+      <h3>🔬 AI Vision Analysis</h3>
+      <span class="i2p-an-badge">PHASE 1</span>
+    </div>
+    <div class="i2p-an-grid">
+      <div class="i2p-an-section">
+        <div class="i2p-an-label">🎨 Палитра</div>
+        ${paletteHtml}
+      </div>
+      <div class="i2p-an-section">
+        <div class="i2p-an-label">📐 Композиция и свет</div>
+        ${compHtml||'<div class="text-xs subtle">—</div>'}
+      </div>
+      <div class="i2p-an-section">
+        <div class="i2p-an-label">🎬 Стиль режиссёра</div>
+        ${dirHtml}
+      </div>
+      <div class="i2p-an-section">
+        <div class="i2p-an-label">🏷 Ключевые слова</div>
+        ${kwHtml||'<div class="text-xs subtle">—</div>'}
+      </div>
+    </div>
+    ${d.summary_ru?`<div class="i2p-an-summary">💡 ${esc(d.summary_ru)}</div>`:''}
+    <div class="i2p-an-actions">
+      <button class="i2p-an-action" data-act="copy-palette"><span>📋</span><span>Копировать HEX'ы</span></button>
+      <button class="i2p-an-action" data-act="apply-mod"><span>✏️</span><span>Добавить в «Модификацию»</span></button>
+      <button class="i2p-an-action" data-act="reanalyze"><span>🔄</span><span>Переанализировать</span></button>
+    </div>`;
+
+  // Wire palette swatch click → copy hex
+  panel.querySelectorAll('.i2p-swatch').forEach(sw=>{
+    sw.addEventListener('click',()=>{
+      const hex=sw.dataset.hex;
+      navigator.clipboard.writeText(hex).then(()=>toast('📋 '+hex+' скопирован')).catch(()=>{});
+    });
+  });
+  // Wire keyword chip click → add to modification field
+  panel.querySelectorAll('.i2p-tag').forEach(tg=>{
+    tg.addEventListener('click',()=>{
+      const kw=tg.dataset.kw;
+      const mod=document.getElementById('i2pMod');
+      if(mod){
+        const cur=mod.value.trim();
+        mod.value=cur?(cur+', '+kw):kw;
+        toast('+ '+kw);
+      }
+    });
+  });
+  // Wire action buttons
+  panel.querySelectorAll('.i2p-an-action').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const act=b.dataset.act;
+      if(act==='copy-palette'){
+        const hexes=palette.map(p=>p.hex).join(', ');
+        navigator.clipboard.writeText(hexes).then(()=>toast('📋 Палитра скопирована')).catch(()=>{});
+      }else if(act==='apply-mod'){
+        const mod=document.getElementById('i2pMod');
+        if(!mod)return;
+        const parts=[];
+        if(light.type)parts.push(light.type);
+        if(cam.lens_guess)parts.push(cam.lens_guess.split(',')[0]);
+        if(keywords.length)parts.push(keywords.slice(0,3).join(', '));
+        const text=parts.filter(Boolean).join(', ');
+        if(text){mod.value=text;toast('✏️ Стиль добавлен в модификацию');}
+      }else if(act==='reanalyze'){
+        i2pAnalyze();
+      }
+    });
+  });
 }
 
 function i2pHandleFile(file){
@@ -3193,6 +3381,7 @@ Reply ONLY as JSON:
     for(const it of items){if(it.type&&it.type.startsWith('image/')){const f=it.getAsFile();if(f){e.preventDefault();i2pHandleFile(f);break;}}}
   });
   document.getElementById('i2pGenerate')?.addEventListener('click',i2pGenerate);
+  document.getElementById('i2pAnalyzeBtn')?.addEventListener('click',e=>{e.stopPropagation();i2pAnalyze();});
   document.getElementById('phOpenBtnI2p')?.addEventListener('click',()=>phToggle(true));
 })();
 
