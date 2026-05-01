@@ -612,12 +612,26 @@ h1{font-feature-settings:'ss03','cv11'}
       <label class="block text-sm font-medium mb-2">📐 Соотношение сторон</label>
       <div id="imgSizeTiles" class="grid grid-cols-3 gap-2 mb-5"></div>
 
-      <label class="block text-sm font-medium mb-2">🎨 Стиль</label>
-      <div id="imgStyleTiles" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5"></div>
+      <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <label class="block text-sm font-medium m-0">🎨 Стиль</label>
+        <button id="imgPresetsBtn" type="button" class="presets-open-btn" title="Применить сохранённый стиль из библиотеки">
+          <span>📚</span><span>Из библиотеки</span><span id="imgPresetsCount" class="presets-count">0</span>
+        </button>
+      </div>
+      <div id="imgStyleTiles" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3"></div>
+      <div id="imgActivePreset" class="txt-active-preset hidden mb-5"></div>
 
       <details class="mb-5">
         <summary class="text-xs subtle hover:text-violet-400">⚙ Дополнительно</summary>
         <div class="mt-3 space-y-3 p-4 rounded-xl bg-white/5 border border-white/10">
+          <div>
+            <label class="block text-xs subtle mb-1">🖼 Количество (параллельная генерация)</label>
+            <select id="imgCount" class="field text-sm">
+              <option value="1" selected>1 картинка</option>
+              <option value="2">2 картинки (×$0.04)</option>
+              <option value="4">4 картинки (×$0.04 × 4)</option>
+            </select>
+          </div>
           <div>
             <label class="block text-xs subtle mb-1">Качество</label>
             <select id="imgQuality" class="field text-sm"><option value="standard">Standard ($0.04)</option><option value="hd">HD ($0.08)</option></select>
@@ -1090,13 +1104,13 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.3</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.4</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=13.3" defer></script>
-<script src="extras.js?v=13.3" defer></script>
+<script src="app.js?v=13.4" defer></script>
+<script src="extras.js?v=13.4" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

@@ -2427,6 +2427,54 @@ const IMG_STYLES=[
 
 let _imgSize='1024x1024';
 let _imgStyle='';
+let _imgStylePreset=null;
+const IMG_PRESET_KEY='lumen.img.stylePreset.id';
+
+function imgRenderActivePreset(){
+  const wrap=document.getElementById('imgActivePreset');
+  if(!wrap)return;
+  if(!_imgStylePreset){wrap.classList.add('hidden');wrap.innerHTML='';
+    const tiles=document.getElementById('imgStyleTiles');if(tiles)tiles.style.opacity='';
+    return;
+  }
+  const p=_imgStylePreset;
+  const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const isBlend=!!p.data?.blend_prompt;
+  const kws=(p.data?.keywords||[]).slice(0,5).join(' · ');
+  const thumb=p.thumb?`<img class="txt-active-preset-thumb" src="${esc(p.thumb)}" alt=""/>`:'<div class="txt-active-preset-thumb-empty">🎨</div>';
+  wrap.innerHTML=`${thumb}
+    <div class="txt-active-preset-meta">
+      <div class="txt-active-preset-label">Активный стиль из библиотеки</div>
+      <div class="txt-active-preset-name">${esc(p.name)}${isBlend?'<span class="preset-blend-badge">BLEND</span>':''}</div>
+      ${kws?`<div class="txt-active-preset-tags">${esc(kws)}</div>`:''}
+    </div>
+    <button class="txt-active-preset-clear" type="button" title="Сбросить стиль">× Сбросить</button>`;
+  wrap.classList.remove('hidden');
+  wrap.querySelector('.txt-active-preset-clear')?.addEventListener('click',imgClearPreset);
+  const tiles=document.getElementById('imgStyleTiles');
+  if(tiles)tiles.style.opacity='.45';
+}
+
+function imgApplyPreset(p){
+  if(!p||!p.data){toast('Пресет пуст');return;}
+  _imgStylePreset=p;
+  try{localStorage.setItem(IMG_PRESET_KEY,p.id);}catch(e){}
+  imgRenderActivePreset();
+  toast('🎨 Стиль «'+p.name+'» применён к Image Mode');
+}
+
+function imgClearPreset(){
+  _imgStylePreset=null;
+  try{localStorage.removeItem(IMG_PRESET_KEY);}catch(e){}
+  imgRenderActivePreset();
+  toast('Стиль сброшен');
+}
+
+function imgPresetsUpdateCount(){
+  const el=document.getElementById('imgPresetsCount');
+  if(!el)return;
+  try{el.textContent=String((typeof lumenPresets!=='undefined'?lumenPresets.list():[]).length);}catch(e){el.textContent='0';}
+}
 
 function imgRenderTiles(){
   const sizeWrap=document.getElementById('imgSizeTiles');
@@ -2478,40 +2526,75 @@ async function imgGenerate(){
   const style=IMG_STYLES.find(s=>s.k===_imgStyle);
   const quality=document.getElementById('imgQuality').value;
   const model=document.getElementById('imgModel').value;
+  const count=parseInt(document.getElementById('imgCount')?.value||'1',10);
   const btn=document.getElementById('imgGenerate');
   const orig=btn.textContent;btn.disabled=true;
   const out=document.getElementById('imgResults');
   const hasCyr=/[А-Яа-яЁё]/.test(idea);
+  const countLabel=count>1?` ×${count}`:'';
   if(hasCyr){
-    btn.textContent='🌐 Перевод → 🖼 Генерация...';
+    btn.textContent='🌐 Перевод → 🖼 Генерация'+countLabel+'...';
     out.innerHTML='<div class="sm-result text-sm subtle">🌐 Перевожу на английский для DALL·E...</div>';
   }else{
-    btn.textContent='⏳ Генерирую (10-30с)...';
-    out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю картинку, обычно 10-30 секунд...</div>';
+    btn.textContent='⏳ Генерирую'+countLabel+' (10-30с)...';
+    out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю '+(count>1?count+' картинки параллельно':'картинку')+', обычно 10-30 секунд...</div>';
   }
   try{
     const {en:ideaEn,ru:ideaRu}=await imgTranslateIfNeeded(idea);
-    const fullPrompt=ideaEn+(style?.suffix||'');
-    if(hasCyr){btn.textContent='⏳ Генерирую (10-30с)...';out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю картинку, обычно 10-30 секунд...</div>';}
-    const urls=await generateImage(fullPrompt,{size:_imgSize,quality,model});
-    if(urls&&urls[0]){
-      const url=urls[0];
-      const ruBlock=ideaRu&&ideaRu!==ideaEn?`<details class="mb-2"><summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer hover:text-violet-400">🇷🇺 RU — твой запрос</summary><div class="text-xs subtle p-2 mt-1 rounded bg-black/10 border border-white/5">${ideaRu.replace(/</g,'&lt;')}</div></details>`:'';
+    // Determine effective style suffix — preset overrides tile when active
+    const presetSuffix=_imgStylePreset?_txtPresetToStyleSuffix(_imgStylePreset.data):'';
+    const effectiveSuffix=presetSuffix?(', '+presetSuffix):(style?.suffix||'');
+    const fullPrompt=ideaEn+effectiveSuffix;
+    if(hasCyr){btn.textContent='⏳ Генерирую'+countLabel+' (10-30с)...';out.innerHTML='<div class="sm-result text-sm subtle">⏳ Создаю '+(count>1?count+' картинки параллельно':'картинку')+', обычно 10-30 секунд...</div>';}
+    // Parallel generation — DALL·E 3 only supports n=1, so we make multiple calls in parallel
+    const calls=Array.from({length:count},()=>generateImage(fullPrompt,{size:_imgSize,quality,model}));
+    const results=await Promise.all(calls);
+    const urls=results.map(r=>r&&r[0]).filter(Boolean);
+    if(urls.length){
+      const ruBlock=ideaRu&&ideaRu!==ideaEn?`<details class="mb-2"><summary class="text-[10px] uppercase tracking-wider subtle cursor-pointer hover:text-violet-400">🇦🇦 RU — твой запрос</summary><div class="text-xs subtle p-2 mt-1 rounded bg-black/10 border border-white/5">${ideaRu.replace(/</g,'&lt;')}</div></details>`:'';
+      const styleLabel=_imgStylePreset?`🎨 ${(''+_imgStylePreset.name).replace(/</g,'&lt;')} (preset)`:`🎨 ${style?.label||'без стиля'}`;
+      const gridCols=urls.length===1?'grid-cols-1':urls.length===2?'grid-cols-1 sm:grid-cols-2':'grid-cols-2';
+      const imgsHtml=urls.map((u,idx)=>`<div class="relative group">
+        <img src="${u}" class="w-full rounded-lg cursor-pointer transition hover:opacity-90" alt="generated ${idx+1}" onclick="window.open('${u}','_blank')"/>
+        <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+          <a href="${u}" download="image-${idx+1}.png" class="soft-btn text-xs px-2 py-1 rounded bg-black/60 hover:bg-black/80" title="Скачать">⬇</a>
+          <button class="soft-btn text-xs px-2 py-1 rounded bg-black/60 hover:bg-black/80" onclick="navigator.clipboard.writeText('${u}');toast('🔗 URL #${idx+1} скопирован')" title="Копировать URL">🔗</button>
+        </div>
+      </div>`).join('');
       out.innerHTML=`
         <div class="sm-result">
-          <img src="${url}" class="w-full rounded-lg mb-3" alt="generated"/>
+          <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <span class="text-xs subtle">${styleLabel} · ${urls.length} картин${urls.length===1?'ка':(urls.length<5?'ки':'ок')} · ${_imgSize}</span>
+          </div>
+          <div class="grid ${gridCols} gap-3 mb-3">${imgsHtml}</div>
           <div class="mb-2">
-            <div class="text-[10px] uppercase tracking-wider subtle mb-1">🇬🇧 EN — отправлено в DALL·E</div>
-            <div class="text-xs p-2 rounded bg-black/20 border border-white/5">${(ideaEn+(style?.suffix||'')).replace(/</g,'&lt;').slice(0,400)}${(ideaEn+(style?.suffix||'')).length>400?'...':''}</div>
+            <div class="text-[10px] uppercase tracking-wider subtle mb-1">🇧🇧 EN — отправлено в DALL·E</div>
+            <div class="text-xs p-2 rounded bg-black/20 border border-white/5">${fullPrompt.replace(/</g,'&lt;').slice(0,400)}${fullPrompt.length>400?'...':''}</div>
           </div>
           ${ruBlock}
           <div class="flex flex-wrap gap-2">
-            <a href="${url}" download="image.png" target="_blank" class="soft-btn text-xs px-3 py-1.5">⬇ Скачать</a>
-            <button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText('${url}');toast('🔗 URL скопирован')">🔗 Копировать URL</button>
-            <button class="soft-btn text-xs px-3 py-1.5" onclick="document.getElementById('imgGenerate').click()">🔄 Ещё раз</button>
+            <button class="soft-btn text-xs px-3 py-1.5" onclick="document.getElementById('imgGenerate').click()">🔄 Ещё ${count===1?'раз':count+' варианта'}</button>
+            <button class="soft-btn text-xs px-3 py-1.5" onclick="navigator.clipboard.writeText(${JSON.stringify(fullPrompt)});toast('📋 EN промт скопирован')">📋 Копировать промт</button>
           </div>
         </div>`;
-      toast('🖼 Готово');
+      toast(urls.length>1?`🖼 ${urls.length} картинки готовы`:'🖼 Готово');
+      // Push to history
+      try{
+        if(typeof phPush==='function'){
+          phPush({
+            mode:'image',
+            idea:idea.slice(0,500),
+            meta:{
+              idea:idea.slice(0,500),
+              style:_imgStylePreset?_imgStylePreset.name+' (preset)':(style?.label||'без стиля'),
+              size:_imgSize,
+              quality,model,count:urls.length,
+              stylePreset:_imgStylePreset?{id:_imgStylePreset.id,name:_imgStylePreset.name}:null
+            },
+            variants:urls.map((u,i)=>({prompt_en:fullPrompt,title:'Картинка '+(i+1),imageUrl:u}))
+          });
+        }
+      }catch(e){console.debug('phPush image failed',e);}
     }else{
       out.innerHTML='<div class="sm-result text-sm text-red-400">⚠ Не удалось создать картинку. Проверь ключ и попробуй ещё.</div>';
     }
@@ -2543,6 +2626,21 @@ function smSetTab(tab){
   document.querySelectorAll('.sm-tab').forEach(b=>b.onclick=()=>smSetTab(b.dataset.smtab));
   const savedTab=localStorage.getItem('seedance_sm_tab')||'video';
   smSetTab(savedTab);
+  // Image mode preset library wiring
+  document.getElementById('imgPresetsBtn')?.addEventListener('click',()=>{
+    if(typeof presetsOpen==='function')presetsOpen();
+  });
+  setTimeout(()=>{
+    try{imgPresetsUpdateCount();}catch(e){}
+    try{
+      const id=localStorage.getItem(IMG_PRESET_KEY);
+      if(id&&typeof lumenPresets!=='undefined'){
+        const p=lumenPresets.list().find(x=>x.id===id);
+        if(p){_imgStylePreset=p;imgRenderActivePreset();}
+        else localStorage.removeItem(IMG_PRESET_KEY);
+      }
+    }catch(e){}
+  },0);
 })();
 
 try{
@@ -3795,8 +3893,8 @@ const lumenPresets={
 function presetsUpdateCount(){
   const el=document.getElementById('presetsCount');
   if(el)el.textContent=String(lumenPresets.list().length);
-  // Also sync text-mode counter
   if(typeof txtPresetsUpdateCount==='function')txtPresetsUpdateCount();
+  if(typeof imgPresetsUpdateCount==='function')imgPresetsUpdateCount();
 }
 
 async function presetSaveCurrent(){
@@ -3904,11 +4002,16 @@ function presetApply(id){
   if(!p){toast('Пресет не найден');return;}
   // Detect active simple-mode tab — different application targets
   const textActive=!document.getElementById('smTextPanel')?.classList.contains('sm-hidden');
+  const imageActive=!document.getElementById('smImagePanel')?.classList.contains('sm-hidden');
   const i2pActive=!document.getElementById('smI2pPanel')?.classList.contains('sm-hidden');
 
   if(textActive){
-    // Apply as style preset to Text → Prompt
     if(typeof txtApplyPreset==='function')txtApplyPreset(p);
+    presetsClose();
+    return;
+  }
+  if(imageActive){
+    if(typeof imgApplyPreset==='function')imgApplyPreset(p);
     presetsClose();
     return;
   }
