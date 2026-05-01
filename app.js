@@ -99,6 +99,16 @@ function toast(m,type){
 }
 toast.dismiss=()=>{const t=$('toast');t&&t.classList.remove('show');};
 
+/* Generic debounce: returns a wrapped function that delays execution until `ms` ms have elapsed
+   since the last call. Used for search inputs to avoid re-rendering huge lists on every keystroke. */
+function _debounce(fn,ms=150){
+  let t=0;
+  return function(...args){
+    clearTimeout(t);
+    t=setTimeout(()=>fn.apply(this,args),ms);
+  };
+}
+
 ['shot','camera','lens','speed','lighting','time','weather','palette','mood','style'].forEach(id=>{const s=$(id);O[id].forEach((x,i)=>{const o=document.createElement('option');o.textContent=x;if(i===0)o.selected=1;s.appendChild(o);});});
 
 const presetsEl=$('presets'), genresEl=$('genres'), dirsEl=$('directors');
@@ -384,7 +394,7 @@ function renderList(){
       li.querySelector('button').onclick=e=>{e.stopPropagation();arr.splice(it._i,1);saveList(k,arr);renderList();};
       ul.appendChild(li);});});
 }
-$('listSearch').oninput=renderList;
+$('listSearch').oninput=_debounce(renderList,150);
 document.querySelectorAll('.sideTab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.sideTab').forEach(x=>x.classList.remove('tab-active'));b.classList.add('tab-active');sideTab=b.dataset.side;safeLS('seedance_sidetab',sideTab);renderList();});
 $('clearList').onclick=()=>{if(!confirm('Очистить?'))return;localStorage.removeItem(sideTab==='hist'?'seedance_hist':'seedance_fav');renderList();};
 $('favBtn').onclick=()=>{const en=$('outEnView').dataset.raw||$('outEnView').textContent;if(!en)return;const a=loadList('seedance_fav');a.unshift({t:Date.now(),en});saveList('seedance_fav',a);toast('★');renderList();};
@@ -2279,7 +2289,7 @@ function phToggle(show){
   document.getElementById('phOpenBtnText')?.addEventListener('click',()=>phToggle(true));
   document.getElementById('phCloseBtn')?.addEventListener('click',()=>phToggle(false));
   document.getElementById('phClearAll')?.addEventListener('click',phClearAll);
-  document.getElementById('phSearch')?.addEventListener('input',phRender);
+  document.getElementById('phSearch')?.addEventListener('input',_debounce(phRender,150));
   document.getElementById('phModal')?.addEventListener('click',e=>{if(e.target.id==='phModal')phToggle(false);});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.getElementById('phModal')?.classList.contains('sm-hidden'))phToggle(false);});
 })();
@@ -4138,7 +4148,7 @@ Reply ONLY as JSON:
   document.getElementById('presetsExportBtn')?.addEventListener('click',presetsExport);
   document.getElementById('presetsImportFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)presetsImport(f);e.target.value='';});
   // Toolbar live filters
-  document.getElementById('presetsSearch')?.addEventListener('input',presetsRender);
+  document.getElementById('presetsSearch')?.addEventListener('input',_debounce(presetsRender,150));
   document.getElementById('presetsSort')?.addEventListener('change',presetsRender);
   document.getElementById('presetsBlendOnly')?.addEventListener('change',presetsRender);
   // Defer to next tick: lumenPresets const is declared later in the file (TDZ guard)
