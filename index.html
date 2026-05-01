@@ -796,6 +796,13 @@ h1{font-feature-settings:'ss03','cv11'}
 <main class="max-w-7xl mx-auto px-6 pb-16 grid lg:grid-cols-5 gap-6">
 <section class="lg:col-span-3 space-y-5">
 
+<div class="flex items-center justify-end gap-2 -mb-2">
+  <button id="proPresetsBtn" type="button" class="presets-open-btn" title="Применить сохранённый стиль из библиотеки">
+    <span>📚</span><span>Из библиотеки</span><span id="proPresetsCount" class="presets-count">0</span>
+  </button>
+</div>
+<div id="proActivePreset" class="txt-active-preset hidden"></div>
+
 <div class="bg-gradient-to-r from-violet-500/15 to-pink-500/15 border border-violet-400/40 rounded-2xl p-4">
   <div class="flex items-center gap-2 mb-2"><span class="text-lg">⚡</span><span class="font-semibold text-sm">AI: одно предложение → вся форма</span></div>
   <div class="flex gap-2 flex-wrap">
@@ -1104,13 +1111,13 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.4</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.5</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=13.4" defer></script>
-<script src="extras.js?v=13.4" defer></script>
+<script src="app.js?v=13.5" defer></script>
+<script src="extras.js?v=13.5" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

@@ -2476,6 +2476,105 @@ function imgPresetsUpdateCount(){
   try{el.textContent=String((typeof lumenPresets!=='undefined'?lumenPresets.list():[]).length);}catch(e){el.textContent='0';}
 }
 
+/* ============ PRO MODE × STYLE PRESETS (v13.5) ============ */
+let _proStylePreset=null;
+const PRO_PRESET_KEY='lumen.pro.stylePreset.id';
+const PRO_SUFFIX_MARKER=' — «';// invisible-ish marker before injected suffix to detect & strip on re-apply
+
+function proRenderActivePreset(){
+  const wrap=document.getElementById('proActivePreset');
+  if(!wrap)return;
+  if(!_proStylePreset){wrap.classList.add('hidden');wrap.innerHTML='';return;}
+  const p=_proStylePreset;
+  const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const isBlend=!!p.data?.blend_prompt;
+  const kws=(p.data?.keywords||[]).slice(0,5).join(' · ');
+  const thumb=p.thumb?`<img class="txt-active-preset-thumb" src="${esc(p.thumb)}" alt=""/>`:'<div class="txt-active-preset-thumb-empty">🎨</div>';
+  wrap.innerHTML=`${thumb}
+    <div class="txt-active-preset-meta">
+      <div class="txt-active-preset-label">Активный стиль — дополнит финальный промт</div>
+      <div class="txt-active-preset-name">${esc(p.name)}${isBlend?'<span class="preset-blend-badge">BLEND</span>':''}</div>
+      ${kws?`<div class="txt-active-preset-tags">${esc(kws)}</div>`:''}
+    </div>
+    <button class="txt-active-preset-clear" type="button" title="Сбросить стиль">× Сбросить</button>`;
+  wrap.classList.remove('hidden');
+  wrap.querySelector('.txt-active-preset-clear')?.addEventListener('click',proClearPreset);
+}
+
+function proApplyPreset(p){
+  if(!p||!p.data){toast('Пресет пуст');return;}
+  _proStylePreset=p;
+  try{localStorage.setItem(PRO_PRESET_KEY,p.id);}catch(e){}
+  proRenderActivePreset();
+  toast('🎨 Стиль «'+p.name+'» будет добавляться к Pro-промту');
+  // If a prompt is already generated, refresh it so suffix is applied immediately
+  try{if(typeof bus!=='undefined'&&bus.emit)bus.emit('after-generate');}catch(e){}
+}
+
+function proClearPreset(){
+  _proStylePreset=null;
+  try{localStorage.removeItem(PRO_PRESET_KEY);}catch(e){}
+  proRenderActivePreset();
+  toast('Стиль сброшен — промт без доп. стилевых директив');
+  // Re-trigger to strip the suffix from current output
+  try{if(typeof bus!=='undefined'&&bus.emit)bus.emit('after-generate');}catch(e){}
+}
+
+function proPresetsUpdateCount(){
+  const el=document.getElementById('proPresetsCount');
+  if(!el)return;
+  try{el.textContent=String((typeof lumenPresets!=='undefined'?lumenPresets.list():[]).length);}catch(e){el.textContent='0';}
+}
+
+/* Hook into the Pro generate pipeline:
+   When generation finishes (bus 'after-generate'), append the active preset's distilled style
+   to the EN output. Strip any previously-appended suffix first (so toggling presets is clean). */
+function _proAppendPresetSuffix(){
+  const en=document.getElementById('outEnView');
+  if(!en)return;
+  // Strip prior injected block
+  let cur=en.textContent||'';
+  cur=cur.replace(/\s*— STYLE PRESET:[^—]*$/u,'').trim();
+  if(_proStylePreset){
+    const suffix=_txtPresetToStyleSuffix(_proStylePreset.data);
+    if(suffix){
+      const sep=cur.endsWith('.')||cur.endsWith(',')?' ':' ';
+      cur=cur.trim().replace(/[.,;]+$/,'')+sep+'— STYLE PRESET: '+suffix;
+    }
+  }
+  en.textContent=cur;
+}
+try{
+  if(typeof bus!=='undefined'&&typeof bus.on==='function'){
+    bus.on('after-generate',()=>{
+      // Defer slightly so all other after-generate hooks (translation, score, etc.) finish first
+      setTimeout(_proAppendPresetSuffix,0);
+    });
+  }
+}catch(e){console.debug('pro preset hook',e);}
+
+// Wire pro presets button + restore state once DOM is ready
+(function initProPresets(){
+  const wire=()=>{
+    document.getElementById('proPresetsBtn')?.addEventListener('click',()=>{
+      if(typeof presetsOpen==='function')presetsOpen();
+    });
+    setTimeout(()=>{
+      try{proPresetsUpdateCount();}catch(e){}
+      try{
+        const id=localStorage.getItem(PRO_PRESET_KEY);
+        if(id&&typeof lumenPresets!=='undefined'){
+          const p=lumenPresets.list().find(x=>x.id===id);
+          if(p){_proStylePreset=p;proRenderActivePreset();}
+          else localStorage.removeItem(PRO_PRESET_KEY);
+        }
+      }catch(e){}
+    },0);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wire);
+  else wire();
+})();
+
 function imgRenderTiles(){
   const sizeWrap=document.getElementById('imgSizeTiles');
   const styleWrap=document.getElementById('imgStyleTiles');
@@ -3895,6 +3994,7 @@ function presetsUpdateCount(){
   if(el)el.textContent=String(lumenPresets.list().length);
   if(typeof txtPresetsUpdateCount==='function')txtPresetsUpdateCount();
   if(typeof imgPresetsUpdateCount==='function')imgPresetsUpdateCount();
+  if(typeof proPresetsUpdateCount==='function')proPresetsUpdateCount();
 }
 
 async function presetSaveCurrent(){
@@ -4000,6 +4100,13 @@ function presetsRender(){
 function presetApply(id){
   const p=lumenPresets.list().find(x=>x.id===id);
   if(!p){toast('Пресет не найден');return;}
+  // Pro mode takes precedence if active (it's a totally different layout from simple)
+  const proActive=document.body?.dataset?.mode==='pro';
+  if(proActive){
+    if(typeof proApplyPreset==='function')proApplyPreset(p);
+    presetsClose();
+    return;
+  }
   // Detect active simple-mode tab — different application targets
   const textActive=!document.getElementById('smTextPanel')?.classList.contains('sm-hidden');
   const imageActive=!document.getElementById('smImagePanel')?.classList.contains('sm-hidden');
