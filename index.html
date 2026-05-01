@@ -354,6 +354,11 @@ details[open]>summary::before{transform:rotate(90deg)}
 .i2p-restored-toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:99px;background:linear-gradient(135deg,rgba(34,197,94,.92),rgba(16,185,129,.92));color:#fff;font-size:12px;font-weight:600;box-shadow:0 8px 24px -8px rgba(34,197,94,.5);z-index:60;opacity:0;animation:restoredFade 3.5s ease-out forwards;pointer-events:none;display:flex;align-items:center;gap:6px}
 @keyframes restoredFade{0%{opacity:0;transform:translateX(-50%) translateY(8px)}10%,75%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0;transform:translateX(-50%) translateY(-8px)}}
 
+/* === CINEMATIC LIBRARY × USER PRESETS === */
+.dir-card-preset{position:relative;background:linear-gradient(135deg,rgba(236,72,153,.08),rgba(139,92,246,.08))!important;padding-right:56px!important}
+.dir-card-preset:hover{background:linear-gradient(135deg,rgba(236,72,153,.14),rgba(139,92,246,.14))!important;border-color:rgba(236,72,153,.55)!important}
+.dir-card-thumb{position:absolute;top:8px;right:8px;width:42px;height:42px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.12);opacity:.9}
+
 /* === ACTIVE STYLE PRESET (Text mode banner) === */
 .txt-active-preset{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:linear-gradient(135deg,rgba(236,72,153,.12),rgba(139,92,246,.1));border:1px solid rgba(236,72,153,.3);font-size:12.5px;animation:presetSlide .35s cubic-bezier(.4,0,.2,1)}
 @keyframes presetSlide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
@@ -1111,13 +1116,13 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.6</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.7</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=13.6" defer></script>
-<script src="extras.js?v=13.6" defer></script>
+<script src="app.js?v=13.7" defer></script>
+<script src="extras.js?v=13.7" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

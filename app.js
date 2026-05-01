@@ -115,9 +115,36 @@ $('savePresetBtn').onclick=()=>{const n=prompt('Название:');if(!n)return
 GENRES.forEach(g=>{const b=document.createElement('button');b.className="soft-btn text-xs px-3 py-1.5 rounded-full";b.textContent=g.name;
   b.onclick=()=>{Object.entries(g.v).forEach(([k,vl])=>{if($(k))$(k).value=vl});generate();};genresEl.appendChild(b);});
 
-DIRS.forEach(dr=>{const b=document.createElement('button');b.className="dir-card text-left p-3 rounded-xl border border-white/10 bg-black/10";
-  b.innerHTML=`<div class="font-medium text-sm">${dr.name}</div><div class="text-[11px] subtle mt-0.5">${dr.d}</div>`;
-  b.onclick=()=>{Object.entries(dr.v).forEach(([k,vl])=>{if($(k))$(k).value=vl});toast('Стиль: '+dr.name);generate();};dirsEl.appendChild(b);});
+function renderDirectors(){
+  if(!dirsEl)return;
+  dirsEl.innerHTML='';
+  // Built-in directors
+  DIRS.forEach(dr=>{
+    const b=document.createElement('button');
+    b.className="dir-card text-left p-3 rounded-xl border border-white/10 bg-black/10";
+    b.innerHTML=`<div class="font-medium text-sm">${dr.name}</div><div class="text-[11px] subtle mt-0.5">${dr.d}</div>`;
+    b.onclick=()=>{Object.entries(dr.v).forEach(([k,vl])=>{if($(k))$(k).value=vl});toast('Стиль: '+dr.name);generate();};
+    dirsEl.appendChild(b);
+  });
+  // User saved style presets (from Vision Workshop)
+  try{
+    const userPresets=(typeof lumenPresets!=='undefined')?lumenPresets.list():[];
+    userPresets.forEach(p=>{
+      const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+      const b=document.createElement('button');
+      b.className="dir-card dir-card-preset text-left p-3 rounded-xl border border-pink-400/30";
+      const kw=(p.data?.keywords||[]).slice(0,3).join(' · ')||(p.data?.director_match?.[0]?.name||'мой стиль');
+      const thumb=p.thumb?`<img src="${esc(p.thumb)}" class="dir-card-thumb" alt=""/>`:'';
+      b.innerHTML=`${thumb}<div class="font-medium text-sm flex items-center gap-1 flex-wrap"><span>📚</span><span>${esc(p.name)}</span>${p.isBlend?'<span class="preset-blend-badge" style="font-size:8.5px;padding:1px 5px">B</span>':''}</div><div class="text-[11px] subtle mt-0.5">${esc(kw)}</div>`;
+      b.onclick=()=>{
+        if(typeof proApplyPreset==='function')proApplyPreset(p);
+        else{toast('proApplyPreset недоступен');}
+      };
+      dirsEl.appendChild(b);
+    });
+  }catch(e){console.debug('dirs×presets failed',e);}
+}
+renderDirectors();
 
 function makeDrag(c){c.addEventListener('dragstart',e=>{const r=e.target.closest('[draggable]');if(!r)return;r.classList.add('dragging');});
   c.addEventListener('dragend',()=>{[...c.children].forEach(x=>x.classList.remove('dragging'));reindexShots();saveState();});
@@ -4058,6 +4085,8 @@ function presetsUpdateCount(){
   if(typeof txtPresetsUpdateCount==='function')txtPresetsUpdateCount();
   if(typeof imgPresetsUpdateCount==='function')imgPresetsUpdateCount();
   if(typeof proPresetsUpdateCount==='function')proPresetsUpdateCount();
+  // Sync Pro mode Cinematic library grid
+  if(typeof renderDirectors==='function'){try{renderDirectors();}catch(e){console.debug('renderDirectors',e);}}
 }
 
 async function presetSaveCurrent(){
