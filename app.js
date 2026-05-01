@@ -3305,6 +3305,7 @@ function i2pRenderAnalysis(d){
     ${d.blend_prompt?`<div class="i2p-blend-prompt"><div class="i2p-blend-prompt-label"><span>🎭 BLEND PROMPT (RU)</span><button class="i2p-blend-copy" data-blend-copy>КОПИРОВАТЬ</button></div>${esc(d.blend_prompt)}${Array.isArray(d.blend_notes)&&d.blend_notes.length?'<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(236,72,153,.2);font-size:11.5px;opacity:.85">'+d.blend_notes.map(n=>'· '+esc(n)).join('<br>')+'</div>':''}</div>`:''}
     <div class="i2p-an-actions">
       ${isBlendResult?'<button class="i2p-an-action i2p-an-action-primary" data-act="use-blend"><span>🎯</span><span>В финальный промт</span></button>':''}
+      <button class="i2p-an-action" data-act="save-preset"><span>💾</span><span>Сохранить стиль</span></button>
       <button class="i2p-an-action" data-act="copy-palette"><span>📋</span><span>Копировать HEX'ы</span></button>
       <button class="i2p-an-action" data-act="apply-mod"><span>✏️</span><span>Добавить в «Модификацию»</span></button>
       <button class="i2p-an-action" data-act="reanalyze"><span>🔄</span><span>Переанализировать</span></button>
@@ -3346,7 +3347,9 @@ function i2pRenderAnalysis(d){
   panel.querySelectorAll('.i2p-an-action').forEach(b=>{
     b.addEventListener('click',()=>{
       const act=b.dataset.act;
-      if(act==='use-blend'){
+      if(act==='save-preset'){
+        presetSaveCurrent();
+      }else if(act==='use-blend'){
         const mod=document.getElementById('i2pMod');
         const text=d.blend_prompt||d.summary_ru||'';
         if(mod&&text){
@@ -3581,10 +3584,176 @@ Reply ONLY as JSON:
   document.getElementById('i2pGenerate')?.addEventListener('click',i2pGenerate);
   document.getElementById('i2pAnalyzeBtn')?.addEventListener('click',e=>{e.stopPropagation();i2pAnalyze();});
   document.getElementById('i2pRefFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)i2pAddRefFile(f);e.target.value='';});
+  // Phase 3 — presets library
+  document.getElementById('presetsOpenBtn')?.addEventListener('click',presetsOpen);
+  document.getElementById('presetsImportBtn')?.addEventListener('click',()=>document.getElementById('presetsImportFile')?.click());
+  document.getElementById('presetsExportBtn')?.addEventListener('click',presetsExport);
+  document.getElementById('presetsImportFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)presetsImport(f);e.target.value='';});
+  presetsUpdateCount();
   document.getElementById('phOpenBtnI2p')?.addEventListener('click',()=>phToggle(true));
 })();
 
 try{
   CMDS.push({n:'🔍 Img→Prompt (картинка → промт)',h:()=>{setMode('simple');smSetTab('i2p');}});
+  CMDS.push({n:'📚 Библиотека стилей (пресеты)',h:()=>{setMode('simple');smSetTab('i2p');setTimeout(presetsOpen,100);}});
 }catch(e){console.debug(e)}
+
+/* ============ STYLE PRESETS LIBRARY (Phase 3) ============ */
+const PRESETS_KEY='lumen.presets.v1';
+const lumenPresets={
+  list(){try{return JSON.parse(localStorage.getItem(PRESETS_KEY)||'[]');}catch(e){return[];}},
+  save(rec){const all=this.list();all.unshift(rec);localStorage.setItem(PRESETS_KEY,JSON.stringify(all));},
+  remove(id){const all=this.list().filter(p=>p.id!==id);localStorage.setItem(PRESETS_KEY,JSON.stringify(all));},
+  exportJson(){return JSON.stringify(this.list(),null,2);},
+  importJson(j){
+    const arr=JSON.parse(j);
+    if(!Array.isArray(arr))throw new Error('Файл должен быть JSON-массивом пресетов');
+    const all=this.list();
+    const existingIds=new Set(all.map(p=>p.id));
+    let added=0;
+    arr.forEach(p=>{
+      if(p&&p.id&&p.data&&!existingIds.has(p.id)){all.push(p);added++;}
+    });
+    localStorage.setItem(PRESETS_KEY,JSON.stringify(all));
+    return added;
+  }
+};
+
+function presetsUpdateCount(){
+  const el=document.getElementById('presetsCount');
+  if(el)el.textContent=String(lumenPresets.list().length);
+}
+
+async function presetSaveCurrent(){
+  if(!i2pState.analysis){toast('Сначала сделай анализ');return;}
+  const isBlend=!!i2pState.analysis.blend_prompt;
+  const defaultName=(i2pState.analysis.director_match?.[0]?.name||'')+(isBlend?' Blend':' Style')||('My Style '+(lumenPresets.list().length+1));
+  const name=prompt('Название пресета:',defaultName.trim()||'My Style '+(lumenPresets.list().length+1));
+  if(!name)return;
+  let thumb='';
+  try{
+    if(i2pState.img)thumb=await i2pDownscale(i2pState.img,240,0.7);
+  }catch(e){console.warn('thumb fail',e);}
+  lumenPresets.save({
+    id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    name:name.trim(),
+    createdAt:Date.now(),
+    isBlend,
+    thumb,
+    data:i2pState.analysis
+  });
+  presetsUpdateCount();
+  toast('💾 Стиль «'+name.trim()+'» сохранён');
+}
+
+function presetsOpen(){
+  const m=document.getElementById('presetsModal');
+  if(!m)return;
+  presetsRender();
+  m.classList.remove('hidden');
+}
+function presetsClose(){
+  document.getElementById('presetsModal')?.classList.add('hidden');
+}
+
+function presetsRender(){
+  const list=document.getElementById('presetsList');
+  if(!list)return;
+  const items=lumenPresets.list();
+  const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  if(!items.length){
+    list.innerHTML='<div class="presets-empty"><div style="font-size:36px;margin-bottom:10px">🎨</div>Пока нет сохранённых стилей.<br>Сделай анализ картинки и нажми <b>«💾 Сохранить стиль»</b>.</div>';
+    return;
+  }
+  list.innerHTML=items.map(p=>{
+    const palette=(p.data?.palette||[]).slice(0,5);
+    const kw=(p.data?.keywords||[]).slice(0,5).join(' · ');
+    const summary=p.data?.summary_ru||p.data?.blend_prompt||'';
+    const dt=new Date(p.createdAt||0).toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'});
+    const thumbHtml=p.thumb?`<img class="preset-thumb" src="${esc(p.thumb)}" alt="${esc(p.name)}"/>`:'<div class="preset-thumb-empty">🎨</div>';
+    const palHtml=palette.length?`<div class="preset-palette">${palette.map(c=>`<span style="background:${esc(c.hex||'#222')}"></span>`).join('')}</div>`:'';
+    return `<div class="preset-card" data-id="${esc(p.id)}">
+      ${thumbHtml}
+      <div class="preset-meta">
+        <div class="preset-name">${esc(p.name)}${p.isBlend?'<span class="preset-blend-badge">BLEND</span>':''}</div>
+        <div class="preset-date">${dt}</div>
+        ${palHtml}
+        ${kw?`<div class="preset-tags">${esc(kw)}</div>`:''}
+        ${summary?`<div class="preset-summary">${esc(summary)}</div>`:''}
+      </div>
+      <div class="preset-actions">
+        <button class="preset-apply" data-apply="${esc(p.id)}">▶ Применить</button>
+        <button class="preset-del" data-del="${esc(p.id)}" title="Удалить">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('[data-apply]').forEach(b=>b.addEventListener('click',()=>presetApply(b.dataset.apply)));
+  list.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.del;
+    const p=lumenPresets.list().find(x=>x.id===id);
+    if(!p)return;
+    if(!confirm('Удалить пресет «'+p.name+'»?'))return;
+    lumenPresets.remove(id);
+    presetsUpdateCount();
+    presetsRender();
+  }));
+}
+
+function presetApply(id){
+  const p=lumenPresets.list().find(x=>x.id===id);
+  if(!p){toast('Пресет не найден');return;}
+  // Switch to i2p tab if not there
+  if(typeof setMode==='function'&&typeof smSetTab==='function'){
+    setMode('simple');smSetTab('i2p');
+  }
+  // Render the analysis
+  i2pState.analysis=p.data;
+  // If preset has a thumb, optionally show it as primary preview placeholder
+  const panel=document.getElementById('i2pAnalysisPanel');
+  if(panel)panel.classList.remove('hidden');
+  i2pRenderAnalysis(p.data);
+  // Push blend_prompt or summary into modification field
+  const mod=document.getElementById('i2pMod');
+  const txt=p.data.blend_prompt||p.data.summary_ru||'';
+  if(mod&&txt)mod.value=txt;
+  presetsClose();
+  toast('🎨 Стиль «'+p.name+'» применён');
+}
+
+function presetsExport(){
+  const items=lumenPresets.list();
+  if(!items.length){toast('Нечего экспортировать');return;}
+  const json=lumenPresets.exportJson();
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='lumen-presets-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),500);
+  toast('📤 Экспорт '+items.length+' пресетов');
+}
+
+function presetsImport(file){
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const added=lumenPresets.importJson(e.target.result);
+      presetsUpdateCount();
+      presetsRender();
+      toast('📥 Добавлено '+added+' пресетов');
+    }catch(err){
+      console.error(err);
+      toast('⚠ Ошибка импорта: '+err.message);
+    }
+  };
+  r.readAsText(file);
+}
+
+// Close presets modal on Escape
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!document.getElementById('presetsModal')?.classList.contains('hidden')){
+    presetsClose();
+  }
+});
 

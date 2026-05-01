@@ -295,6 +295,36 @@ details[open]>summary::before{transform:rotate(90deg)}
 .i2p-blend-copy{font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(236,72,153,.2);color:#f9a8d4;border:1px solid rgba(236,72,153,.3);cursor:pointer;font-weight:600;letter-spacing:.02em}
 .i2p-blend-copy:hover{background:rgba(236,72,153,.35);color:#fff}
 
+/* === STYLE PRESETS LIBRARY (Phase 3) === */
+.presets-open-btn{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:5px 11px;border-radius:99px;background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(236,72,153,.15));border:1px solid rgba(245,158,11,.3);color:#fcd34d;cursor:pointer;transition:all .15s ease}
+.presets-open-btn:hover{background:linear-gradient(135deg,rgba(245,158,11,.3),rgba(236,72,153,.25));transform:translateY(-1px);color:#fff}
+[data-theme=light] .presets-open-btn{color:#b45309;border-color:rgba(245,158,11,.4)}
+.presets-count{font-size:9.5px;padding:1px 6px;border-radius:99px;background:rgba(0,0,0,.35);color:#fcd34d;font-weight:700;min-width:14px;text-align:center}
+[data-theme=light] .presets-count{background:rgba(245,158,11,.2);color:#92400e}
+.presets-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.presets-empty{padding:48px 24px;text-align:center;color:rgba(167,139,250,.6);font-size:13px;border:2px dashed rgba(167,139,250,.2);border-radius:14px;line-height:1.6}
+.preset-card{display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:rgba(7,5,13,.5);border:1px solid rgba(167,139,250,.15);transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+.preset-card:hover{transform:translateY(-3px);border-color:rgba(167,139,250,.4);box-shadow:0 8px 24px -8px rgba(139,92,246,.3)}
+[data-theme=light] .preset-card{background:rgba(255,255,255,.7);border-color:rgba(15,23,42,.08)}
+.preset-thumb{width:100%;height:120px;object-fit:cover;background:#0a0610;display:block}
+.preset-thumb-empty{width:100%;height:120px;display:flex;align-items:center;justify-content:center;font-size:34px;background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(236,72,153,.15));color:rgba(255,255,255,.4)}
+.preset-meta{padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:6px}
+.preset-name{font-size:13px;font-weight:700;color:#fff;letter-spacing:-.01em;line-height:1.25;word-break:break-word}
+[data-theme=light] .preset-name{color:#0f172a}
+.preset-date{font-size:9.5px;opacity:.55;font-weight:500}
+.preset-palette{display:flex;gap:3px;margin-top:2px}
+.preset-palette span{flex:1;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.08)}
+.preset-tags{font-size:10px;color:#c4b5fd;opacity:.85;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+[data-theme=light] .preset-tags{color:#6d28d9}
+.preset-summary{font-size:10.5px;opacity:.7;font-style:italic;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+.preset-actions{display:flex;gap:6px;padding:8px 10px;border-top:1px solid rgba(167,139,250,.1);background:rgba(0,0,0,.2)}
+[data-theme=light] .preset-actions{background:rgba(0,0,0,.03);border-top-color:rgba(15,23,42,.06)}
+.preset-apply{flex:1;font-size:11px;font-weight:600;padding:6px 10px;border-radius:7px;background:linear-gradient(135deg,rgba(139,92,246,.3),rgba(236,72,153,.25));border:1px solid rgba(167,139,250,.4);color:#fff;cursor:pointer;transition:all .15s ease}
+.preset-apply:hover{background:linear-gradient(135deg,rgba(139,92,246,.45),rgba(236,72,153,.35))}
+.preset-del{padding:6px 9px;border-radius:7px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#fca5a5;cursor:pointer;font-size:13px;transition:all .15s ease}
+.preset-del:hover{background:rgba(239,68,68,.85);color:#fff}
+.preset-blend-badge{display:inline-block;font-size:8.5px;padding:1px 6px;border-radius:99px;background:rgba(236,72,153,.2);color:#f9a8d4;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-left:4px;vertical-align:middle}
+
 .tour-fake-textarea{margin:0;padding:12px 14px;min-height:74px;background:rgba(7,5,13,.85);border:1px solid rgba(167,139,250,.45);border-radius:8px;color:#ffffff;font-family:Inter,system-ui,sans-serif;font-size:12.5px;line-height:1.5;font-weight:500;letter-spacing:.005em;box-shadow:inset 0 0 12px rgba(167,139,250,.08);word-break:break-word}
 .tour-typed{color:#fff;white-space:pre-wrap}
 .tour-caret{display:inline-block;width:2px;background:#a78bfa;color:transparent;margin-left:1px;animation:tourCaretBlink 1s step-end infinite;vertical-align:text-bottom}
@@ -614,7 +644,12 @@ h1{font-feature-settings:'ss03','cv11'}
       <h2 class="text-2xl sm:text-3xl font-extrabold mb-1">🔍 Картинка → Промт</h2>
       <p class="text-sm subtle mb-6">Загрузи референс — AI извлечёт стиль, композицию, свет и сделает 3 готовых промта для воссоздания в Sora/Runway/DALL·E</p>
 
-      <label class="block text-sm font-medium mb-2">🖼 Референсная картинка</label>
+      <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <label class="block text-sm font-medium m-0">🖼 Референсная картинка</label>
+        <button id="presetsOpenBtn" class="presets-open-btn" type="button" title="Библиотека сохранённых стилей">
+          <span>📚</span><span>Мои стили</span><span id="presetsCount" class="presets-count">0</span>
+        </button>
+      </div>
       <div id="i2pDrop" class="border-2 border-dashed border-white/15 rounded-xl p-6 text-center cursor-pointer hover:border-violet-400 transition mb-4" tabindex="0">
         <div id="i2pDropEmpty">
           <div class="mb-2 inline-flex w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-violet-400/30 items-center justify-center"><i data-lucide="upload-cloud" style="width:24px;height:24px;color:#c4b5fd"></i></div>
@@ -903,6 +938,23 @@ h1{font-feature-settings:'ss03','cv11'}
   </div>
 </div>
 
+<!-- Style Presets Library modal (Phase 3) -->
+<div id="presetsModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">
+  <div class="glass rounded-2xl p-6 max-w-4xl w-full max-h-[88vh] overflow-auto scrollbar">
+    <div class="flex justify-between items-center mb-4 gap-3 flex-wrap">
+      <h3 class="font-semibold text-lg">📚 Библиотека стилей</h3>
+      <div class="flex gap-2 items-center flex-wrap">
+        <button id="presetsImportBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5">📥 Импорт</button>
+        <button id="presetsExportBtn" class="soft-btn text-xs px-3 py-1.5 inline-flex items-center gap-1.5">📤 Экспорт</button>
+        <button onclick="document.getElementById('presetsModal').classList.add('hidden')" class="text-2xl subtle">×</button>
+      </div>
+    </div>
+    <p class="text-xs subtle mb-4">Сохранённые анализы и блендирования. Применяй один клик в Img→Prompt: загрузится анализ + blend prompt в «Модификацию».</p>
+    <input id="presetsImportFile" type="file" accept="application/json" class="hidden"/>
+    <div id="presetsList" class="presets-grid"></div>
+  </div>
+</div>
+
 <!-- Text input modal (used for AI reverse, paste prompt) -->
 <div id="textModal" class="hidden fixed inset-0 z-50 grid place-items-center p-4 bg-black/60 backdrop-blur">
   <div class="glass rounded-2xl p-6 max-w-2xl w-full">
@@ -985,8 +1037,8 @@ h1{font-feature-settings:'ss03','cv11'}
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=12.3" defer></script>
-<script src="extras.js?v=12.3" defer></script>
+<script src="app.js?v=13.0" defer></script>
+<script src="extras.js?v=13.0" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){
