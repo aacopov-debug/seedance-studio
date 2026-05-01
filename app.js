@@ -171,7 +171,7 @@ function _beatPresetOptionsHtml(selectedId){
 /* Called whenever the preset library changes (save/delete/import) to
    refresh options in every existing beat dropdown while preserving selection. */
 function _refreshBeatPresetSelects(){
-  document.querySelectorAll('#beats select.bp').forEach(sel=>{
+  document.querySelectorAll('#beats select.bp, #shots select.sp').forEach(sel=>{
     const cur=sel.value;
     sel.innerHTML=_beatPresetOptionsHtml(cur);
   });
@@ -216,20 +216,49 @@ const getBeats=()=>{
 };
 
 const shotsEl=$('shots');
-function addShot(dur="3s",cam="medium shot, slow dolly in",act="subject walks toward camera",tr="cut"){
-  const r=document.createElement('div');r.className="grid grid-cols-12 gap-2";r.draggable=true;
-  r.innerHTML=`<div class="drag-handle col-span-1 pt-2.5 text-center subtle">⠿<div class="text-[10px] sidx">#1</div></div>
-    <input class="field col-span-2 sd" value="${dur}"/><input class="field col-span-3 sc" value="${cam}"/><input class="field col-span-3 sa" value="${act}"/>
-    <select class="field col-span-2 st">${TRANS.map(t=>`<option ${t===tr?'selected':''}>${t}</option>`).join('')}</select>
-    <div class="col-span-1 flex gap-1"><button class="soft-btn text-xs flex-1" data-dup>📋</button><button class="soft-btn text-xs flex-1" data-rm>✕</button></div>`;
-  r.querySelector('[data-rm]').onclick=()=>{r.remove();reindexShots();saveState();};
-  r.querySelector('[data-dup]').onclick=()=>{addShot(r.querySelector('.sd').value,r.querySelector('.sc').value,r.querySelector('.sa').value,r.querySelector('.st').value);saveState();};
+function addShot(dur="3s",cam="medium shot, slow dolly in",act="subject walks toward camera",tr="cut",presetId=""){
+  const r=document.createElement('div');r.className="shot-row p-2 rounded-lg bg-black/5 border border-white/5";r.draggable=true;
+  r.innerHTML=`<div class="grid grid-cols-12 gap-2 mb-1.5">
+      <div class="drag-handle col-span-1 pt-2.5 text-center subtle">⠿<div class="text-[10px] sidx">#1</div></div>
+      <input class="field col-span-2 sd" value="${dur}"/><input class="field col-span-3 sc" value="${cam}"/><input class="field col-span-3 sa" value="${act}"/>
+      <select class="field col-span-2 st">${TRANS.map(t=>`<option ${t===tr?'selected':''}>${t}</option>`).join('')}</select>
+      <div class="col-span-1 flex gap-1"><button class="soft-btn text-xs flex-1" data-dup>📋</button><button class="soft-btn text-xs flex-1" data-rm>✕</button></div>
+    </div>
+    <div class="flex items-center gap-2 pl-10 pr-2 text-[10px]">
+      <span class="subtle whitespace-nowrap">🎨 Стиль:</span>
+      <select class="field sp text-xs flex-1 min-w-0" title="Прикрепить сохранённый стиль к этому шоту">${_beatPresetOptionsHtml(presetId)}</select>
+    </div>`;
+  r.querySelector('[data-rm]').onclick=()=>{r.remove();reindexShots();saveState();generate();};
+  r.querySelector('[data-dup]').onclick=()=>{addShot(r.querySelector('.sd').value,r.querySelector('.sc').value,r.querySelector('.sa').value,r.querySelector('.st').value,r.querySelector('.sp').value);saveState();};
+  r.querySelector('.sp').addEventListener('change',()=>{saveState&&saveState();try{generate();}catch(e){}});
   shotsEl.appendChild(r);reindexShots();
 }
 makeDrag(shotsEl);
 function reindexShots(){[...shotsEl.querySelectorAll('.sidx')].forEach((e,i)=>e.textContent='#'+(i+1));}
-const getShots=()=>!$('useShots').checked?[]:[...shotsEl.querySelectorAll('[draggable]')].map(r=>({dur:r.querySelector('.sd').value.trim(),cam:r.querySelector('.sc').value.trim(),act:r.querySelector('.sa').value.trim(),tr:r.querySelector('.st').value})).filter(s=>s.cam||s.act);
-$('addShot').onclick=()=>{addShot("","","","cut");saveState();};
+const getShots=()=>{
+  if(!$('useShots').checked)return[];
+  return[...shotsEl.querySelectorAll('[draggable]')].map(r=>{
+    const presetId=r.querySelector('.sp')?.value||'';
+    let presetName='',presetSuffix='';
+    if(presetId){
+      try{
+        const p=(typeof lumenPresets!=='undefined')?lumenPresets.list().find(x=>x.id===presetId):null;
+        if(p){
+          presetName=p.name||'';
+          presetSuffix=(typeof _txtPresetToStyleSuffix==='function')?_txtPresetToStyleSuffix(p.data):'';
+        }
+      }catch(e){}
+    }
+    return{
+      dur:r.querySelector('.sd').value.trim(),
+      cam:r.querySelector('.sc').value.trim(),
+      act:r.querySelector('.sa').value.trim(),
+      tr:r.querySelector('.st').value,
+      presetId,presetName,presetSuffix
+    };
+  }).filter(s=>s.cam||s.act);
+};
+$('addShot').onclick=()=>{addShot("","","","cut","");saveState();};
 
 function applyW(s){if(!$('useWeights').checked)return s;[v('subject'),v('lighting'),v('style'),v('mood')].filter(Boolean).forEach(k=>{const re=new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g');s=s.replace(re,`(${k}:1.3)`);});return s;}
 function shakeT(){const x=+$('shake').value;if(x===0)return null;if(x<25)return"subtle handheld micro-shake";if(x<50)return"light handheld shake";if(x<75)return"strong handheld shake";return"aggressive shaky cam";}
@@ -266,7 +295,11 @@ function buildEn(opts={}){
   if($('loopMode').checked)p.push("seamlessly loops back to the first frame");
   if($('autoQuality').checked)p.push("ultra-detailed, sharp focus, high dynamic range, professional cinematography");
   let en=p.join(", ")+".";
-  if(shots.length)en+="\n\nShots (multi-shot, same character throughout):\n"+shots.map((s,i)=>`Shot ${i+1} (${s.dur||'?'}, ${s.tr}): ${s.cam}. ${s.act}`).join('\n');
+  if(shots.length)en+="\n\nShots (multi-shot, same character throughout):\n"+shots.map((s,i)=>{
+    let line=`Shot ${i+1} (${s.dur||'?'}, ${s.tr}): ${s.cam}. ${s.act}`;
+    if(s.presetSuffix)line+=` [style: ${s.presetSuffix}]`;
+    return line;
+  }).join('\n');
   if(beats.length)en+="\n\nTimeline:\n"+beats.map(b=>{
     let line=`• ${b.t||''}: camera — ${b.cam}; subject — ${b.sub}`;
     if(b.presetSuffix)line+=`; style — ${b.presetSuffix}`;
@@ -297,7 +330,11 @@ function generate(){
   if($('loopMode').checked)r.push("бесшовный луп");
   let rus=r.join('. ')+'.';
   const sh=getShots(),be=getBeats();
-  if(sh.length)rus+='\n\nШоты:\n'+sh.map((s,i)=>`Шот ${i+1} (${s.dur},${s.tr}): ${s.cam}. ${s.act}`).join('\n');
+  if(sh.length)rus+='\n\nШоты:\n'+sh.map((s,i)=>{
+    let line=`Шот ${i+1} (${s.dur},${s.tr}): ${s.cam}. ${s.act}`;
+    if(s.presetName)line+=` [🎨 ${s.presetName}]`;
+    return line;
+  }).join('\n');
   if(be.length)rus+='\n\nКадры:\n'+be.map(b=>{
     let line=`• ${b.t}: ${b.cam}; ${b.sub}`;
     if(b.presetName)line+=` [🎨 ${b.presetName}]`;
