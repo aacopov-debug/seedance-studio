@@ -3589,7 +3589,8 @@ Reply ONLY as JSON:
   document.getElementById('presetsImportBtn')?.addEventListener('click',()=>document.getElementById('presetsImportFile')?.click());
   document.getElementById('presetsExportBtn')?.addEventListener('click',presetsExport);
   document.getElementById('presetsImportFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)presetsImport(f);e.target.value='';});
-  presetsUpdateCount();
+  // Defer to next tick: lumenPresets const is declared later in the file (TDZ guard)
+  setTimeout(()=>{try{presetsUpdateCount();}catch(e){console.warn('[presets] count init defer',e);}},0);
   document.getElementById('phOpenBtnI2p')?.addEventListener('click',()=>phToggle(true));
 })();
 
