@@ -1,8 +1,8 @@
 /* ============================================================
-   LUMEN — EXTRAS v12.1
+   LUMEN — EXTRAS v12.2
    Skeleton loaders · Templates Gallery · Onboarding Tour · PWA
    ============================================================ */
-window.LUMEN_VERSION='12.1';
+window.LUMEN_VERSION='12.2';
 console.log('%c✨ Lumen v'+window.LUMEN_VERSION+' loaded','color:#a78bfa;font-weight:bold;font-size:13px');
 
 /* === SKELETON LOADER === */

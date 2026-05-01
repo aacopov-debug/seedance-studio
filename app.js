@@ -3063,6 +3063,28 @@ function i2pAddRefFile(file){
 }
 
 /* ============ AI VISION AUTO-ANALYSIS (Phase 1) ============ */
+// Downscale a base64 dataURL to a max dimension and re-encode as JPEG to shrink payload.
+function i2pDownscale(dataUrl,maxSide=1280,quality=0.85){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        let{width:w,height:h}=img;
+        const k=Math.max(w,h)>maxSide?maxSide/Math.max(w,h):1;
+        w=Math.round(w*k);h=Math.round(h*k);
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        const ctx=cv.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        const out=cv.toDataURL('image/jpeg',quality);
+        resolve(out);
+      }catch(e){reject(e);}
+    };
+    img.onerror=()=>reject(new Error('image decode failed'));
+    img.src=dataUrl;
+  });
+}
+function _i2pSizeKb(dataUrl){return Math.round((dataUrl.length*0.75)/1024);}
+
 async function i2pAnalyze(){
   if(!i2pState.img){toast('Сначала загрузи картинку');return;}
   if(!needKey())return;
@@ -3079,6 +3101,31 @@ async function i2pAnalyze(){
   const loadingMsg=isBlend?`AI смешивает ${i2pState.refs.length+1} референса по ролям...`:'AI разбирает композицию, палитру и стиль...';
   panel.innerHTML=`<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3><span class="i2p-an-badge">${phaseLabel}</span></div><div class="i2p-an-loading"><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span>${loadingMsg}</span></div>`;
   if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  console.group('[i2pAnalyze] start');
+  console.log('isBlend:',isBlend,'refs:',i2pState.refs.length);
+  console.log('model:',c.model,'base:',c.base);
+
+  // Downscale all images to keep payload manageable (multi-image vision calls otherwise hang)
+  let primaryImg,refImgs=[];
+  try{
+    console.log('original primary size:',_i2pSizeKb(i2pState.img),'KB');
+    primaryImg=await i2pDownscale(i2pState.img,1280,0.85);
+    console.log('compressed primary size:',_i2pSizeKb(primaryImg),'KB');
+    if(isBlend){
+      for(let i=0;i<i2pState.refs.length;i++){
+        const r=i2pState.refs[i];
+        console.log(`compressing ref #${i+2} (role: ${r.role}) original:`,_i2pSizeKb(r.img),'KB');
+        const small=await i2pDownscale(r.img,768,0.78);
+        console.log(`compressed ref #${i+2}:`,_i2pSizeKb(small),'KB');
+        refImgs.push({...r,img:small});
+      }
+    }
+  }catch(e){
+    console.error('[i2pAnalyze] downscale failed',e);
+    panel.innerHTML='<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3></div><div class="text-sm" style="color:#f87171">⚠ Не удалось подготовить изображения</div>';
+    if(btn){btn.disabled=false;btn.style.opacity='';}
+    console.groupEnd();return;
+  }
 
   const sys=`You are an expert cinematographer and visual style analyst. Analyze the reference image and return STRUCTURED JSON only.
 
@@ -3138,43 +3185,64 @@ The palette, composition, lighting, keywords etc. in the output must reflect the
 
   const userContent=[
     {type:'text',text:isBlend?'PRIMARY image (base style reference):':'Analyze this reference image and return the JSON.'},
-    {type:'image_url',image_url:{url:i2pState.img}}
+    {type:'image_url',image_url:{url:primaryImg,detail:'high'}}
   ];
   if(isBlend){
-    i2pState.refs.forEach((r,i)=>{
+    refImgs.forEach((r,i)=>{
       const instr=roleInstructions[r.role]||roleInstructions.style;
       userContent.push({type:'text',text:`Reference #${i+2} — role: ${r.role.toUpperCase()} — ${instr}.`});
-      userContent.push({type:'image_url',image_url:{url:r.img}});
+      userContent.push({type:'image_url',image_url:{url:r.img,detail:'low'}});
     });
     userContent.push({type:'text',text:'Return the BLENDED analysis JSON now.'});
   }
+  const totalKb=_i2pSizeKb(primaryImg)+refImgs.reduce((s,r)=>s+_i2pSizeKb(r.img),0);
+  console.log('total payload (images only):',totalKb,'KB');
+
+  // 120s timeout via AbortController
+  const ac=new AbortController();
+  const t0=Date.now();
+  const timer=setTimeout(()=>{ac.abort();},120000);
 
   try{
+    console.log('sending request...');
     const r=await fetch(c.base+'/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      signal:ac.signal,
       body:JSON.stringify({
         model:c.model,
         response_format:{type:'json_object'},
         temperature:0.4,
+        max_tokens:1500,
         messages:[
           {role:'system',content:systemPrompt},
           {role:'user',content:userContent}
         ]
       })
     });
+    console.log('response status:',r.status,'in',Date.now()-t0,'ms');
+    if(!r.ok){
+      const errTxt=await r.text();
+      throw new Error('HTTP '+r.status+': '+errTxt.slice(0,300));
+    }
     const j=await r.json();
     if(j.error)throw new Error(j.error.message||'Vision API error');
     const txt=j.choices?.[0]?.message?.content;
     if(!txt)throw new Error('Пустой ответ AI');
+    console.log('parsed JSON length:',txt.length,'chars');
     const data=JSON.parse(txt);
     i2pState.analysis=data;
     i2pRenderAnalysis(data);
+    console.log('done in',Date.now()-t0,'ms');
   }catch(e){
-    console.error('[i2pAnalyze]',e);
-    panel.innerHTML='<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3></div><div class="text-sm" style="color:#f87171">⚠ Ошибка: '+(e.message||'не удалось проанализировать').replace(/</g,'&lt;')+'</div>';
+    const aborted=e.name==='AbortError';
+    console.error('[i2pAnalyze] error',aborted?'(timeout 120s)':'',e);
+    const msg=aborted?'Таймаут 120 сек. Возможно модель не поддерживает много картинок. Попробуй gpt-4o-mini.':(e.message||'не удалось проанализировать');
+    panel.innerHTML='<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3></div><div class="text-sm" style="color:#f87171;line-height:1.5">⚠ '+msg.replace(/</g,'&lt;')+'</div>';
   }finally{
+    clearTimeout(timer);
     if(btn){btn.disabled=false;btn.style.opacity='';}
+    console.groupEnd();
   }
 }
 
