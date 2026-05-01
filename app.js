@@ -2501,14 +2501,77 @@ function proRenderActivePreset(){
   wrap.querySelector('.txt-active-preset-clear')?.addEventListener('click',proClearPreset);
 }
 
+/* Fuzzy-match preset data tokens against an O[field] option list.
+   Returns the best-matching option string (or null if no token overlap). */
+function _proFuzzyMatch(options,needles){
+  if(!Array.isArray(options)||!options.length)return null;
+  const tokens=(arr)=>arr.flatMap(s=>String(s||'').toLowerCase().split(/[\s,\-()\/]+/)).filter(t=>t&&t.length>=3);
+  const nt=tokens(needles);
+  if(!nt.length)return null;
+  let bestIdx=-1,bestScore=0;
+  options.forEach((opt,i)=>{
+    const ot=tokens([opt]);
+    let sc=0;
+    ot.forEach(o=>nt.forEach(n=>{
+      if(o===n)sc+=3;
+      else if(o.includes(n)||n.includes(o))sc+=1;
+    }));
+    if(sc>bestScore){bestScore=sc;bestIdx=i;}
+  });
+  return bestScore>0?options[bestIdx]:null;
+}
+
+/* Auto-fill Pro mode select fields from a preset's distilled data.
+   Only fills when fuzzy match finds overlap — leaves defaults otherwise.
+   Returns array of filled field keys for toast reporting. */
+function _proAutoFillFromPreset(p){
+  if(!p||!p.data||typeof O==='undefined')return [];
+  const d=p.data;
+  const kw=Array.isArray(d.keywords)?d.keywords:[];
+  const pal=Array.isArray(d.palette)?d.palette.map(c=>c.name||'').filter(Boolean):[];
+  const dir=Array.isArray(d.director_match)&&d.director_match[0]?d.director_match[0].name||'':'';
+  const summary=[d.summary_en||'',d.summary_ru||'',d.blend_prompt||''].join(' ');
+  const cam=d.camera||{};
+  const lt=d.lighting||{};
+  const comp=d.composition||{};
+  // Per-field needle sources
+  const sources={
+    shot:    [cam.shot_type,cam.angle,...kw,summary],
+    camera:  [cam.movement,cam.angle,...kw,summary],
+    lens:    [cam.lens_guess,...kw],
+    speed:   [cam.movement,...kw,summary],
+    lighting:[lt.type,lt.direction,lt.quality,...kw,summary],
+    time:    [lt.time_of_day,...kw,summary],
+    weather: [...kw,summary],
+    palette: [...pal,...kw,summary],
+    mood:    [...kw,dir,summary],
+    style:   [dir,d.blend_prompt,...kw.slice(0,5)]
+  };
+  const filled=[];
+  Object.entries(sources).forEach(([field,needles])=>{
+    const el=document.getElementById(field);
+    if(!el||el.tagName!=='SELECT')return;
+    const options=Array.from(el.options).map(o=>o.value||o.textContent);
+    const match=_proFuzzyMatch(options,needles);
+    if(match&&match!==el.value){el.value=match;filled.push(field);}
+  });
+  return filled;
+}
+
 function proApplyPreset(p){
   if(!p||!p.data){toast('Пресет пуст');return;}
   _proStylePreset=p;
   try{localStorage.setItem(PRO_PRESET_KEY,p.id);}catch(e){}
   proRenderActivePreset();
-  toast('🎨 Стиль «'+p.name+'» будет добавляться к Pro-промту');
-  // If a prompt is already generated, refresh it so suffix is applied immediately
-  try{if(typeof bus!=='undefined'&&bus.emit)bus.emit('after-generate');}catch(e){}
+  // Auto-fill matching dropdowns
+  const filled=_proAutoFillFromPreset(p);
+  const fillMsg=filled.length?` · автозаполнено ${filled.length} пол${filled.length===1?'е':(filled.length<5?'я':'ей')}`:'';
+  toast('🎨 Стиль «'+p.name+'» применён'+fillMsg);
+  // Re-generate so suffix + new field values both appear
+  try{
+    if(filled.length&&typeof generate==='function')generate();
+    else if(typeof bus!=='undefined'&&bus.emit)bus.emit('after-generate');
+  }catch(e){}
 }
 
 function proClearPreset(){
