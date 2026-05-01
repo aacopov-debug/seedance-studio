@@ -2946,7 +2946,16 @@ const I2P_ASPECTS_IMAGE=[
   {k:'9:16',label:'9:16',sub:'1024×1792'}
 ];
 
-const i2pState={img:null};
+const i2pState={img:null,refs:[],analysis:null};
+const I2P_REF_ROLES=[
+  {v:'palette',label:'🎨 Палитра'},
+  {v:'lighting',label:'💡 Свет'},
+  {v:'composition',label:'📐 Композиция'},
+  {v:'mood',label:'🌙 Настроение'},
+  {v:'subject',label:'👤 Сюжет'},
+  {v:'style',label:'🎬 Полный стиль'}
+];
+const I2P_MAX_REFS=2; // 1 primary + up to 2 extra = 3 total
 let _i2pMode='recreate';
 let _i2pTarget='video';
 let _i2pAspect='9:16';
@@ -2978,17 +2987,79 @@ function i2pSetImage(dataUrl){
   const filled=document.getElementById('i2pDropFilled');
   const prev=document.getElementById('i2pPreview');
   const panel=document.getElementById('i2pAnalysisPanel');
+  const refsWrap=document.getElementById('i2pRefsWrap');
   if(dataUrl){
     if(prev)prev.src=dataUrl;
     empty?.classList.add('hidden');
     filled?.classList.remove('hidden');
+    refsWrap?.classList.remove('hidden');
+    i2pRenderRefs();
   }else{
     empty?.classList.remove('hidden');
     filled?.classList.add('hidden');
     if(prev)prev.src='';
     if(panel){panel.classList.add('hidden');panel.innerHTML='';}
     i2pState.analysis=null;
+    i2pState.refs=[];
+    refsWrap?.classList.add('hidden');
+    i2pRenderRefs();
   }
+}
+
+/* ============ MULTI-REFERENCE (Phase 2) ============ */
+function i2pRenderRefs(){
+  const row=document.getElementById('i2pRefsRow');
+  if(!row)return;
+  const slots=i2pState.refs.map((r,idx)=>{
+    const opts=I2P_REF_ROLES.map(o=>`<option value="${o.v}" ${o.v===r.role?'selected':''}>${o.label}</option>`).join('');
+    return `<div class="i2p-ref-slot" data-idx="${idx}">
+      <button class="i2p-ref-remove" data-remove="${idx}" title="Убрать">×</button>
+      <img class="i2p-ref-thumb" src="${r.img}" alt="ref ${idx+1}"/>
+      <select class="i2p-ref-role" data-role="${idx}">${opts}</select>
+    </div>`;
+  }).join('');
+  const canAdd=i2pState.refs.length<I2P_MAX_REFS;
+  const addBtn=canAdd?`<button class="i2p-ref-add" id="i2pRefAddBtn" type="button"><span class="i2p-ref-add-icon">+</span><span>добавить</span><span style="font-size:9.5px;opacity:.7">${i2pState.refs.length}/${I2P_MAX_REFS}</span></button>`:'';
+  row.innerHTML=slots+addBtn;
+
+  row.querySelectorAll('[data-remove]').forEach(b=>{
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      const i=+b.dataset.remove;
+      i2pState.refs.splice(i,1);
+      i2pRenderRefs();
+    });
+  });
+  row.querySelectorAll('[data-role]').forEach(s=>{
+    s.addEventListener('change',()=>{
+      const i=+s.dataset.role;
+      if(i2pState.refs[i])i2pState.refs[i].role=s.value;
+    });
+  });
+  const addEl=document.getElementById('i2pRefAddBtn');
+  if(addEl){
+    addEl.addEventListener('click',()=>document.getElementById('i2pRefFile')?.click());
+  }
+  // Update analyze button label
+  const btn=document.getElementById('i2pAnalyzeBtn');
+  if(btn){
+    const span=btn.querySelector('span:last-child');
+    if(span)span.textContent=i2pState.refs.length?`🔬 Бленд-анализ (${i2pState.refs.length+1})`:'🔬 Анализировать';
+  }
+}
+
+function i2pAddRefFile(file){
+  if(!file||!file.type.startsWith('image/')){toast('Это не картинка');return;}
+  if(file.size>10*1024*1024){toast('Файл больше 10 MB');return;}
+  if(i2pState.refs.length>=I2P_MAX_REFS){toast('Максимум '+I2P_MAX_REFS+' доп. референса');return;}
+  const r=new FileReader();
+  r.onload=e=>{
+    i2pState.refs.push({img:e.target.result,role:'palette'});
+    i2pRenderRefs();
+    toast('+ референс '+i2pState.refs.length);
+  };
+  r.onerror=()=>toast('⚠ Не удалось прочитать файл');
+  r.readAsDataURL(file);
 }
 
 /* ============ AI VISION AUTO-ANALYSIS (Phase 1) ============ */
@@ -3003,7 +3074,10 @@ async function i2pAnalyze(){
   const btn=document.getElementById('i2pAnalyzeBtn');
   if(!panel)return;
   panel.classList.remove('hidden');
-  panel.innerHTML='<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3><span class="i2p-an-badge">PHASE 1</span></div><div class="i2p-an-loading"><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span>AI разбирает композицию, палитру и стиль...</span></div>';
+  const isBlend=i2pState.refs.length>0;
+  const phaseLabel=isBlend?'PHASE 2 • BLEND':'PHASE 1';
+  const loadingMsg=isBlend?`AI смешивает ${i2pState.refs.length+1} референса по ролям...`:'AI разбирает композицию, палитру и стиль...';
+  panel.innerHTML=`<div class="i2p-an-header"><h3>🔬 AI Vision Analysis</h3><span class="i2p-an-badge">${phaseLabel}</span></div><div class="i2p-an-loading"><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span class="i2p-an-loading-dot"></span><span>${loadingMsg}</span></div>`;
   if(btn){btn.disabled=true;btn.style.opacity='.6';}
 
   const sys=`You are an expert cinematographer and visual style analyst. Analyze the reference image and return STRUCTURED JSON only.
@@ -3042,6 +3116,39 @@ Rules:
 - keywords: lowercase, no duplicates
 - Be specific. No generic answers like "good lighting" — say WHICH lighting.`;
 
+  const roleInstructions={
+    palette:'take ONLY the color palette from this image (ignore composition/subject)',
+    lighting:'take ONLY the lighting setup and mood (ignore colors and subject)',
+    composition:'take ONLY the compositional structure and framing (ignore colors)',
+    mood:'take ONLY the atmospheric mood and emotional tone',
+    subject:'take ONLY the subject matter and narrative idea (ignore visual style)',
+    style:'take the FULL visual style as a secondary influence'
+  };
+  const blendSys=sys+`
+
+===== BLEND MODE =====
+You will receive a PRIMARY image and ${i2pState.refs.length} additional reference(s) each with a specific role.
+Your task: BLEND aspects from all images according to their roles. The PRIMARY image is the base; additional refs contribute only their assigned role.
+Add one more field to the JSON output:
+  "blend_prompt": "2-3 sentence cinematic prompt in Russian that merges the blended aesthetics into a single coherent shot description suitable for a video generator",
+  "blend_notes": ["1-line note per additional ref in Russian explaining what was taken from it"]
+
+The palette, composition, lighting, keywords etc. in the output must reflect the BLEND, not just the primary.`;
+  const systemPrompt=isBlend?blendSys:sys;
+
+  const userContent=[
+    {type:'text',text:isBlend?'PRIMARY image (base style reference):':'Analyze this reference image and return the JSON.'},
+    {type:'image_url',image_url:{url:i2pState.img}}
+  ];
+  if(isBlend){
+    i2pState.refs.forEach((r,i)=>{
+      const instr=roleInstructions[r.role]||roleInstructions.style;
+      userContent.push({type:'text',text:`Reference #${i+2} — role: ${r.role.toUpperCase()} — ${instr}.`});
+      userContent.push({type:'image_url',image_url:{url:r.img}});
+    });
+    userContent.push({type:'text',text:'Return the BLENDED analysis JSON now.'});
+  }
+
   try{
     const r=await fetch(c.base+'/chat/completions',{
       method:'POST',
@@ -3051,11 +3158,8 @@ Rules:
         response_format:{type:'json_object'},
         temperature:0.4,
         messages:[
-          {role:'system',content:sys},
-          {role:'user',content:[
-            {type:'text',text:'Analyze this reference image and return the JSON.'},
-            {type:'image_url',image_url:{url:i2pState.img}}
-          ]}
+          {role:'system',content:systemPrompt},
+          {role:'user',content:userContent}
         ]
       })
     });
@@ -3128,6 +3232,7 @@ function i2pRenderAnalysis(d){
       </div>
     </div>
     ${d.summary_ru?`<div class="i2p-an-summary">💡 ${esc(d.summary_ru)}</div>`:''}
+    ${d.blend_prompt?`<div class="i2p-blend-prompt"><div class="i2p-blend-prompt-label"><span>🎭 BLEND PROMPT (RU)</span><button class="i2p-blend-copy" data-blend-copy>КОПИРОВАТЬ</button></div>${esc(d.blend_prompt)}${Array.isArray(d.blend_notes)&&d.blend_notes.length?'<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(236,72,153,.2);font-size:11.5px;opacity:.85">'+d.blend_notes.map(n=>'· '+esc(n)).join('<br>')+'</div>':''}</div>`:''}
     <div class="i2p-an-actions">
       <button class="i2p-an-action" data-act="copy-palette"><span>📋</span><span>Копировать HEX'ы</span></button>
       <button class="i2p-an-action" data-act="apply-mod"><span>✏️</span><span>Добавить в «Модификацию»</span></button>
@@ -3153,6 +3258,17 @@ function i2pRenderAnalysis(d){
       }
     });
   });
+  // Wire blend-prompt copy button
+  const blendCopyBtn=panel.querySelector('[data-blend-copy]');
+  if(blendCopyBtn&&d.blend_prompt){
+    blendCopyBtn.addEventListener('click',()=>{
+      navigator.clipboard.writeText(d.blend_prompt).then(()=>{
+        toast('📋 Blend prompt скопирован');
+        blendCopyBtn.textContent='✓';
+        setTimeout(()=>{blendCopyBtn.textContent='КОПИРОВАТЬ';},1400);
+      }).catch(()=>{});
+    });
+  }
   // Wire action buttons
   panel.querySelectorAll('.i2p-an-action').forEach(b=>{
     b.addEventListener('click',()=>{
@@ -3382,6 +3498,7 @@ Reply ONLY as JSON:
   });
   document.getElementById('i2pGenerate')?.addEventListener('click',i2pGenerate);
   document.getElementById('i2pAnalyzeBtn')?.addEventListener('click',e=>{e.stopPropagation();i2pAnalyze();});
+  document.getElementById('i2pRefFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)i2pAddRefFile(f);e.target.value='';});
   document.getElementById('phOpenBtnI2p')?.addEventListener('click',()=>phToggle(true));
 })();
 
