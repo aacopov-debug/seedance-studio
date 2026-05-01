@@ -2975,9 +2975,14 @@ let _txtAspect='9:16';
 let _txtStylePreset=null; // {id, name, data, thumb} when applied from library
 const TXT_PRESET_KEY='lumen.txt.stylePreset.id';
 
-/* Convert a Vision-Workshop preset.data into a style suffix injected into the prompt-engineering system message */
+/* Convert a Vision-Workshop preset.data into a style suffix injected into the prompt-engineering system message.
+   Memoized via WeakMap keyed by the data object reference — the cache lives only as long as the preset's data object,
+   and is implicitly invalidated when a preset is re-saved (which produces a new object). Massive perf win when
+   getBeats()/getShots() repeatedly call this on every generate() with the same preset references. */
+const _presetSuffixCache=new WeakMap();
 function _txtPresetToStyleSuffix(d){
   if(!d)return'';
+  if(_presetSuffixCache.has(d))return _presetSuffixCache.get(d);
   const parts=[];
   if(Array.isArray(d.keywords)&&d.keywords.length)parts.push(d.keywords.slice(0,6).join(', '));
   if(d.lighting?.type){
@@ -2993,7 +2998,9 @@ function _txtPresetToStyleSuffix(d){
   if(Array.isArray(d.director_match)&&d.director_match[0]?.name)parts.push('directorial style of '+d.director_match[0].name);
   if(d.composition?.rule)parts.push('composition: '+d.composition.rule);
   if(d.camera?.lens_guess)parts.push(d.camera.lens_guess);
-  return parts.join(', ');
+  const result=parts.join(', ');
+  _presetSuffixCache.set(d,result);
+  return result;
 }
 
 function txtRenderActivePreset(){
@@ -4174,16 +4181,39 @@ const lumenPresets={
   }
 };
 
+/* Compute a cheap signature of the preset library for noop-skip checks.
+   Combines length + first 3 ids — changes on add/remove/reorder/rename. */
+function _presetLibSignature(){
+  try{
+    const list=lumenPresets.list();
+    return list.length+'|'+list.slice(0,3).map(p=>p.id).join(',');
+  }catch(e){return '';}
+}
+let _lastDirectorsSig='',_lastBeatSelectsSig='';
+
+/* RAF-debounced cascade. Multiple back-to-back calls (e.g. import loop) coalesce to a single render frame. */
+let _presetSyncRaf=0;
 function presetsUpdateCount(){
+  // Cheap synchronous parts — count badges (just text updates, no DOM rebuild)
   const el=document.getElementById('presetsCount');
   if(el)el.textContent=String(lumenPresets.list().length);
   if(typeof txtPresetsUpdateCount==='function')txtPresetsUpdateCount();
   if(typeof imgPresetsUpdateCount==='function')imgPresetsUpdateCount();
   if(typeof proPresetsUpdateCount==='function')proPresetsUpdateCount();
-  // Sync Pro mode Cinematic library grid
-  if(typeof renderDirectors==='function'){try{renderDirectors();}catch(e){console.debug('renderDirectors',e);}}
-  // Sync per-beat preset dropdowns
-  if(typeof _refreshBeatPresetSelects==='function'){try{_refreshBeatPresetSelects();}catch(e){console.debug('refreshBeatSelects',e);}}
+  // Heavy parts — debounce to next frame so rapid succession (bulk import) coalesces
+  if(_presetSyncRaf)return;
+  _presetSyncRaf=requestAnimationFrame(()=>{
+    _presetSyncRaf=0;
+    const sig=_presetLibSignature();
+    if(sig!==_lastDirectorsSig){
+      _lastDirectorsSig=sig;
+      if(typeof renderDirectors==='function'){try{renderDirectors();}catch(e){console.debug('renderDirectors',e);}}
+    }
+    if(sig!==_lastBeatSelectsSig){
+      _lastBeatSelectsSig=sig;
+      if(typeof _refreshBeatPresetSelects==='function'){try{_refreshBeatPresetSelects();}catch(e){console.debug('refreshBeatSelects',e);}}
+    }
+  });
 }
 
 async function presetSaveCurrent(){
