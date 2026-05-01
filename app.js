@@ -3004,6 +3004,61 @@ function i2pSetImage(dataUrl){
     refsWrap?.classList.add('hidden');
     i2pRenderRefs();
   }
+  i2pPersist();
+}
+
+/* ============ I2P PERSISTENCE (Polish v13.2) ============ */
+const I2P_PERSIST_KEY='lumen.i2p.last';
+function i2pPersist(){
+  try{
+    if(!i2pState.img&&!i2pState.analysis){
+      localStorage.removeItem(I2P_PERSIST_KEY);
+      return;
+    }
+    const data={
+      img:i2pState.img||null,
+      refs:(i2pState.refs||[]).map(r=>({img:r.img,role:r.role})),
+      analysis:i2pState.analysis||null,
+      ts:Date.now()
+    };
+    const json=JSON.stringify(data);
+    // Guard against quota — localStorage is typically 5-10MB; warn if approaching
+    if(json.length>4_500_000){console.warn('[i2p persist] payload',Math.round(json.length/1024),'KB — too large, skipping');return;}
+    localStorage.setItem(I2P_PERSIST_KEY,json);
+  }catch(e){console.warn('[i2p persist] failed',e);}
+}
+function i2pRestore(){
+  try{
+    const raw=localStorage.getItem(I2P_PERSIST_KEY);
+    if(!raw)return false;
+    const d=JSON.parse(raw);
+    if(!d||(!d.img&&!d.analysis))return false;
+    if(d.img){
+      i2pState.img=d.img;
+      const prev=document.getElementById('i2pPreview');
+      const empty=document.getElementById('i2pDropEmpty');
+      const filled=document.getElementById('i2pDropFilled');
+      const refsWrap=document.getElementById('i2pRefsWrap');
+      if(prev)prev.src=d.img;
+      empty?.classList.add('hidden');
+      filled?.classList.remove('hidden');
+      refsWrap?.classList.remove('hidden');
+    }
+    if(Array.isArray(d.refs))i2pState.refs=d.refs.filter(r=>r&&r.img);
+    i2pRenderRefs();
+    if(d.analysis){
+      i2pState.analysis=d.analysis;
+      const panel=document.getElementById('i2pAnalysisPanel');
+      if(panel){panel.classList.remove('hidden');i2pRenderAnalysis(d.analysis);}
+    }
+    // Brief restored toast
+    const t=document.createElement('div');
+    t.className='i2p-restored-toast';
+    t.innerHTML='♻️ Предыдущий анализ восстановлен';
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(),3700);
+    return true;
+  }catch(e){console.warn('[i2p restore] failed',e);return false;}
 }
 
 /* ============ MULTI-REFERENCE (Phase 2) ============ */
@@ -3028,12 +3083,14 @@ function i2pRenderRefs(){
       const i=+b.dataset.remove;
       i2pState.refs.splice(i,1);
       i2pRenderRefs();
+      i2pPersist();
     });
   });
   row.querySelectorAll('[data-role]').forEach(s=>{
     s.addEventListener('change',()=>{
       const i=+s.dataset.role;
       if(i2pState.refs[i])i2pState.refs[i].role=s.value;
+      i2pPersist();
     });
   });
   const addEl=document.getElementById('i2pRefAddBtn');
@@ -3056,6 +3113,7 @@ function i2pAddRefFile(file){
   r.onload=e=>{
     i2pState.refs.push({img:e.target.result,role:'palette'});
     i2pRenderRefs();
+    i2pPersist();
     toast('+ референс '+i2pState.refs.length);
   };
   r.onerror=()=>toast('⚠ Не удалось прочитать файл');
@@ -3233,6 +3291,7 @@ The palette, composition, lighting, keywords etc. in the output must reflect the
     const data=JSON.parse(txt);
     i2pState.analysis=data;
     i2pRenderAnalysis(data);
+    i2pPersist();
     console.log('done in',Date.now()-t0,'ms');
   }catch(e){
     const aborted=e.name==='AbortError';
@@ -3320,15 +3379,24 @@ function i2pRenderAnalysis(d){
       navigator.clipboard.writeText(hex).then(()=>toast('📋 '+hex+' скопирован')).catch(()=>{});
     });
   });
-  // Wire keyword chip click → add to modification field
+  // Wire keyword chip click → add to modification field with flash animation
   panel.querySelectorAll('.i2p-tag').forEach(tg=>{
     tg.addEventListener('click',()=>{
       const kw=tg.dataset.kw;
       const mod=document.getElementById('i2pMod');
       if(mod){
         const cur=mod.value.trim();
-        mod.value=cur?(cur+', '+kw):kw;
-        toast('+ '+kw);
+        // Avoid duplicates
+        const already=cur.split(/\s*,\s*/).map(s=>s.toLowerCase()).includes(kw.toLowerCase());
+        if(!already){
+          mod.value=cur?(cur+', '+kw):kw;
+          toast('+ '+kw);
+        }else{
+          toast('«'+kw+'» уже добавлен');
+        }
+        tg.classList.remove('i2p-tag-flash');
+        void tg.offsetWidth;
+        tg.classList.add('i2p-tag-flash');
       }
     });
   });
@@ -3589,8 +3657,21 @@ Reply ONLY as JSON:
   document.getElementById('presetsImportBtn')?.addEventListener('click',()=>document.getElementById('presetsImportFile')?.click());
   document.getElementById('presetsExportBtn')?.addEventListener('click',presetsExport);
   document.getElementById('presetsImportFile')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)presetsImport(f);e.target.value='';});
+  // Toolbar live filters
+  document.getElementById('presetsSearch')?.addEventListener('input',presetsRender);
+  document.getElementById('presetsSort')?.addEventListener('change',presetsRender);
+  document.getElementById('presetsBlendOnly')?.addEventListener('change',presetsRender);
   // Defer to next tick: lumenPresets const is declared later in the file (TDZ guard)
-  setTimeout(()=>{try{presetsUpdateCount();}catch(e){console.warn('[presets] count init defer',e);}},0);
+  setTimeout(()=>{
+    try{presetsUpdateCount();}catch(e){console.warn('[presets] count init defer',e);}
+    // Auto-restore last analysis if present
+    try{i2pRestore();}catch(e){console.warn('[i2p restore] init',e);}
+    // Sync footer version with current LUMEN_VERSION
+    try{
+      const fv=document.getElementById('footerVer');
+      if(fv&&window.LUMEN_VERSION)fv.textContent='v'+window.LUMEN_VERSION;
+    }catch(e){}
+  },0);
   document.getElementById('phOpenBtnI2p')?.addEventListener('click',()=>phToggle(true));
 })();
 
@@ -3644,6 +3725,9 @@ async function presetSaveCurrent(){
     data:i2pState.analysis
   });
   presetsUpdateCount();
+  // Visual flash on the save button
+  const btn=document.querySelector('.i2p-an-action[data-act="save-preset"]');
+  if(btn){btn.classList.remove('success-flash');void btn.offsetWidth;btn.classList.add('success-flash');}
   toast('💾 Стиль «'+name.trim()+'» сохранён');
 }
 
@@ -3660,10 +3744,32 @@ function presetsClose(){
 function presetsRender(){
   const list=document.getElementById('presetsList');
   if(!list)return;
-  const items=lumenPresets.list();
+  let items=lumenPresets.list();
   const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  // Apply search/sort/filter
+  const q=(document.getElementById('presetsSearch')?.value||'').trim().toLowerCase();
+  const sort=document.getElementById('presetsSort')?.value||'new';
+  const blendOnly=!!document.getElementById('presetsBlendOnly')?.checked;
+  if(q){
+    items=items.filter(p=>{
+      const name=(p.name||'').toLowerCase();
+      const kws=(p.data?.keywords||[]).join(' ').toLowerCase();
+      const sum=(p.data?.summary_ru||p.data?.blend_prompt||'').toLowerCase();
+      return name.includes(q)||kws.includes(q)||sum.includes(q);
+    });
+  }
+  if(blendOnly)items=items.filter(p=>p.isBlend);
+  if(sort==='old')items.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  else if(sort==='name')items.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ru'));
+  else items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)); // new (default)
   if(!items.length){
-    list.innerHTML='<div class="presets-empty"><div style="font-size:36px;margin-bottom:10px">🎨</div>Пока нет сохранённых стилей.<br>Сделай анализ картинки и нажми <b>«💾 Сохранить стиль»</b>.</div>';
+    const total=lumenPresets.list().length;
+    const isFiltered=q||blendOnly;
+    if(isFiltered&&total){
+      list.innerHTML='<div class="presets-empty"><div style="font-size:36px;margin-bottom:10px">🔍</div>Ничего не найдено по фильтрам.<br>Попробуй изменить поисковый запрос или снять фильтр «Только blend».</div>';
+    }else{
+      list.innerHTML='<div class="presets-empty"><div style="font-size:36px;margin-bottom:10px">🎨</div>Пока нет сохранённых стилей.<br>Сделай анализ картинки и нажми <b>«💾 Сохранить стиль»</b>.</div>';
+    }
     return;
   }
   list.innerHTML=items.map(p=>{
