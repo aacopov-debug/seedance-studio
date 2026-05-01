@@ -354,6 +354,20 @@ details[open]>summary::before{transform:rotate(90deg)}
 .i2p-restored-toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:99px;background:linear-gradient(135deg,rgba(34,197,94,.92),rgba(16,185,129,.92));color:#fff;font-size:12px;font-weight:600;box-shadow:0 8px 24px -8px rgba(34,197,94,.5);z-index:60;opacity:0;animation:restoredFade 3.5s ease-out forwards;pointer-events:none;display:flex;align-items:center;gap:6px}
 @keyframes restoredFade{0%{opacity:0;transform:translateX(-50%) translateY(8px)}10%,75%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0;transform:translateX(-50%) translateY(-8px)}}
 
+/* === ACTIVE STYLE PRESET (Text mode banner) === */
+.txt-active-preset{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:linear-gradient(135deg,rgba(236,72,153,.12),rgba(139,92,246,.1));border:1px solid rgba(236,72,153,.3);font-size:12.5px;animation:presetSlide .35s cubic-bezier(.4,0,.2,1)}
+@keyframes presetSlide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.txt-active-preset-thumb{width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0a0610;flex-shrink:0;border:1px solid rgba(255,255,255,.12)}
+.txt-active-preset-thumb-empty{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(236,72,153,.15));font-size:20px;flex-shrink:0}
+.txt-active-preset-meta{flex:1;min-width:0}
+.txt-active-preset-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:#f9a8d4;font-weight:700;margin-bottom:2px}
+[data-theme=light] .txt-active-preset-label{color:#be185d}
+.txt-active-preset-name{font-size:13px;font-weight:700;color:#fff;line-height:1.2;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+[data-theme=light] .txt-active-preset-name{color:#0f172a}
+.txt-active-preset-tags{font-size:10.5px;opacity:.7;margin-top:3px;line-height:1.3}
+.txt-active-preset-clear{padding:6px 10px;border-radius:8px;background:rgba(0,0,0,.35);color:#fca5a5;border:1px solid rgba(239,68,68,.3);cursor:pointer;font-size:11px;font-weight:600;flex-shrink:0;transition:all .15s ease}
+.txt-active-preset-clear:hover{background:rgba(239,68,68,.85);color:#fff}
+
 .tour-fake-textarea{margin:0;padding:12px 14px;min-height:74px;background:rgba(7,5,13,.85);border:1px solid rgba(167,139,250,.45);border-radius:8px;color:#ffffff;font-family:Inter,system-ui,sans-serif;font-size:12.5px;line-height:1.5;font-weight:500;letter-spacing:.005em;box-shadow:inset 0 0 12px rgba(167,139,250,.08);word-break:break-word}
 .tour-typed{color:#fff;white-space:pre-wrap}
 .tour-caret{display:inline-block;width:2px;background:#a78bfa;color:transparent;margin-left:1px;animation:tourCaretBlink 1s step-end infinite;vertical-align:text-bottom}
@@ -636,8 +650,14 @@ h1{font-feature-settings:'ss03','cv11'}
       <label class="block text-sm font-medium mb-2">📐 Соотношение сторон</label>
       <div id="txtAspectTiles" class="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-5"></div>
 
-      <label class="block text-sm font-medium mb-2">🎨 Стиль</label>
-      <div id="txtStyleTiles" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5"></div>
+      <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <label class="block text-sm font-medium m-0">🎨 Стиль</label>
+        <button id="txtPresetsBtn" type="button" class="presets-open-btn" title="Применить сохранённый стиль из библиотеки">
+          <span>📚</span><span>Из библиотеки</span><span id="txtPresetsCount" class="presets-count">0</span>
+        </button>
+      </div>
+      <div id="txtStyleTiles" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3"></div>
+      <div id="txtActivePreset" class="txt-active-preset hidden mb-5"></div>
 
       <details class="mb-5">
         <summary class="text-xs subtle hover:text-violet-400">⚙ Дополнительно</summary>
@@ -1070,13 +1090,13 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.2</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v13.3</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=13.2" defer></script>
-<script src="extras.js?v=13.2" defer></script>
+<script src="app.js?v=13.3" defer></script>
+<script src="extras.js?v=13.3" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

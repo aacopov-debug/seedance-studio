@@ -2590,6 +2590,75 @@ const TXT_STYLES=[
 let _txtTarget='video';
 let _txtStyle='cinema';
 let _txtAspect='9:16';
+let _txtStylePreset=null; // {id, name, data, thumb} when applied from library
+const TXT_PRESET_KEY='lumen.txt.stylePreset.id';
+
+/* Convert a Vision-Workshop preset.data into a style suffix injected into the prompt-engineering system message */
+function _txtPresetToStyleSuffix(d){
+  if(!d)return'';
+  const parts=[];
+  if(Array.isArray(d.keywords)&&d.keywords.length)parts.push(d.keywords.slice(0,6).join(', '));
+  if(d.lighting?.type){
+    let lt=d.lighting.type;
+    if(d.lighting.direction)lt+=' '+d.lighting.direction;
+    if(d.lighting.quality)lt+=' '+d.lighting.quality;
+    parts.push('lighting: '+lt);
+  }
+  if(Array.isArray(d.palette)&&d.palette.length){
+    const cols=d.palette.slice(0,4).map(c=>c.name||c.hex).filter(Boolean).join('-');
+    if(cols)parts.push('color palette: '+cols);
+  }
+  if(Array.isArray(d.director_match)&&d.director_match[0]?.name)parts.push('directorial style of '+d.director_match[0].name);
+  if(d.composition?.rule)parts.push('composition: '+d.composition.rule);
+  if(d.camera?.lens_guess)parts.push(d.camera.lens_guess);
+  return parts.join(', ');
+}
+
+function txtRenderActivePreset(){
+  const wrap=document.getElementById('txtActivePreset');
+  if(!wrap)return;
+  if(!_txtStylePreset){wrap.classList.add('hidden');wrap.innerHTML='';return;}
+  const p=_txtStylePreset;
+  const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const isBlend=!!p.data?.blend_prompt;
+  const kws=(p.data?.keywords||[]).slice(0,5).join(' · ');
+  const thumb=p.thumb?`<img class="txt-active-preset-thumb" src="${esc(p.thumb)}" alt=""/>`:'<div class="txt-active-preset-thumb-empty">🎨</div>';
+  wrap.innerHTML=`${thumb}
+    <div class="txt-active-preset-meta">
+      <div class="txt-active-preset-label">Активный стиль из библиотеки</div>
+      <div class="txt-active-preset-name">${esc(p.name)}${isBlend?'<span class="preset-blend-badge">BLEND</span>':''}</div>
+      ${kws?`<div class="txt-active-preset-tags">${esc(kws)}</div>`:''}
+    </div>
+    <button class="txt-active-preset-clear" type="button" title="Сбросить стиль">× Сбросить</button>`;
+  wrap.classList.remove('hidden');
+  wrap.querySelector('.txt-active-preset-clear')?.addEventListener('click',txtClearPreset);
+  // Visually fade style tiles to show preset overrides them
+  const tiles=document.getElementById('txtStyleTiles');
+  if(tiles)tiles.style.opacity='.45';
+}
+
+function txtApplyPreset(p){
+  if(!p||!p.data){toast('Пресет пуст');return;}
+  _txtStylePreset=p;
+  try{localStorage.setItem(TXT_PRESET_KEY,p.id);}catch(e){}
+  txtRenderActivePreset();
+  toast('🎨 Стиль «'+p.name+'» применён к Text → Prompt');
+}
+
+function txtClearPreset(){
+  _txtStylePreset=null;
+  try{localStorage.removeItem(TXT_PRESET_KEY);}catch(e){}
+  txtRenderActivePreset();
+  const tiles=document.getElementById('txtStyleTiles');
+  if(tiles)tiles.style.opacity='';
+  toast('Стиль сброшен — используется выбранная плитка');
+}
+
+function txtPresetsUpdateCount(){
+  const el=document.getElementById('txtPresetsCount');
+  if(!el)return;
+  try{el.textContent=String((typeof lumenPresets!=='undefined'?lumenPresets.list():[]).length);}catch(e){el.textContent='0';}
+}
 
 function _txtAspectList(){return _txtTarget==='image'?TXT_ASPECTS_IMAGE:TXT_ASPECTS_VIDEO;}
 
@@ -2678,6 +2747,11 @@ async function txtGenerate(){
 3. VISUAL-led — emphasis on composition, color, formal beauty, painterly quality. Light and form lead.`
       :`Generate exactly 1 highly polished prompt combining the strongest elements.`;
 
+    // If a Vision-Workshop preset is applied, replace the style suffix with the preset's distilled style
+    const presetSuffix=_txtStylePreset?_txtPresetToStyleSuffix(_txtStylePreset.data):'';
+    const effectiveStyleSuffix=presetSuffix||style.suffix;
+    const styleSourceLabel=_txtStylePreset?`custom preset «${_txtStylePreset.name}»`:`${style.label} style`;
+
     const sys=`You are a senior cinematographer and AI prompt engineer (10+ years). The user gives arbitrary input text (story, poem, post, scene, brief). Extract the visual essence and convert it into ${targetDesc}
 
 🔒 RULE #1 — CORE PRESERVATION (HIGHEST PRIORITY, OVERRIDES EVERYTHING ELSE)
@@ -2712,7 +2786,7 @@ REQUIRED PROMPT STRUCTURE — every variant must include ALL 10 elements natural
 6. LIGHTING — source + quality (golden hour backlight, harsh midday sun, single softbox key with feathered edge, neon ambient bath, candlelight rim, moonlight fill, practical sources)
 7. PALETTE — color grading (teal-orange, desaturated cool, warm amber, monochrome, pastel, high-contrast)
 8. MOOD — emotional tone (intimate, ominous, joyful, contemplative, urgent, melancholic)
-9. STYLE — apply the chosen style: ${style.suffix}
+9. STYLE — apply ${styleSourceLabel}: ${effectiveStyleSuffix}
 10. TECHNICAL — aspect ratio ${aspect}${target.k==='video'?', 24fps cinematic motion':''}, sharp focus on key element, shallow depth of field where appropriate
 
 LENGTH: ${wordCount} words per variant — strict.
@@ -2898,7 +2972,7 @@ Reply ONLY as JSON: {"prompt_en":"the improved ENGLISH prompt","prompt_ru":"fait
       };
     });
     // Batch export bar
-    const meta={idea:text.slice(0,500),target:target.label,style:style.label,aspect,core:j.core||null};
+    const meta={idea:text.slice(0,500),target:target.label,style:_txtStylePreset?_txtStylePreset.name+' (preset)':style.label,aspect,core:j.core||null,stylePreset:_txtStylePreset?{id:_txtStylePreset.id,name:_txtStylePreset.name}:null};
     out.insertAdjacentHTML('beforeend',bxBarHtml('text'));
     bxWire(out,'text',meta,j.variants);
     phPush({mode:'text',idea:text.slice(0,500),meta,variants:j.variants});
@@ -2917,6 +2991,23 @@ Reply ONLY as JSON: {"prompt_en":"the improved ENGLISH prompt","prompt_ru":"fait
   document.getElementById('txtInput')?.addEventListener('keydown',e=>{
     if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();txtGenerate();}
   });
+  // Phase 3 integration: open library from Text panel
+  document.getElementById('txtPresetsBtn')?.addEventListener('click',()=>{
+    if(typeof presetsOpen==='function')presetsOpen();
+  });
+  // Defer to next tick so lumenPresets const is initialized (TDZ guard)
+  setTimeout(()=>{
+    try{txtPresetsUpdateCount();}catch(e){}
+    // Restore last applied text-mode preset if any
+    try{
+      const id=localStorage.getItem(TXT_PRESET_KEY);
+      if(id&&typeof lumenPresets!=='undefined'){
+        const p=lumenPresets.list().find(x=>x.id===id);
+        if(p){_txtStylePreset=p;txtRenderActivePreset();}
+        else localStorage.removeItem(TXT_PRESET_KEY);
+      }
+    }catch(e){}
+  },0);
 })();
 
 try{
@@ -3704,6 +3795,8 @@ const lumenPresets={
 function presetsUpdateCount(){
   const el=document.getElementById('presetsCount');
   if(el)el.textContent=String(lumenPresets.list().length);
+  // Also sync text-mode counter
+  if(typeof txtPresetsUpdateCount==='function')txtPresetsUpdateCount();
 }
 
 async function presetSaveCurrent(){
@@ -3809,17 +3902,24 @@ function presetsRender(){
 function presetApply(id){
   const p=lumenPresets.list().find(x=>x.id===id);
   if(!p){toast('Пресет не найден');return;}
-  // Switch to i2p tab if not there
-  if(typeof setMode==='function'&&typeof smSetTab==='function'){
-    setMode('simple');smSetTab('i2p');
+  // Detect active simple-mode tab — different application targets
+  const textActive=!document.getElementById('smTextPanel')?.classList.contains('sm-hidden');
+  const i2pActive=!document.getElementById('smI2pPanel')?.classList.contains('sm-hidden');
+
+  if(textActive){
+    // Apply as style preset to Text → Prompt
+    if(typeof txtApplyPreset==='function')txtApplyPreset(p);
+    presetsClose();
+    return;
   }
-  // Render the analysis
+  // Default / i2p path: load full analysis into vision panel
+  if(typeof setMode==='function'&&typeof smSetTab==='function'){
+    if(!i2pActive){setMode('simple');smSetTab('i2p');}
+  }
   i2pState.analysis=p.data;
-  // If preset has a thumb, optionally show it as primary preview placeholder
   const panel=document.getElementById('i2pAnalysisPanel');
   if(panel)panel.classList.remove('hidden');
   i2pRenderAnalysis(p.data);
-  // Push blend_prompt or summary into modification field
   const mod=document.getElementById('i2pMod');
   const txt=p.data.blend_prompt||p.data.summary_ru||'';
   if(mod&&txt)mod.value=txt;
