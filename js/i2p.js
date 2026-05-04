@@ -567,6 +567,9 @@ The user provides a REFERENCE IMAGE and wants a ${target.k==='video'?'VIDEO':'ST
 
 MODE: ${mode.label} (${_i2pMode}). ${modeInstruction}
 ${mod?`USER MODIFICATION: "${mod}" — apply this on top of the mode.`:''}
+${window.faceLock?`
+🔒 FACE-LOCK MODE ENABLED (critical override):
+The reference image contains an identifiable person. EVERY variant's prompt_en and prompt_ru MUST explicitly preserve the face 1:1 — identical facial features, skin tone, eye color and shape, nose and lips, hairstyle, hair color, jawline, likeness. Use explicit phrases like "exact same face as reference", "identical facial features", "1:1 likeness preservation", "no face morphing", "reference-accurate portrait" in each prompt_en. This rule OVERRIDES stylization: even in stylize/extend modes, the face stays photorealistic and reference-accurate. Include similar Russian phrases in prompt_ru ("лицо один-в-один как на референсе", "сохранить черты лица полностью", "без искажения лица").`:''}
 
 For each variant build a 10-block cinematic prompt: subject · action · environment · camera angle · lens · lighting · color palette · mood · style · technical specs.
 

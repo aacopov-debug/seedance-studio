@@ -2,6 +2,27 @@
 window.bus = window.bus || {_h:{}, on(e,f){(this._h[e]=this._h[e]||[]).push(f);return this;}, off(e,f){if(this._h[e])this._h[e]=this._h[e].filter(x=>x!==f);return this;}, emit(e,...a){(this._h[e]||[]).forEach(f=>{try{f(...a);}catch(err){console.error('[bus '+e+']',err);}});return this;}};
 /* Use bus.on('after-generate', fn) for hooks instead of overriding window.generate */
 
+/* ============ v15.5: FACE LOCK — preserve reference face 100% ============
+   Shared state + strong identity-preservation clause injected into I2V (Pro Mode)
+   and I2P (Simple Mode) prompts when enabled. Toggles in both UIs sync via this state. */
+window.faceLock = (()=>{try{return localStorage.getItem('lumen_face_lock')==='1';}catch(e){return false;}})();
+window.setFaceLock = function(on){
+  window.faceLock = !!on;
+  try{localStorage.setItem('lumen_face_lock', on?'1':'0');}catch(e){}
+  document.querySelectorAll('#faceLockI2v, #faceLockI2p').forEach(cb=>{if(cb)cb.checked=!!on;});
+  try{if(typeof generate==='function'&&document.querySelector('.tab.tab-active')?.dataset.tab==='i2v')generate();}catch(e){}
+};
+window.faceLockClause = function(){
+  return 'IMPORTANT FACE-LOCK: preserve the EXACT same face from the reference image with 100% fidelity — identical facial features, skin tone, eye color and shape, nose and lip shape, hairstyle and hair color, jawline, and overall likeness. This is the SAME person, not similar. No face morphing, no identity drift, no stylization of facial features. Reference-accurate portrait, 1:1 character consistency throughout.';
+};
+document.addEventListener('DOMContentLoaded',()=>{
+  ['faceLockI2v','faceLockI2p'].forEach(id=>{
+    const cb=document.getElementById(id);if(!cb)return;
+    cb.checked=window.faceLock;
+    cb.addEventListener('change',()=>window.setFaceLock(cb.checked));
+  });
+});
+
 /* ============ v7: SAFE AI FIELD APPLY (hoisted, used everywhere) ============ */
 /* Flattens objects to strings so AI returning {character:{name:'Alex'}} doesn't yield [object Object] */
 function applyAiFields(obj){
@@ -296,7 +317,7 @@ function buildEn(opts={}){
   const beats=getBeats(),shots=getShots();
   const sty=opts.style||v('style'),cam=opts.camera||v('camera'),lens=opts.lens||v('lens'),light=opts.lighting||v('lighting');
   const p=[];
-  if(i2v){p.push(`animate the reference image: ${sub}`);if(imgState.imgLast)p.push('with smooth interpolation to the final reference frame');if(v('motion'))p.push(v('motion'));}
+  if(i2v){p.push(`animate the reference image: ${sub}`);if(imgState.imgLast)p.push('with smooth interpolation to the final reference frame');if(v('motion'))p.push(v('motion'));if(window.faceLock)p.push(window.faceLockClause());}
   else if(shots.length)p.push(`${sty} sequence of ${shots.length} shots featuring ${sub}`);
   else p.push(`${sty}, ${v('shot')} of ${sub}`);
   if(v('character'))p.push(v('character'));

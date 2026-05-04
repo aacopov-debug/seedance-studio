@@ -747,6 +747,14 @@ h1{font-feature-settings:'ss03','cv11'}
       <!-- ============ AI VISION ANALYSIS PANEL (Phase 1 + 2) ============ -->
       <div id="i2pAnalysisPanel" class="i2p-analysis-panel hidden mb-5"></div>
 
+      <label class="flex items-start gap-2 p-3 mb-4 rounded-lg bg-violet-500/10 border border-violet-500/30 cursor-pointer hover:bg-violet-500/15 transition">
+        <input type="checkbox" id="faceLockI2p" class="w-4 h-4 mt-0.5 accent-violet-500 flex-shrink-0"/>
+        <div class="flex-1">
+          <div class="text-sm font-medium">🔒 Сохранить лицо 1:1 <span class="text-xs subtle font-normal">(face lock)</span></div>
+          <div class="text-xs subtle mt-0.5">AI добавит во все 3 варианта явное указание сохранить лицо и черты точно как на референсе. Особенно важно для режимов "Стиль-реф" и "Кинематично".</div>
+        </div>
+      </label>
+
       <label class="block text-sm font-medium mb-2">🎯 Что сделать с этой картинкой?</label>
       <div id="i2pModeTiles" class="sm-grid mb-4"></div>
 
@@ -831,6 +839,13 @@ h1{font-feature-settings:'ss03','cv11'}
     </div>
   </div>
   <div><label class="block text-xs subtle mb-1">Motion prompt</label><textarea id="motion" rows="2" class="field" placeholder="hair flowing, eyes blinking, camera pushes in"></textarea></div>
+  <label class="flex items-start gap-2 p-3 rounded-lg bg-violet-500/10 border border-violet-500/30 cursor-pointer hover:bg-violet-500/15 transition">
+    <input type="checkbox" id="faceLockI2v" class="w-4 h-4 mt-0.5 accent-violet-500 flex-shrink-0"/>
+    <div class="flex-1">
+      <div class="text-sm font-medium">🔒 Сохранить лицо 1:1 <span class="text-xs subtle font-normal">(face lock)</span></div>
+      <div class="text-xs subtle mt-0.5">AI получит инструкцию не изменять лицо, черты, причёску — точная копия референса. Работает для Sora/Runway/Kling/Seedance.</div>
+    </div>
+  </label>
 </div>
 
 <div class="glass rounded-2xl p-5">
@@ -1130,18 +1145,18 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v15.4</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v15.5</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=15.4" defer></script>
-<script src="js/i2p.js?v=15.4" defer></script>
-<script src="js/history.js?v=15.4" defer></script>
-<script src="js/story.js?v=15.4" defer></script>
-<script src="js/continuity.js?v=15.4" defer></script>
-<script src="js/fcpxml.js?v=15.4" defer></script>
-<script src="extras.js?v=15.4" defer></script>
+<script src="app.js?v=15.5" defer></script>
+<script src="js/i2p.js?v=15.5" defer></script>
+<script src="js/history.js?v=15.5" defer></script>
+<script src="js/story.js?v=15.5" defer></script>
+<script src="js/continuity.js?v=15.5" defer></script>
+<script src="js/fcpxml.js?v=15.5" defer></script>
+<script src="extras.js?v=15.5" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){
