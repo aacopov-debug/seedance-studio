@@ -1222,12 +1222,23 @@ chatPanel.style.zIndex='45';$('chatToggle').style.zIndex='44';
 // score 0% min width
 const _sc=document.createElement('style');_sc.textContent='#scoreBox div[style*="width:0%"]{min-width:2px}';document.head.appendChild(_sc);
 
-/* ============ v6: API KEY obfuscation (XOR base64) ============ */
+/* ============ v6: API KEY obfuscation (XOR base64) ============
+   v15.7: hardened — encoding now guaranteed in aiSave handler (wrapped with _origAiSave),
+   not just blur event, so key never lands in localStorage in plaintext even if the user
+   clicks Save without the field losing focus. aiCfg override still decodes on read. */
 const _xk='seedance_v6_salt_8723';function _xor(s){return [...s].map((c,i)=>String.fromCharCode(c.charCodeAt(0)^_xk.charCodeAt(i%_xk.length))).join('');}
 const _origAiCfg=aiCfg;window.aiCfg=function(){const c=_origAiCfg();if(c.key&&c.key.startsWith('XOR:')){try{c.key=_xor(atob(c.key.slice(4)));}catch(e){console.debug(e)}}return c;};
-const _aiKey=$('aiKey');_aiKey.addEventListener('blur',()=>{if(_aiKey.value&&!_aiKey.value.startsWith('XOR:')){const enc='XOR:'+btoa(_xor(_aiKey.value));safeLS('seedance_ai_key',enc);_aiKey.value=enc;}});
+const _aiKey=$('aiKey');
+function _encodeAiKey(){if(_aiKey.value&&!_aiKey.value.startsWith('XOR:')){_aiKey.value='XOR:'+btoa(_xor(_aiKey.value));}}
+// Blur still encodes early for visual feedback, but the guarantee is in Save:
+_aiKey.addEventListener('blur',_encodeAiKey);
+// Wrap aiSave onclick so encoding runs BEFORE the underlying handler reads .value
+const _origAiSave=$('aiSave').onclick;
+$('aiSave').onclick=function(e){_encodeAiKey();return _origAiSave&&_origAiSave.call(this,e);};
 // On load, decrypt for display (kept as XOR: in storage)
 if(_aiKey.value.startsWith('XOR:'))_aiKey.placeholder='🔒 ключ зашифрован';
+// Clean up legacy dead storage key from earlier builds
+try{localStorage.removeItem('seedance_ai_key');}catch(e){}
 
 /* ============ v6: STATE VERSIONING ============ */
 const SCHEMA_V=6;const _sv=parseInt(localStorage.getItem('seedance_schema')||'0');
