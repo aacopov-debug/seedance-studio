@@ -1074,6 +1074,7 @@ h1{font-feature-settings:'ss03','cv11'}
       <button data-aip="anthropic" class="soft-btn px-3 py-1.5">Anthropic</button>
       <button data-aip="groq" class="soft-btn px-3 py-1.5">Groq</button>
     </div>
+    <div class="text-[10px] subtle mb-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 leading-snug">⚠ <b>Failed to fetch</b> = gateway не разрешает CORS из браузера. Ключ работает, но API ждёт backend-запросы. Решения: используй OpenAI/Groq/Anthropic напрямую (они разрешают CORS), или подними свой CORS-proxy.</div>
     <label class="block text-xs subtle mb-1">Base URL</label><input id="aiBase" class="field mb-3" value="https://api.openai.com/v1"/>
     <label class="block text-xs subtle mb-1">API Key</label><input id="aiKey" type="password" class="field mb-3" placeholder="sk-..."/>
     <label class="block text-xs subtle mb-1">Model</label><input id="aiModel" class="field mb-3" value="gpt-4o-mini"/>
@@ -1127,13 +1128,13 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v14.5</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v14.6</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=14.5" defer></script>
-<script src="extras.js?v=14.5" defer></script>
+<script src="app.js?v=14.6" defer></script>
+<script src="extras.js?v=14.6" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

@@ -454,10 +454,42 @@ function _aiAuthHeaders(c){
   }
 }
 
+/* Diagnose fetch failure. TypeError "Failed to fetch" in browsers means one of:
+   1. CORS — server didn't send Access-Control-Allow-Origin for this origin (most common with AI gateways)
+   2. Network offline / DNS failure
+   3. Mixed content (http API from https page)
+   4. Invalid URL
+   Returns a human-friendly Russian message with actionable hint. */
+function _diagnoseFetchError(e,c){
+  const msg=(e&&e.message||'').toLowerCase();
+  if(e instanceof TypeError&&(msg.includes('failed to fetch')||msg.includes('networkerror')||msg.includes('load failed'))){
+    const host=(()=>{try{return new URL(c.base).host;}catch{return c.base;}})();
+    const isHttp=c.base.startsWith('http://')&&location.protocol==='https:';
+    if(isHttp)return `❌ Mixed content: страница https, а API http (${host}). Открой приложение по http://localhost или смени API на https.`;
+    return `❌ CORS/сеть: ${host} не отвечает или не разрешает запрос из браузера. Скорее всего gateway блокирует CORS — такие API работают только с backend. Попробуй OpenAI/Groq/Anthropic напрямую или подними свой proxy.`;
+  }
+  return '⚠ '+(e.message||String(e)).slice(0,120);
+}
+
 async function aiCall(messages,{json=false,stream=false,onChunk=null}={}){
   const c=needKey();if(!c)return null;
   const body={model:c.model,messages,temperature:0.85};if(json)body.response_format={type:'json_object'};if(stream)body.stream=true;
-  const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify(body)});
+  let r;
+  try{
+    r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify(body)});
+  }catch(e){
+    const diag=_diagnoseFetchError(e,c);
+    console.error('[aiCall] fetch failed',e,'cfg',{base:c.base,auth:c.auth});
+    toast(diag,'error');
+    return null;
+  }
+  if(!r.ok){
+    let detail='';
+    try{const txt=await r.text();detail=' '+txt.slice(0,200);}catch{}
+    console.error('[aiCall] HTTP',r.status,detail);
+    toast(`❌ HTTP ${r.status} ${r.statusText}${detail}`,'error');
+    return null;
+  }
   if(stream){const rd=r.body.getReader(),de=new TextDecoder();let buf='',full='';while(1){const{done,value}=await rd.read();if(done)break;buf+=de.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(d==='[DONE]')return full;try{const j=JSON.parse(d);const t=j.choices?.[0]?.delta?.content||'';full+=t;onChunk&&onChunk(t,full);}catch(e){console.debug(e)}}}return full;}
   const j=await r.json();if(j.error){toast('AI: '+j.error.message);return null;}return j.choices?.[0]?.message?.content;
 }
