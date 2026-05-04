@@ -1,5 +1,5 @@
 /* ============================================================
-   LUMEN — AI STUDIO v15.10
+   LUMEN — AI STUDIO v15.11
    Unified hub that groups all AI tools into a searchable categorized modal.
    Decluttering: hides Tier 1 & Tier 2 inline buttons, exposes them via one
    primary entry button "✨ AI Studio" next to the generate button.
@@ -8,6 +8,9 @@
    - Global Escape handler closing any open modal
    - Global Ctrl+/ shortcut opening AI Studio
    - Accent NEW-badge on recent features
+   - Recently used tracking (localStorage) — prepended section
+   - Keyboard navigation: arrow keys + Enter between cards
+   - Search match highlighting with <mark>
    ============================================================ */
 (function(){
   if(typeof $==='undefined'){console.warn('[ai_studio] $ missing');return;}
@@ -120,12 +123,60 @@
   $('aiStudioClose').onclick=()=>studioModal.classList.add('hidden');
   studioModal.onclick=e=>{if(e.target===studioModal)studioModal.classList.add('hidden');};
 
+  /* Recently used tracking */
+  const RECENT_KEY='lumen_recent_tools';
+  const loadRecent=()=>{try{return JSON.parse(localStorage.getItem(RECENT_KEY)||'[]');}catch(e){return[];}};
+  const saveRecent=arr=>{try{localStorage.setItem(RECENT_KEY,JSON.stringify(arr.slice(0,5)));}catch(e){}};
+  const markUsed=idx=>{const r=loadRecent().filter(i=>i!==idx);r.unshift(idx);saveRecent(r);};
+
+  /* Highlight helper — escapes first, then wraps matches in <mark> */
+  const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const highlight=(text,q)=>{
+    const safe=escHtml(text);
+    if(!q)return safe;
+    const re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+    return safe.replace(re,'<mark class="bg-violet-400/40 text-white rounded px-0.5">$1</mark>');
+  };
+
+  const cardHtml=(t,idx,q)=>{
+    const badge=t.badge?`<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/30 text-violet-200 font-bold uppercase tracking-wider">${t.badge}</span>`:'';
+    return `<button data-tool-idx="${idx}" tabindex="0" class="studio-card text-left rounded-lg p-3 bg-black/20 hover:bg-violet-500/10 border border-white/5 hover:border-violet-500/40 focus:border-violet-400 focus:bg-violet-500/10 focus:outline-none transition-colors">
+      <div class="flex items-start justify-between gap-2 mb-1">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">${t.icon}</span>
+          <span class="font-semibold text-sm">${highlight(t.name,q)}</span>
+          ${badge}
+        </div>
+        <span class="text-[10px] subtle shrink-0">${escHtml(t.cost)}</span>
+      </div>
+      <div class="text-[11px] subtle leading-snug">${highlight(t.desc,q)}</div>
+    </button>`;
+  };
+
   function renderStudio(filter=''){
     const body=$('aiStudioBody');
     const q=filter.trim().toLowerCase();
     const filtered=TOOLS.filter(t=>!q||t.name.toLowerCase().includes(q)||t.desc.toLowerCase().includes(q));
-    if(!filtered.length){body.innerHTML='<div class="text-center py-8 subtle text-sm">🔍 Ничего не найдено по запросу "'+filter+'"</div>';return;}
+    if(!filtered.length){body.innerHTML='<div class="text-center py-8 subtle text-sm">🔍 Ничего не найдено по запросу "'+escHtml(filter)+'"</div>';return;}
     let html='';
+
+    /* Recently used section (only when no search) */
+    if(!q){
+      const recent=loadRecent().map(i=>TOOLS[i]).filter(Boolean);
+      if(recent.length){
+        html+=`<div class="mb-5">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-base">🕒</span>
+            <span class="font-semibold text-sm">Недавние</span>
+            <span class="text-[10px] subtle">· последние ${recent.length} использованных инструмента</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">`;
+        recent.forEach(t=>{html+=cardHtml(t,TOOLS.indexOf(t),q);});
+        html+=`</div></div>`;
+      }
+    }
+
+    /* Normal categories */
     Object.keys(CATS).forEach(catKey=>{
       const items=filtered.filter(t=>t.cat===catKey);
       if(!items.length)return;
@@ -137,27 +188,15 @@
           <span class="text-[10px] subtle">· ${c.hint}</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">`;
-      items.forEach((t,i)=>{
-        const idx=TOOLS.indexOf(t);
-        const badge=t.badge?`<span class="ml-1 text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/30 text-violet-200 font-bold uppercase tracking-wider">${t.badge}</span>`:'';
-        html+=`<button data-tool-idx="${idx}" class="text-left rounded-lg p-3 bg-black/20 hover:bg-violet-500/10 border border-white/5 hover:border-violet-500/40 transition-colors">
-          <div class="flex items-start justify-between gap-2 mb-1">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">${t.icon}</span>
-              <span class="font-semibold text-sm">${t.name}</span>
-              ${badge}
-            </div>
-            <span class="text-[10px] subtle shrink-0">${t.cost}</span>
-          </div>
-          <div class="text-[11px] subtle leading-snug">${t.desc}</div>
-        </button>`;
-      });
+      items.forEach(t=>{html+=cardHtml(t,TOOLS.indexOf(t),q);});
       html+=`</div></div>`;
     });
     body.innerHTML=html;
     body.querySelectorAll('[data-tool-idx]').forEach(el=>{
       el.onclick=()=>{
-        const t=TOOLS[+el.dataset.toolIdx];
+        const idx=+el.dataset.toolIdx;
+        const t=TOOLS[idx];
+        markUsed(idx);
         studioModal.classList.add('hidden');
         setTimeout(()=>{
           try{
@@ -168,6 +207,38 @@
       };
     });
   }
+
+  /* Keyboard navigation inside studio modal: arrows + Enter */
+  studioModal.addEventListener('keydown',e=>{
+    if(studioModal.classList.contains('hidden'))return;
+    const cards=[...studioModal.querySelectorAll('.studio-card')];
+    if(!cards.length)return;
+    const active=document.activeElement;
+    const curIdx=cards.indexOf(active);
+    const searchFocused=document.activeElement===$('aiStudioSearch');
+
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      e.preventDefault();
+      /* Estimate cols based on viewport — grid uses lg:3 sm:2 base:1 */
+      const cols=window.innerWidth>=1024?3:window.innerWidth>=640?2:1;
+      let next=curIdx;
+      if(curIdx<0){next=0;}
+      else if(e.key==='ArrowRight')next=Math.min(cards.length-1,curIdx+1);
+      else if(e.key==='ArrowLeft')next=Math.max(0,curIdx-1);
+      else if(e.key==='ArrowDown')next=Math.min(cards.length-1,curIdx+cols);
+      else if(e.key==='ArrowUp'){
+        if(curIdx<cols){$('aiStudioSearch').focus();return;}
+        next=Math.max(0,curIdx-cols);
+      }
+      cards[next]?.focus();
+    }else if(e.key==='Enter'&&!searchFocused&&curIdx>=0){
+      e.preventDefault();
+      cards[curIdx].click();
+    }else if(e.key==='Enter'&&searchFocused&&cards.length>0){
+      e.preventDefault();
+      cards[0].click();
+    }
+  });
 
   $('aiStudioSearch').addEventListener('input',e=>renderStudio(e.target.value));
 
