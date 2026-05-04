@@ -4105,6 +4105,18 @@ Reply ONLY as JSON:
         ]
       })
     });
+    /* Surface HTTP + non-JSON errors with real body preview. Without this, gateways that return
+       HTML error pages (e.g. Nekocode when model doesn't support vision, Cloudflare 5xx pages,
+       auth failures rendering login HTML) caused cryptic "Unexpected token '<'" JSON parse errors. */
+    if(!r.ok){
+      let detail='';try{detail=(await r.text()).slice(0,300);}catch{}
+      throw new Error(`HTTP ${r.status} ${r.statusText}${detail?' — '+detail:''}`);
+    }
+    const ct=(r.headers.get('content-type')||'').toLowerCase();
+    if(!ct.includes('json')){
+      const body=await r.text();
+      throw new Error(`Сервер вернул ${ct||'unknown content-type'} вместо JSON. Первые 200 симв: ${body.slice(0,200)}`);
+    }
     const j=await r.json();
     if(j.error)throw new Error(j.error.message||'Vision API error');
     const txt=j.choices?.[0]?.message?.content;
