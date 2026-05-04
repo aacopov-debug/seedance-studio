@@ -88,7 +88,7 @@ hr{border:none;border-top:2px dashed #ddd;margin:32px 0}
   <p>Полное руководство пользователя · by Armen</p>
   <p class="subtle" style="font-size:14px">Создание кинематографичных промтов для видео и картинок<br/>Simple Mode · I2P (картинка→промт) · EN+RU · 12 стилей · Batch-экспорт · История · Story Mode · FCPXML</p>
   <div class="cover-meta">
-    Версия 15.7 · Май 2026<br/>
+    Версия 15.8 · Май 2026<br/>
     Для приложения <code>index.html</code>
   </div>
 </div>
@@ -119,6 +119,7 @@ hr{border:none;border-top:2px dashed #ddd;margin:32px 0}
   <a href="#ai-models" class="lvl2">5.3 Модели</a>
   <a href="#ai-security" class="lvl2">5.4 Безопасность ключа</a>
   <a href="#ai-tools">6. AI инструменты</a>
+  <a href="#ai-tier1" class="lvl2">6.1 v15.8 — Tier 1 улучшения (Router / Director / Cost / Linter / Mix)</a>
   <a href="#i2v">7. Image-to-Video режим</a>
   <a href="#multishot">8. Multi-shot (раскадровка)</a>
   <a href="#timeline">9. Timeline beats</a>
@@ -737,7 +738,48 @@ Face Lock — это усиленная текстовая инструкция 
 <tr><td><b>⚠ Risk</b></td><td>Предсказывает что может сломать видео-модель</td></tr>
 <tr><td><b>🌐 Translate</b></td><td>Переводит на EN/CN/JP/ES</td></tr>
 <tr><td><b>🎤 Voice</b></td><td>Голосовой ввод (Web Speech API)</td></tr>
+<tr><td><b>🎯 Куда?</b></td><td><span class="subtle">v15.8</span> Model Router — AI рекомендует подходящую видео-модель (Sora/Runway/Kling/Seedance/Luma)</td></tr>
+<tr><td><b>🎬 Director</b></td><td><span class="subtle">v15.8</span> Переписывает промт в стиле выбранного режиссёра (12 опций)</td></tr>
 </table>
+
+<h3 id="ai-tier1">6.1 v15.8 — Tier 1 AI-улучшения</h3>
+
+<h4>🎯 Model Router</h4>
+<p>Кнопка <b>🎯 Куда?</b> в панели AI-инструментов. AI анализирует текущий английский промт и рекомендует лучшую видео-модель из 5: Sora, Runway Gen-3, Kling 1.5, Seedance 2.0, Luma. Возвращает: лучшая модель, причина выбора (на русском), альтернатива, предупреждение о слабостях.</p>
+<table>
+<tr><th>Модель</th><th>Сильна в</th><th>Слаба в</th></tr>
+<tr><td><b>Sora</b></td><td>Нарратив, multi-shot, длинные клипы 60с, action</td><td>Гипер-реалистичные лица</td></tr>
+<tr><td><b>Runway Gen-3</b></td><td>Cinematic motion, продвинутые камеры, VFX, 10с</td><td>Цена</td></tr>
+<tr><td><b>Kling 1.5</b></td><td>Фотореалистичные лица, lip-sync, китайская эстетика</td><td>Длительность 5-10с</td></tr>
+<tr><td><b>Seedance 2.0</b></td><td>Бюджет, motion, аниме, multi-shot, 12с</td><td>Хуже в фотореализме лиц</td></tr>
+<tr><td><b>Luma</b></td><td>Сюрреализм, плавные интерполяции, last-frame</td><td>Требовательная к чёткому промту</td></tr>
+</table>
+
+<h4>🎬 Director Persona</h4>
+<p>Кнопка <b>🎬 Director</b> открывает модалку с 12 режиссёрами. Клик по любому → AI переписывает промт, сохраняя сюжет, но привнося визуальный язык режиссёра.</p>
+<p><b>Список режиссёров:</b> Дени Вильнёв, Уэс Андерсон, Андрей Тарковский, Николас Виндинг Рефн, Дэвид Финчер, Хаяо Миядзаки, Дэвид Линч, Стэнли Кубрик, Квентин Тарантино, Кристофер Нолан, Братья Коэн, Пол Томас Андерсон.</p>
+<p>Каждый режиссёр имеет свой набор «cues» — конкретных визуальных черт (палитра, framing, движение камеры, освещение). Например для Вильнёва: monolithic geometric framing, oppressive scale, muted earth tones, fog haze, slow majestic moves, brutalist architecture.</p>
+
+<h4>💸 Cost Estimator</h4>
+<p>Под блоком EN-результата автоматически появилась бледная строка с примерной стоимостью генерации этого промта по 5 моделям (рыночные цены 2026-Q2). Считается из <code>duration × resolution × model_price</code>. Обновляется при каждом нажатии Generate.</p>
+<pre>💸 Sora ~$4.00 · Runway Gen-3 ~$2.00 · Kling 1.5 ~$0.80 · Seedance 2.0 ~$0.64 · Luma ~$1.20</pre>
+<p class="subtle">Цены ориентировочные, реальные могут отличаться на ±30%. Цель — быстрая оценка бюджета для клиента.</p>
+
+<h4>⚠ Prompt Linter</h4>
+<p>Pre-flight статические проверки автоматически прогоняются после каждого Generate. Если найдены проблемы — появляются в существующей жёлтой панели <code>#warnings</code> над результатом.</p>
+<p><b>Что проверяется:</b></p>
+<ul>
+<li>📏 <b>Длина промта</b> — слишком длинный (&gt;500 слов) или слишком короткий (&lt;10)</li>
+<li>📐 <b>Aspect ratio</b> пустой</li>
+<li>⏱ <b>Duration</b> пустая</li>
+<li>🚫 <b>Отрицания в позитиве</b> — фразы вроде «not blurry», «without rain» должны быть в Negative prompt, а не в основном промте</li>
+<li>🎥 <b>Конфликт камеры</b> — указана static + tracking/dolly одновременно</li>
+<li>🔒 <b>Лицо без Face Lock</b> — в I2V промте упомянуто face/portrait, а Face Lock выключен</li>
+</ul>
+
+<h4>🎨 Style Cross-pollinate</h4>
+<p>В модалке <b>🔄 Compare</b> (сравнение двух промтов) добавлена кнопка <b>🎨 Скрестить (сюжет A + стиль B)</b>. AI берёт SUBJECT, ACTION, SCENE из левого промта и LIGHTING, COLOR, MOOD, CAMERA из правого, склеивает в единый кинематографичный текст ~150-250 слов.</p>
+<p><b>Use case:</b> у тебя есть промт с интересным сюжетом, но скучным стилем. И второй — с впечатляющим стилем (например, скопирован из удачного результата другого пользователя), но не подходящим тебе сюжетом. Скрести их в один клик.</p>
 
 <!-- ========== 7 I2V ========== -->
 <h2 id="i2v">7. Image-to-Video режим</h2>
@@ -1201,7 +1243,7 @@ Workaround: импортируй сначала в Resolve → <b>File → Expor
 <p>Это локальное приложение. Обновления — заменой файлов <code>index.html</code>, <code>app.js</code>, <code>extras.js</code> и папки <code>js/</code> (модули фич: <code>i2p.js</code>, <code>story.js</code>, <code>history.js</code>, <code>continuity.js</code>, <code>fcpxml.js</code>).</p>
 
 <div class="callout">
-<b>📂 Структура проекта (v15.7)</b>
+<b>📂 Структура проекта (v15.8)</b>
 <ul style="margin:6px 0 0 16px;font-family:monospace;font-size:12px">
 <li><code>index.html</code> — DOM, стили, точка входа</li>
 <li><code>app.js</code> — ядро (Pro Mode, AI-слой, Simple Mode core, Text→Pro, Presets, Text-to-Image)</li>
@@ -1216,7 +1258,7 @@ Workaround: импортируй сначала в Resolve → <b>File → Expor
 </div>
 
 <p class="subtle" style="text-align:center;margin-top:60px;font-size:11px">
-Lumen — Cinematic Prompt Studio v15.7 · Руководство пользователя · by Armen · 2026<br/>
+Lumen — Cinematic Prompt Studio v15.8 · Руководство пользователя · by Armen · 2026<br/>
 Сгенерировано для печати в PDF (A4)
 </p>
 

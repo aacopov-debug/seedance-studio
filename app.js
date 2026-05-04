@@ -3217,3 +3217,244 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+/* ============================================================
+   v15.8 — TIER 1 AI ENHANCEMENTS
+   1. Cost Estimator    — pricing badge under EN output (rules-based, no AI call)
+   2. Prompt Linter     — pre-flight static checks (rules-based, no AI call)
+   3. Model Router      — AI recommends best video model for current prompt
+   4. Director Persona  — AI rewrites prompt in style of chosen director
+   5. Style Cross-pollinate — merge subject from A with style from B (Compare modal)
+   ============================================================ */
+(function(){
+  if(typeof bus==='undefined'||typeof aiCall==='undefined')return;
+
+  /* ===== 1. COST ESTIMATOR ===== */
+  /* Approximate market rates as of 2026-Q2 — easy to update */
+  const PRICES={
+    sora:{name:'Sora',per_s:{'480p':0.10,'720p':0.25,'1080p':0.50}},
+    runway:{name:'Runway Gen-3',per_s:{'480p':0.05,'720p':0.12,'1080p':0.25}},
+    kling:{name:'Kling 1.5',per_s:{'480p':0.04,'720p':0.07,'1080p':0.10}},
+    seedance:{name:'Seedance 2.0',per_s:{'480p':0.03,'720p':0.05,'1080p':0.08}},
+    luma:{name:'Luma',per_s:{'480p':0.05,'720p':0.09,'1080p':0.15}}
+  };
+  function _parseDur(s){const m=String(s||'').match(/(\d+)/);return m?parseInt(m[1]):5;}
+  function _costFor(modelKey,sec,res){const p=PRICES[modelKey];if(!p)return 0;return (p.per_s[res]||p.per_s['1080p'])*sec;}
+  const costBadge=document.createElement('div');
+  costBadge.id='costBadge';
+  costBadge.className='text-[10px] subtle mt-2 flex flex-wrap gap-x-3 gap-y-0.5';
+  costBadge.title='Примерная стоимость генерации этого промта по разным AI-видео моделям (рыночные цены 2026-Q2)';
+  $('outEnView').parentElement.insertBefore(costBadge,$('outEnView').nextSibling);
+  function updateCost(){
+    const sec=_parseDur(v('duration'));
+    const res=v('res')||'1080p';
+    const items=Object.keys(PRICES).map(k=>{
+      const c=_costFor(k,sec,res);
+      return `<span title="${PRICES[k].name} · ${sec}s · ${res}"><b>${PRICES[k].name}</b> ~$${c.toFixed(2)}</span>`;
+    });
+    costBadge.innerHTML='💸 '+items.join(' · ');
+  }
+  bus.on('after-generate',updateCost);
+  setTimeout(updateCost,400);
+
+  /* ===== 2. PROMPT LINTER ===== */
+  /* Static checks of generated EN — pushes warnings into existing #warnings panel */
+  const NEG_IN_POS=/\b(not|no|without|never|don't|avoid)\s+\w+/gi;
+  function lintPrompt(){
+    const en=$('outEnView').dataset.raw||'';
+    if(!en)return;
+    const issues=[];
+    /* Length checks */
+    const words=en.trim().split(/\s+/).length;
+    if(words>500)issues.push(`📏 Промт длинный (${words} слов) — Sora и Kling работают лучше до 200, Runway до 320`);
+    else if(words<10)issues.push(`📏 Промт слишком короткий (${words} слов) — модели додумывают, лучше >25`);
+    /* Required fields for video */
+    const tab=(typeof getCurTab==='function'?getCurTab():'t2v');
+    if(!v('aspect'))issues.push('📐 Aspect ratio пустой — добавь 16:9 или 9:16');
+    if(!v('duration'))issues.push('⏱ Duration пустая — модели по умолчанию делают 4с');
+    /* Negation in positive prompt → should be in negative field */
+    const negMatches=en.match(NEG_IN_POS)||[];
+    const realNegs=negMatches.filter(m=>!/\b(not only|no longer|nothing if|never before)\b/i.test(m));
+    if(realNegs.length>0){
+      issues.push(`🚫 Отрицания в позитиве (${realNegs.slice(0,2).join(', ')}...) — перенеси в поле <b>Negative prompt</b>`);
+    }
+    /* Camera conflict (already handled but more explicit) */
+    if(/static camera/i.test(en)&&/(tracking|dolly|pan|orbit)/i.test(en)){
+      issues.push('🎥 Конфликт: указана static camera + движение камеры — модель додумает');
+    }
+    /* I2V without face-lock when face is mentioned */
+    if(tab==='i2v'&&/(face|portrait|character|hero|woman|man|girl|boy)/i.test(en)&&!window.faceLock){
+      issues.push('🔒 В кадре есть лицо/персонаж, а Face Lock выключен — модель может изменить черты');
+    }
+    /* Render */
+    const w=$('warnings');
+    if(!issues.length){
+      /* Don't override existing conflicts panel — only clear if the only content is ours */
+      if(w.dataset.linter==='1'){w.classList.add('hidden');w.innerHTML='';w.dataset.linter='';}
+      return;
+    }
+    w.classList.remove('hidden');
+    w.dataset.linter='1';
+    w.innerHTML='<div class="font-semibold mb-1">⚠ Pre-flight lint</div>'+
+      issues.map(i=>'<div class="text-[11px] leading-relaxed">• '+i+'</div>').join('');
+  }
+  bus.on('after-generate',lintPrompt);
+
+  /* ===== 3. MODEL ROUTER ===== */
+  const routerBtn=document.createElement('button');
+  routerBtn.className="soft-btn text-xs px-3 py-1.5";
+  routerBtn.innerHTML='🎯 Куда?';
+  routerBtn.title='AI рекомендует подходящую видео-модель (Sora / Runway / Kling / Seedance / Luma) для текущего промта';
+  $('aiReverseBtn').parentElement.appendChild(routerBtn);
+  routerBtn.onclick=async()=>{
+    if(!needKey())return;
+    const en=$('outEnView').dataset.raw||'';
+    if(!en){toast('Сначала сгенерируй');return;}
+    const o=routerBtn.innerHTML;routerBtn.innerHTML='⏳';routerBtn.disabled=true;
+    const sys=`You are an AI video model selector. Given a video prompt, recommend the BEST model among:
+- Sora (OpenAI): best for narrative coherence, multi-shot continuity, long clips up to 60s, complex action. Weak at hyper-realistic faces.
+- Runway Gen-3: best for cinematic motion, advanced camera moves, high production quality, up to 10s. Strong VFX. Expensive.
+- Kling 1.5 (Kuaishou): best for hyper-realistic human faces, lip-sync, photorealistic portraits, Chinese aesthetic. 5-10s.
+- Seedance 2.0 (ByteDance): best budget option, good motion, anime-friendly, multi-shot, cheap. Up to 12s.
+- Luma Dream Machine: best for surreal/dreamlike content, smooth interpolation, image-to-video with last-frame.
+
+Reply ONLY as JSON: {"best":"sora|runway|kling|seedance|luma","why":"<1-2 sentences in Russian explaining match>","runner_up":"<key>","caveat":"<1 sentence Russian what to watch out for>"}`;
+    const out=await aiCall([{role:'system',content:sys},{role:'user',content:en}],{json:true});
+    routerBtn.innerHTML=o;routerBtn.disabled=false;
+    if(!out){toast('AI не ответил');return;}
+    try{
+      const d=JSON.parse(out);
+      const PNAMES={sora:'Sora',runway:'Runway Gen-3',kling:'Kling 1.5',seedance:'Seedance 2.0',luma:'Luma'};
+      const bestName=PNAMES[d.best]||d.best;
+      const runnerName=PNAMES[d.runner_up]||d.runner_up||'—';
+      const sec=_parseDur(v('duration'));const res=v('res')||'1080p';
+      const cost=_costFor(d.best,sec,res);
+      const html=`<div style="font-size:14px;line-height:1.6">
+        <div style="font-size:18px;font-weight:600;color:#a78bfa;margin-bottom:8px">🎯 Лучше всего: ${bestName}</div>
+        <div style="margin-bottom:10px">${d.why||''}</div>
+        <div style="font-size:12px;opacity:.75;margin-bottom:6px">💸 Примерно $${cost.toFixed(2)} за ${sec}s @ ${res}</div>
+        <div style="font-size:12px;opacity:.75;margin-bottom:6px">🥈 Альтернатива: <b>${runnerName}</b></div>
+        ${d.caveat?`<div style="font-size:12px;color:#fbbf24;margin-top:8px">⚠ ${d.caveat}</div>`:''}
+      </div>`;
+      const cb=$('critBody');if(cb){cb.innerHTML=html;$('critPanel')?.classList.remove('hidden');}
+      else{alert(d.why+'\n\nЛучше всего: '+bestName);}
+    }catch(e){toast('JSON err');console.debug(e);}
+  };
+
+  /* ===== 4. DIRECTOR PERSONA ===== */
+  const DIRECTORS=[
+    {k:'villeneuve',n:'Дени Вильнёв',cues:'monolithic geometric framing, oppressive scale, muted earth tones plus deep amber and slate, thick fog and dust haze, slow majestic camera moves, brutalist architecture, sci-fi minimalism'},
+    {k:'anderson',n:'Уэс Андерсон',cues:'symmetric centered composition, pastel color palette pink mustard teal, deadpan staging, dollhouse aesthetic, slow horizontal whip pans, vintage props, eccentric meticulous detail'},
+    {k:'tarkovsky',n:'Андрей Тарковский',cues:'long uninterrupted takes, water and rain motifs, sepia and desaturated palette, Russian orthodox spirituality, slow contemplative dolly, fog mirror reflections, decaying interiors'},
+    {k:'refn',n:'Николас Виндинг Рефн',cues:'electric neon magenta and cyan lighting, slow synthwave pacing, geometric symmetry, violent stillness, retro-futuristic 80s gloss, hypnotic camera glides'},
+    {k:'fincher',n:'Дэвид Финчер',cues:'cold green-amber color grade, surgical precision framing, locked-off tripod or smooth motion-controlled dolly, deep shadows with sharp practicals, urban paranoia'},
+    {k:'miyazaki',n:'Хаяо Миядзаки',cues:'lush hand-painted backgrounds, vibrant nature palette, soft volumetric light through leaves, gentle wind movement, anime-warmth detail in faces, magical realism'},
+    {k:'lynch',n:'Дэвид Линч',cues:'velvet red and indigo palette, dreamlike sound-driven slow motion, surreal incongruity, deep saturated practicals on black, oppressive ambient hum'},
+    {k:'kubrick',n:'Стэнли Кубрик',cues:'one-point perspective long corridors, slow Steadicam push, symmetric framing, classical music feel, cold institutional lighting, geometric obsession'},
+    {k:'tarantino',n:'Квентин Тарантино',cues:'low angle hero shots, saturated 70s grindhouse palette, snap zooms and trunk shots, sharp dialogue staging, vinyl scratch grain, kinetic edits'},
+    {k:'nolan',n:'Кристофер Нолан',cues:'IMAX scale wide shots, practical effects emphasis, cool blue and steel palette, time-fragmented narrative, deep architectural space, layered ambient drone'},
+    {k:'coen',n:'Братья Коэн',cues:'wide American landscapes, sardonic comedic framing, warm muted vintage palette, low-angle character closeups, regional authenticity, deadpan stillness'},
+    {k:'pta',n:'Пол Томас Андерсон',cues:'long flowing Steadicam takes, rich warm 70s palette amber gold mahogany, intimate emotional closeups, period-accurate set dressing, jazz or modal score feel'}
+  ];
+  const dirBtn=document.createElement('button');
+  dirBtn.className="soft-btn text-xs px-3 py-1.5";
+  dirBtn.innerHTML='🎬 Director';
+  dirBtn.title='Переписать промт в стиле выбранного режиссёра (Вильнёв / Андерсон / Тарковский / ...)';
+  $('aiReverseBtn').parentElement.appendChild(dirBtn);
+  /* Build modal */
+  const dirModal=document.createElement('div');
+  dirModal.id='dirModal';
+  dirModal.className='hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4';
+  dirModal.innerHTML=`<div class="glass rounded-2xl p-5 max-w-2xl w-full max-h-[80vh] overflow-auto">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-base font-semibold">🎬 Переписать в стиле режиссёра</div>
+      <button id="dirClose" class="soft-btn text-xs px-2 py-1">✕</button>
+    </div>
+    <div class="text-xs subtle mb-3">AI перепишет текущий английский промт, сохранив сюжет, но привнеся фирменный визуальный язык режиссёра.</div>
+    <div id="dirGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+  </div>`;
+  document.body.appendChild(dirModal);
+  $('dirClose').onclick=()=>dirModal.classList.add('hidden');
+  dirModal.onclick=e=>{if(e.target===dirModal)dirModal.classList.add('hidden');};
+  const dirGrid=$('dirGrid');
+  DIRECTORS.forEach(d=>{
+    const b=document.createElement('button');
+    b.className='soft-btn text-xs px-3 py-2 text-left';
+    b.innerHTML=`<div class="font-semibold">${d.n}</div><div class="text-[10px] subtle truncate">${d.cues.split(',')[0]}</div>`;
+    b.onclick=async()=>{
+      dirModal.classList.add('hidden');
+      if(!needKey())return;
+      const en=$('outEnView').dataset.raw||'';
+      if(!en){toast('Сначала сгенерируй');return;}
+      const orig=dirBtn.innerHTML;dirBtn.innerHTML='⏳ '+d.n.split(' ')[0];dirBtn.disabled=true;
+      const sys=`You are a senior cinematographer rewriting a video prompt in the directorial style of ${d.n}.
+
+CRITICAL: keep the subject, action, scene, and narrative IDENTICAL. Only change the VISUAL LANGUAGE — lighting, color palette, framing, camera movement, mood, texture — to match this director's signature.
+
+Style cues to inject (organically, not as a list): ${d.cues}.
+
+Reply ONLY with the rewritten English prompt. Keep aspect ratio, duration, resolution, and negative prompt sections unchanged. Length similar to original.`;
+      const out=await aiCall([{role:'system',content:sys},{role:'user',content:en}]);
+      dirBtn.innerHTML=orig;dirBtn.disabled=false;
+      if(out){
+        if(typeof renderEn==='function')renderEn(out);
+        else $('outEnView').textContent=out;
+        if(typeof pushHist==='function')pushHist(out);
+        toast('🎬 В стиле '+d.n);
+      }
+    };
+    dirGrid.appendChild(b);
+  });
+  dirBtn.onclick=()=>dirModal.classList.remove('hidden');
+
+  /* ===== 5. STYLE CROSS-POLLINATE ===== */
+  /* Add a button to the cmpBtn (Compare two prompts) workflow.
+     Compare modal lets user paste two prompts; we add a "🎨 Скрестить" button
+     that merges A's narrative (subject/action/scene) with B's style (palette/light/mood/style). */
+  /* The compare modal is built lazily, so we hook the click and inject our button after open. */
+  const _origCmp=$('cmpBtn').onclick;
+  $('cmpBtn').onclick=function(...a){
+    const r=_origCmp&&_origCmp.apply(this,a);
+    setTimeout(()=>{
+      const modal=document.getElementById('cmpModal');
+      if(!modal||modal.querySelector('#cmpMixBtn'))return;
+      const mixBtn=document.createElement('button');
+      mixBtn.id='cmpMixBtn';
+      mixBtn.className='soft-btn text-xs px-3 py-1.5 mt-2';
+      mixBtn.innerHTML='🎨 Скрестить (сюжет A + стиль B)';
+      mixBtn.title='AI возьмёт сюжет из левого промта и визуальный стиль из правого';
+      const ta2=modal.querySelectorAll('textarea')[1];
+      if(ta2&&ta2.parentElement)ta2.parentElement.appendChild(mixBtn);
+      else modal.querySelector('.glass,.rounded-2xl')?.appendChild(mixBtn);
+      mixBtn.onclick=async()=>{
+        if(!needKey())return;
+        const tas=modal.querySelectorAll('textarea');
+        const A=tas[0]?.value?.trim();const B=tas[1]?.value?.trim();
+        if(!A||!B){toast('Заполни оба поля');return;}
+        mixBtn.innerHTML='⏳ AI смешивает...';mixBtn.disabled=true;
+        const sys=`You merge two video prompts: take the SUBJECT, ACTION, SCENE, and NARRATIVE from prompt A; take the VISUAL STYLE — lighting, color palette, mood, camera language, era/aesthetic — from prompt B. Reply ONLY with the merged English prompt, ~150-250 words, cinematic, single paragraph.`;
+        const user=`PROMPT A (narrative source):\n${A}\n\n---\n\nPROMPT B (style source):\n${B}`;
+        const out=await aiCall([{role:'system',content:sys},{role:'user',content:user}]);
+        mixBtn.innerHTML='🎨 Скрестить (сюжет A + стиль B)';mixBtn.disabled=false;
+        if(out){
+          /* Apply the merged prompt to the form via reverse-engineering */
+          if(typeof renderEn==='function'){renderEn(out);}
+          else{$('outEnView').textContent=out;$('outEnView').dataset.raw=out;}
+          if(typeof pushHist==='function')pushHist(out);
+          modal.classList.add('hidden');
+          toast('🎨 Скрещено — результат в EN');
+        }
+      };
+    },200);
+    return r;
+  };
+
+  /* Register all in command palette */
+  try{
+    if(typeof CMDS!=='undefined'){
+      CMDS.push({n:'🎯 Куда отправить (Model Router)',h:()=>routerBtn.click()});
+      CMDS.push({n:'🎬 Переписать в стиле режиссёра',h:()=>dirBtn.click()});
+    }
+  }catch(e){}
+
+  console.log('%c[Lumen v15.8] Tier 1 enhancements loaded: Cost / Linter / Router / Director / Mix','color:#a78bfa');
+})();
