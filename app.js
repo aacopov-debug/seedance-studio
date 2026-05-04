@@ -4173,20 +4173,32 @@ try{
 /* ============ STYLE PRESETS LIBRARY (Phase 3) ============ */
 const PRESETS_KEY='lumen.presets.v1';
 const lumenPresets={
-  list(){try{return JSON.parse(localStorage.getItem(PRESETS_KEY)||'[]');}catch(e){return[];}},
-  save(rec){const all=this.list();all.unshift(rec);localStorage.setItem(PRESETS_KEY,JSON.stringify(all));},
-  remove(id){const all=this.list().filter(p=>p.id!==id);localStorage.setItem(PRESETS_KEY,JSON.stringify(all));},
+  /* Cache the parsed array keyed by the raw localStorage string. Without this, every list() call
+     produced brand-new preset objects via JSON.parse — defeating the WeakMap cache in _txtPresetToStyleSuffix
+     (keys are object references) and forcing expensive serializer work on every getBeats/getShots/generate call. */
+  _cache:null,_cacheKey:null,
+  list(){
+    const raw=localStorage.getItem(PRESETS_KEY)||'[]';
+    if(raw===this._cacheKey&&this._cache)return this._cache;
+    try{this._cache=JSON.parse(raw);}catch(e){this._cache=[];}
+    this._cacheKey=raw;
+    return this._cache;
+  },
+  _invalidate(){this._cache=null;this._cacheKey=null;},
+  save(rec){const all=this.list().slice();all.unshift(rec);localStorage.setItem(PRESETS_KEY,JSON.stringify(all));this._invalidate();},
+  remove(id){const all=this.list().filter(p=>p.id!==id);localStorage.setItem(PRESETS_KEY,JSON.stringify(all));this._invalidate();},
   exportJson(){return JSON.stringify(this.list(),null,2);},
   importJson(j){
     const arr=JSON.parse(j);
     if(!Array.isArray(arr))throw new Error('Файл должен быть JSON-массивом пресетов');
-    const all=this.list();
+    const all=this.list().slice();
     const existingIds=new Set(all.map(p=>p.id));
     let added=0;
     arr.forEach(p=>{
       if(p&&p.id&&p.data&&!existingIds.has(p.id)){all.push(p);added++;}
     });
     localStorage.setItem(PRESETS_KEY,JSON.stringify(all));
+    this._invalidate();
     return added;
   }
 };
