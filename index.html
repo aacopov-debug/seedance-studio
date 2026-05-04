@@ -838,7 +838,21 @@ h1{font-feature-settings:'ss03','cv11'}
       <input id="imgLastFile" type="file" accept="image/*" class="hidden"/>
     </div>
   </div>
-  <div><label class="block text-xs subtle mb-1">Motion prompt</label><textarea id="motion" rows="2" class="field" placeholder="hair flowing, eyes blinking, camera pushes in"></textarea></div>
+  <div>
+    <div class="flex items-center justify-between mb-1 gap-2 flex-wrap">
+      <label class="text-xs subtle">Motion prompt <span class="subtle" title="Описание движения между первым и последним кадром. AI-видео модели с этим работают сильно лучше.">ⓘ</span></label>
+      <div class="flex gap-1.5 flex-wrap">
+        <button id="motionAiBtn" type="button" class="soft-btn text-[10px] px-2 py-1 inline-flex items-center gap-1" title="AI проанализирует кадр(ы) и подскажет подходящее движение">✨ <span>AI подсказать</span></button>
+        <button type="button" class="soft-btn motion-preset text-[10px] px-2 py-1" data-preset="breath" title="Для портретов — дыхание, моргание, мимика">🫧 Breath</button>
+        <button type="button" class="soft-btn motion-preset text-[10px] px-2 py-1" data-preset="pushin" title="Камера плавно наезжает">📷 Push-in</button>
+        <button type="button" class="soft-btn motion-preset text-[10px] px-2 py-1" data-preset="wind" title="Волосы, ткань, атмосферные частицы">💨 Wind</button>
+        <button type="button" class="soft-btn motion-preset text-[10px] px-2 py-1" data-preset="particles" title="Пылинки, волюметрический свет">🌫 Particles</button>
+        <button type="button" class="soft-btn motion-preset text-[10px] px-2 py-1" data-preset="parallax" title="Эффект глубины — передний план движется быстрее">🌊 Parallax</button>
+        <button type="button" class="soft-btn motion-preset text-[10px] px-2 py-1" data-preset="dolly" title="Боковое смещение камеры, tracking shot">🎥 Dolly</button>
+      </div>
+    </div>
+    <textarea id="motion" rows="2" class="field" placeholder="hair flowing, eyes blinking, camera pushes in"></textarea>
+  </div>
   <label class="flex items-start gap-2 p-3 rounded-lg bg-violet-500/10 border border-violet-500/30 cursor-pointer hover:bg-violet-500/15 transition">
     <input type="checkbox" id="faceLockI2v" class="w-4 h-4 mt-0.5 accent-violet-500 flex-shrink-0"/>
     <div class="flex-1">
@@ -1145,18 +1159,18 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v15.5</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v15.6</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=15.5" defer></script>
-<script src="js/i2p.js?v=15.5" defer></script>
-<script src="js/history.js?v=15.5" defer></script>
-<script src="js/story.js?v=15.5" defer></script>
-<script src="js/continuity.js?v=15.5" defer></script>
-<script src="js/fcpxml.js?v=15.5" defer></script>
-<script src="extras.js?v=15.5" defer></script>
+<script src="app.js?v=15.6" defer></script>
+<script src="js/i2p.js?v=15.6" defer></script>
+<script src="js/history.js?v=15.6" defer></script>
+<script src="js/story.js?v=15.6" defer></script>
+<script src="js/continuity.js?v=15.6" defer></script>
+<script src="js/fcpxml.js?v=15.6" defer></script>
+<script src="extras.js?v=15.6" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

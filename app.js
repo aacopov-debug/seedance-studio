@@ -735,6 +735,61 @@ let _imgVal=imgState.img,_imgLastVal=imgState.imgLast;
 Object.defineProperty(imgState,'img',{get:()=>_imgVal,set:v=>{const fresh=v && v!==_imgVal; _imgVal=v; if(fresh) runVision(v);},configurable:true});
 Object.defineProperty(imgState,'imgLast',{get:()=>_imgLastVal,set:v=>{_imgLastVal=v;},configurable:true});
 
+/* ============ v15.6: FRAME INTERPOLATION HINTS ============
+   Offline motion presets (proven phrases) + AI vision-based hint generator.
+   Improves I2V output quality significantly — models animate better with explicit motion cues. */
+const MOTION_PRESETS={
+  breath:'subtle chest rise and fall with natural breathing, slight shoulder movement, natural eye blinks every 3-4 seconds, micro facial expressions',
+  pushin:'camera slowly pushes in over 4 seconds, gentle dolly forward movement, shallow depth of field deepens as it approaches',
+  wind:'hair and fabric gently sway in a light breeze, atmospheric particles drift across frame, subtle environmental motion',
+  particles:'dust motes float through light rays, soft volumetric haze drifts slowly, tiny specks catch the light',
+  parallax:'foreground elements shift slightly faster than midground, background remains nearly still, creating natural 3D depth parallax',
+  dolly:'slow sideways tracking shot, camera slides horizontally revealing new parts of the scene, subject stays roughly centered'
+};
+function motionAppendPreset(key){
+  const ta=$('motion');if(!ta)return;
+  const phrase=MOTION_PRESETS[key];if(!phrase)return;
+  const cur=ta.value.trim();
+  ta.value=cur?(cur.replace(/[\s,.]+$/,'')+', '+phrase):phrase;
+  ta.dispatchEvent(new Event('change'));
+  try{generate();}catch(e){}
+  toast('+ '+key);
+}
+document.querySelectorAll('.motion-preset').forEach(b=>b.onclick=()=>motionAppendPreset(b.dataset.preset));
+
+async function motionAiHints(){
+  if(!imgState.img){toast('Сначала загрузи первый кадр');return;}
+  if(!needKey())return;
+  const c=aiCfg();if(!c.key){toast('Нужен AI ключ');return;}
+  const btn=$('motionAiBtn');const o=btn?.innerHTML;
+  if(btn){btn.disabled=true;btn.innerHTML='⏳';}
+  try{
+    const hasLast=!!imgState.imgLast;
+    const sys=hasLast
+      ? 'You analyze TWO keyframes (first and last) of a video clip and write a concise motion-interpolation description for an AI video generator. Describe what changes smoothly between them: subject pose, expression, position, environment, lighting, camera movement. Use cinematic English, 25-60 words, comma-separated phrases, no preamble. Reply as JSON: {"motion":"..."}'
+      : 'You analyze ONE reference frame and suggest subtle, realistic motion cues for an AI video generator to animate it naturally. Pick motion appropriate to the subject (portrait → breath/blink/micro-expressions, landscape → wind/particles/light, interior → dust/camera push, action → specific movement). Use cinematic English, 25-50 words, comma-separated, no preamble. Reply as JSON: {"motion":"..."}';
+    const userContent=[
+      {type:'text',text:hasLast?'First frame and last frame follow. Write motion between them.':'Reference frame follows. Suggest motion to animate it.'},
+      {type:'image_url',image_url:{url:imgState.img}}
+    ];
+    if(hasLast)userContent.push({type:'image_url',image_url:{url:imgState.imgLast}});
+    const j=await aiFetchJson(c,'/chat/completions',{
+      model:c.model,
+      response_format:{type:'json_object'},
+      messages:[{role:'system',content:sys},{role:'user',content:userContent}]
+    });
+    const txt=j.choices?.[0]?.message?.content;
+    if(!txt)throw new Error('Пустой ответ AI');
+    const data=JSON.parse(txt);
+    if(!data.motion)throw new Error('Нет поля motion в ответе');
+    const ta=$('motion');
+    if(ta){ta.value=data.motion;ta.dispatchEvent(new Event('change'));try{generate();}catch(e){}}
+    toast('✨ Motion hints готовы'+(hasLast?' (из 2 кадров)':''));
+  }catch(e){logError('motionAiHints',e);toast('Motion AI: '+e.message);}
+  finally{if(btn){btn.disabled=false;btn.innerHTML=o;}}
+}
+document.getElementById('motionAiBtn')?.addEventListener('click',motionAiHints);
+
 /* ============ AI refine buttons ============ */
 document.querySelectorAll('[data-refine]').forEach(b=>b.onclick=async()=>{
   if(!needKey())return; const cur=$('outEnView').dataset.raw||'';
