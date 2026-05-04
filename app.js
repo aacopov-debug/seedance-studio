@@ -955,9 +955,9 @@ $('libSound').onclick=()=>openLib('🎼 Звуковые пресеты',SOUND_L
 
 /* ============ v5: MULTI-MODEL templates ============ */
 const MODELS={
-  seedance:{n:"🎬 Seedance 2.0",max:10,res:["480p","720p","1080p"],hint:"Структура: subject → action → scene → camera → light → style"},
-  runway:{n:"🎥 Runway Gen-3",max:10,res:["768p","1280p"],hint:"Краткие визуальные описания, мощно с motion brush"},
-  kling:{n:"🇨🇳 Kling 1.5",max:10,res:["720p","1080p"],hint:"Поддерживает китайский, длинные сцены до 10s"},
+  seedance:{n:"🎬 Seedance 2.0",max:15,res:["480p","720p","1080p"],hint:"Структура: subject → action → scene → camera → light → style"},
+  runway:{n:"🎥 Runway Gen-3",max:15,res:["768p","1280p"],hint:"Краткие визуальные описания, мощно с motion brush"},
+  kling:{n:"🇨🇳 Kling 1.5",max:15,res:["720p","1080p"],hint:"Поддерживает китайский, длинные сцены до 15s"},
   hailuo:{n:"🌶 Hailuo MiniMax",max:6,res:["720p","1080p"],hint:"Хорошо с физикой и эмоциями"},
   sora:{n:"🌀 Sora",max:60,res:["1080p"],hint:"Длинные сюжетные ролики, до 60s"},
   veo:{n:"🅖 Google Veo",max:8,res:["1080p","4k"],hint:"Высокое качество, native audio"},
