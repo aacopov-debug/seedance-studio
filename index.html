@@ -1070,10 +1070,21 @@ h1{font-feature-settings:'ss03','cv11'}
       <button data-aip="openai" class="soft-btn px-3 py-1.5">OpenAI</button>
       <button data-aip="ollama" class="soft-btn px-3 py-1.5">Ollama локально</button>
       <button data-aip="deepseek" class="soft-btn px-3 py-1.5">DeepSeek</button>
+      <button data-aip="nekocode" class="soft-btn px-3 py-1.5">Nekocode</button>
+      <button data-aip="anthropic" class="soft-btn px-3 py-1.5">Anthropic</button>
+      <button data-aip="groq" class="soft-btn px-3 py-1.5">Groq</button>
     </div>
     <label class="block text-xs subtle mb-1">Base URL</label><input id="aiBase" class="field mb-3" value="https://api.openai.com/v1"/>
     <label class="block text-xs subtle mb-1">API Key</label><input id="aiKey" type="password" class="field mb-3" placeholder="sk-..."/>
-    <label class="block text-xs subtle mb-1">Model</label><input id="aiModel" class="field mb-4" value="gpt-4o-mini"/>
+    <label class="block text-xs subtle mb-1">Model</label><input id="aiModel" class="field mb-3" value="gpt-4o-mini"/>
+    <label class="block text-xs subtle mb-1 tooltip" data-tip="Тип заголовка авторизации, который ждёт твой провайдер. Большинство OpenAI-совместимых = Bearer">Авторизация</label>
+    <select id="aiAuth" class="field mb-4">
+      <option value="bearer">Authorization: Bearer (OpenAI, DeepSeek, Nekocode, Groq)</option>
+      <option value="x-api-key">x-api-key (Anthropic)</option>
+      <option value="api-key">api-key (Azure OpenAI)</option>
+      <option value="x-goog-api-key">X-Goog-Api-Key (Google Gemini)</option>
+      <option value="none">Без авторизации (Ollama локально)</option>
+    </select>
     <div class="flex gap-2 justify-end"><button onclick="aiModal.classList.add('hidden')" class="soft-btn px-4 py-2 text-sm">Отмена</button><button id="aiSave" class="btn-primary px-4 py-2 rounded-lg text-sm">Сохранить</button></div>
   </div>
 </div>
@@ -1116,13 +1127,13 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v14.4</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v14.5</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=14.4" defer></script>
-<script src="extras.js?v=14.4" defer></script>
+<script src="app.js?v=14.5" defer></script>
+<script src="extras.js?v=14.5" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){

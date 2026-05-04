@@ -73,7 +73,14 @@ const CONFLICTS=[{a:["night","midnight"],b:["golden hour sunlight","harsh midday
 const ANTI_NEG="morphing artifacts, warping, jittery motion, frame skipping, deformed limbs, extra fingers, distorted faces, text artifacts, watermark, low quality, blurry, flickering";
 const TRANS=["cut","dissolve","match cut","smash cut","fade to black"];
 const COST={'480p':0.005,'720p':0.012,'1080p':0.024};
-const AIP={openai:{base:'https://api.openai.com/v1',model:'gpt-4o-mini'},ollama:{base:'http://localhost:11434/v1',model:'llama3.2'},deepseek:{base:'https://api.deepseek.com',model:'deepseek-chat'}};
+const AIP={
+  openai:{base:'https://api.openai.com/v1',model:'gpt-4o-mini',auth:'bearer'},
+  ollama:{base:'http://localhost:11434/v1',model:'llama3.2',auth:'none'},
+  deepseek:{base:'https://api.deepseek.com',model:'deepseek-chat',auth:'bearer'},
+  nekocode:{base:'https://ru.gateway.nekocode.app/andromeda/v1',model:'gpt-5.5',auth:'bearer'},
+  anthropic:{base:'https://api.anthropic.com/v1',model:'claude-sonnet-4-5',auth:'x-api-key'},
+  groq:{base:'https://api.groq.com/openai/v1',model:'llama-3.3-70b-versatile',auth:'bearer'}
+};
 
 const $=id=>document.getElementById(id);
 const v=id=>($(id)?.value||'').trim();
@@ -426,17 +433,31 @@ const sT=localStorage.getItem('seedance_theme');if(sT)document.documentElement.d
 setTimeout(syncThemeIcon,150);
 
 const aiModal=$('aiModal'),varsModal=$('varsModal');
-$('aiSettingsBtn').onclick=()=>{aiModal.classList.remove('hidden');$('aiBase').value=localStorage.getItem('ai_base')||'https://api.openai.com/v1';$('aiKey').value=localStorage.getItem('ai_key')||'';$('aiModel').value=localStorage.getItem('ai_model')||'gpt-4o-mini';};
-$('aiSave').onclick=()=>{safeLS('ai_base',$('aiBase').value);safeLS('ai_key',$('aiKey').value);safeLS('ai_model',$('aiModel').value);aiModal.classList.add('hidden');toast('Сохранено');};
-document.querySelectorAll('[data-aip]').forEach(b=>b.onclick=()=>{const p=AIP[b.dataset.aip];$('aiBase').value=p.base;$('aiModel').value=p.model;});
+$('aiSettingsBtn').onclick=()=>{aiModal.classList.remove('hidden');$('aiBase').value=localStorage.getItem('ai_base')||'https://api.openai.com/v1';$('aiKey').value=localStorage.getItem('ai_key')||'';$('aiModel').value=localStorage.getItem('ai_model')||'gpt-4o-mini';if($('aiAuth'))$('aiAuth').value=localStorage.getItem('ai_auth')||'bearer';};
+$('aiSave').onclick=()=>{safeLS('ai_base',$('aiBase').value);safeLS('ai_key',$('aiKey').value);safeLS('ai_model',$('aiModel').value);if($('aiAuth'))safeLS('ai_auth',$('aiAuth').value);aiModal.classList.add('hidden');toast('Сохранено');};
+document.querySelectorAll('[data-aip]').forEach(b=>b.onclick=()=>{const p=AIP[b.dataset.aip];if(!p)return;$('aiBase').value=p.base;$('aiModel').value=p.model;if($('aiAuth')&&p.auth)$('aiAuth').value=p.auth;});
 
-function aiCfg(){return{base:(localStorage.getItem('ai_base')||'https://api.openai.com/v1').replace(/\/$/,''),key:localStorage.getItem('ai_key'),model:localStorage.getItem('ai_model')||'gpt-4o-mini'};}
-function needKey(){const c=aiCfg();const local=c.base.includes('localhost')||c.base.includes('11434');if(!c.key&&!local){toast('Нужен AI ключ (⚙ AI)');aiModal.classList.remove('hidden');return null;}return c;}
+function aiCfg(){return{base:(localStorage.getItem('ai_base')||'https://api.openai.com/v1').replace(/\/$/,''),key:localStorage.getItem('ai_key'),model:localStorage.getItem('ai_model')||'gpt-4o-mini',auth:localStorage.getItem('ai_auth')||'bearer'};}
+function needKey(){const c=aiCfg();const local=c.base.includes('localhost')||c.base.includes('11434')||c.auth==='none';if(!c.key&&!local){toast('Нужен AI ключ (⚙ AI)');aiModal.classList.remove('hidden');return null;}return c;}
+
+/* Build the auth-header object for a given config based on the chosen scheme.
+   Different gateways/providers expect different header names — this lets users plug into Nekocode,
+   Anthropic, Azure, Google Gemini, and any OpenAI-compatible endpoint without code changes. */
+function _aiAuthHeaders(c){
+  if(!c.key||c.auth==='none')return{};
+  switch(c.auth){
+    case 'x-api-key':return{'x-api-key':c.key,'anthropic-version':'2023-06-01'};
+    case 'api-key':return{'api-key':c.key};
+    case 'x-goog-api-key':return{'x-goog-api-key':c.key};
+    case 'bearer':
+    default:return{'Authorization':'Bearer '+c.key};
+  }
+}
 
 async function aiCall(messages,{json=false,stream=false,onChunk=null}={}){
   const c=needKey();if(!c)return null;
   const body={model:c.model,messages,temperature:0.85};if(json)body.response_format={type:'json_object'};if(stream)body.stream=true;
-  const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',...(c.key?{'Authorization':'Bearer '+c.key}:{})},body:JSON.stringify(body)});
+  const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify(body)});
   if(stream){const rd=r.body.getReader(),de=new TextDecoder();let buf='',full='';while(1){const{done,value}=await rd.read();if(done)break;buf+=de.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(d==='[DONE]')return full;try{const j=JSON.parse(d);const t=j.choices?.[0]?.delta?.content||'';full+=t;onChunk&&onChunk(t,full);}catch(e){console.debug(e)}}}return full;}
   const j=await r.json();if(j.error){toast('AI: '+j.error.message);return null;}return j.choices?.[0]?.message?.content;
 }
@@ -572,7 +593,7 @@ async function runVision(dataUrl){
   if(!confirm('🖼 Распознать через AI Vision и заполнить поля? (нужна vision-модель: gpt-4o, gpt-4o-mini, claude-3-5-sonnet)')) return;
   toast('🖼 AI смотрит...');
   try{
-    const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({
+    const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({
       model:c.model,
       response_format:{type:'json_object'},
       messages:[{role:'user',content:[
@@ -756,7 +777,7 @@ let _visionSkip=false;
 window.runVision=async function(dataUrl){if(!needKey())return;const c=aiCfg();if(!c.key){toast('Нужен ключ');return;}
   if(!_visionSkip){const ok=confirm('🖼 Распознать через AI Vision? (модель должна поддерживать vision)\n\nOK=да и больше не спрашивать в этой сессии. Cancel=пропустить.');if(!ok)return;_visionSkip=true;}
   toast('🖼 AI смотрит...');
-  try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Describe this image for video generation. Reply ONLY as JSON with keys: subject, scene, details, style, mood, lighting, palette, time, weather. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
+  try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Describe this image for video generation. Reply ONLY as JSON with keys: subject, scene, details, style, mood, lighting, palette, time, weather. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
     const j=await r.json();if(j.error){toast('Vision: '+j.error.message);return;}const t=j.choices?.[0]?.message?.content;if(!t)return;applyAiFields(JSON.parse(t));generate();toast('✓');}catch(e){toast('Vision: '+e.message);}};
 
 /* ============ v5: COMMAND PALETTE (Ctrl+K) ============ */
@@ -809,7 +830,7 @@ document.querySelector('aside').appendChild(previewBlock);
 $('previewBtn').onclick=async()=>{if(!needKey())return;const c=aiCfg();if(!c.key)return;const en=$('outEnView').dataset.raw||'';if(!en){toast('Сначала сгенерируйте');return;}
   $('previewBtn').textContent='⏳';$('previewImg').classList.add('hidden');
   try{const stillPrompt=en.split('\n')[0]+', single still cinematic frame, '+v('lighting')+', '+v('palette');
-    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:$('previewModel').value,prompt:stillPrompt.slice(0,3800),size:v('aspect')==='9:16'?'1024x1792':v('aspect')==='1:1'?'1024x1024':'1792x1024',n:1})});
+    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:$('previewModel').value,prompt:stillPrompt.slice(0,3800),size:v('aspect')==='9:16'?'1024x1792':v('aspect')==='1:1'?'1024x1024':'1792x1024',n:1})});
     const j=await r.json();if(j.error){toast('Image: '+j.error.message);return;}const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
     if(url){$('previewImg').innerHTML=`<img src="${url}" class="w-full rounded-lg mb-2"/><div class="flex gap-2"><a href="${url}" download="preview.png" class="soft-btn text-xs px-2 py-1">⬇ Скачать</a><button onclick="navigator.clipboard.writeText('${url}');toast('URL скопирован')" class="soft-btn text-xs px-2 py-1">📋 URL</button></div>`;$('previewImg').classList.remove('hidden');toast('✓');}
   }catch(e){toast('Image: '+e.message);}finally{$('previewBtn').textContent='🎨 Сгенерировать кадр';}};
@@ -982,7 +1003,7 @@ const _origRunVision=window.runVision;window.runVision=async function(dataUrl){
   if($('imgAsStyle')?.checked){if(!needKey())return;const c=aiCfg();if(!c.key)return;
     if(!_visionSkip){if(!confirm('🎨 Извлечь только стиль (light/palette/mood/style)?'))return;_visionSkip=true;}
     toast('🎨 AI читает стиль...');
-    try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Extract ONLY visual style from this image. Reply as JSON: {"lighting":"...","palette":"...","mood":"...","style":"..."}. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
+    try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Extract ONLY visual style from this image. Reply as JSON: {"lighting":"...","palette":"...","mood":"...","style":"..."}. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
       const j=await r.json();const t=j.choices?.[0]?.message?.content;const d=JSON.parse(t);Object.entries(d).forEach(([k,vl])=>{if($(k)&&vl)$(k).value=vl;});generate();toast('✓ Стиль');}catch(e){toast('Style: '+e.message);}return;}
   return _origRunVision(dataUrl);
 };
@@ -997,7 +1018,7 @@ sbBtn.onclick=async()=>{const shots=getShots();if(!shots.length){toast('Нет �
   for(let i=0;i<shots.length;i++){const card=document.createElement('div');card.className="bg-black/10 rounded-lg overflow-hidden border border-white/10";
     card.innerHTML=`<div class="aspect-video bg-black/30 grid place-items-center text-xs subtle">⏳ shot ${i+1}</div><div class="p-2 text-[10px]">Shot ${i+1}: ${shots[i].cam.slice(0,40)}</div>`;sbBox.appendChild(card);
     try{const p=`cinematic still, ${v('subject')}, ${shots[i].cam}, ${shots[i].act}, ${v('lighting')}, ${v('palette')}, ${v('style')}`;
-      const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:'dall-e-3',prompt:p.slice(0,3800),size:'1792x1024',n:1})});
+      const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt:p.slice(0,3800),size:'1792x1024',n:1})});
       const j=await r.json();const url=j.data?.[0]?.url;if(url)card.querySelector('div').outerHTML=`<img src="${url}" class="w-full aspect-video object-cover"/>`;
     }catch(e){card.querySelector('div').textContent='✕ '+e.message;}}
   toast('✓ Storyboard');};
@@ -1381,7 +1402,7 @@ async function generateScenePreview(i){
   const slot=$('storyImg'+i);if(slot)slot.innerHTML='⏳';
   try{
     const prompt=`cinematic still frame, ${STORY.hero}, ${sc.prompt}`.slice(0,3800);
-    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:'dall-e-3',prompt,size:'1792x1024',n:1})});
+    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt,size:'1792x1024',n:1})});
     const j=await r.json();
     if(j.error){if(slot)slot.textContent='✕';toast('Image: '+j.error.message);return;}
     const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
@@ -2480,7 +2501,7 @@ async function generateImage(prompt,opts={}){
     if(model==='dall-e-3')body.quality=quality;
     const r=await fetch(c.base+'/images/generations',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
       body:JSON.stringify(body)
     });
     const j=await r.json();
@@ -3755,7 +3776,7 @@ The palette, composition, lighting, keywords etc. in the output must reflect the
     console.log('sending request...');
     const r=await fetch(c.base+'/chat/completions',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
       signal:ac.signal,
       body:JSON.stringify({
         model:c.model,
@@ -4009,7 +4030,7 @@ Reply ONLY as JSON:
     const userMsg='Analyze this reference image and produce the prompts.'+(mod?' User modification: '+mod:'');
     const r=await fetch(c.base+'/chat/completions',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},
+      headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
       body:JSON.stringify({
         model:c.model,
         response_format:{type:'json_object'},
