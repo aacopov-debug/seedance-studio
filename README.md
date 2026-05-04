@@ -35,12 +35,15 @@ Output: "Lone detective in trench coat walks through fog-drenched harbor,
 
 | | |
 |---|---|
+| 🟢 **Simple Mode** | Beginner-friendly: 4 tabs (Text / Image / Video / I2P) with templates |
+| 🔍 **Img→Prompt (I2P)** | Drop any image → AI Vision analyzes 9 fields → 3 ready prompts. Supports multi-reference (palette/lighting/composition roles) |
 | 🎯 **Goal mode** | One sentence → full structured prompt via AI |
 | 🩺 **Critique** | AI rates your prompt 0-100 and suggests fixes |
 | 🖼 **Image-to-Video** | Drop a reference image, AI Vision fills the form |
-| 🎬 **Story Mode** | Generate 3-10 connected scenes with consistent hero |
-| 🔍 **Continuity Checker** | AI script supervisor finds wardrobe/time/prop breaks |
+| 🎬 **Story Mode** | Generate 3-10 connected scenes with consistent hero + DALL·E previews |
+| 🔍 **Continuity Checker** | AI script supervisor finds wardrobe/time/prop breaks + auto-fix |
 | 📽 **FCPXML export** | Drop the timeline straight into DaVinci Resolve / Final Cut |
+| 🕘 **Prompt History** | Last 50 generations across all modes, full-text searchable |
 | 🎤 **Voice input** | Speak your idea, Web Speech API transcribes |
 | 🌐 **Translation** | EN / RU / CN / JP / ES |
 | 🎨 **Live palette** | Visual color reference under the form |
@@ -61,7 +64,7 @@ cd seedance-studio
 ```
 
 ### Option 3: Deploy your own copy
-This is a static site. Drop the 3 files (`index.html`, `app.js`, `MANUAL.html`) anywhere — GitHub Pages, Netlify, Vercel, your own server.
+This is a static site. Copy `index.html`, `app.js`, `extras.js`, the `js/` folder, and `MANUAL.html` anywhere — GitHub Pages, Netlify, Vercel, your own server. No build step.
 
 ## 🤖 AI setup (optional)
 
@@ -119,12 +122,21 @@ Full user manual: **[MANUAL.html](MANUAL.html)** (40 pages, printable to PDF via
 
 ```
 seedance-studio/
-├── index.html       The app (UI + Tailwind config)
-├── app.js           All logic (~1800 lines, single file)
-├── MANUAL.html      Full user manual (PDF-printable)
-├── README.md        This file
-└── LICENSE          MIT
+├── index.html         UI markup + Tailwind config + styles
+├── app.js             Core (~3100 lines): Pro Mode, AI layer, Simple Mode, Text→Pro, Presets, T2I
+├── extras.js          Skeleton loaders, templates gallery, onboarding tour, PWA
+├── js/
+│   ├── i2p.js         Image-to-Prompt pipeline (vision, multi-ref, generation)
+│   ├── story.js       Story Mode (multi-scene generator)
+│   ├── continuity.js  AI script supervisor for Story Mode
+│   ├── fcpxml.js      FCPXML timeline ZIP exporter
+│   └── history.js     Prompt History (shared across Simple Mode & I2P)
+├── MANUAL.html        Full user manual (PDF-printable)
+├── README.md          This file
+└── LICENSE            MIT
 ```
+
+All modules load via `<script defer>` in dependency order. Globals (`$`, `aiCall`, `toast`) are defined in `app.js` and shared across modules.
 
 ## 🤝 Contributing
 
