@@ -920,7 +920,7 @@ h1{font-feature-settings:'ss03','cv11'}
   <h2 class="font-semibold">Параметры</h2>
   <div class="grid sm:grid-cols-3 gap-4">
     <div><label class="block text-xs subtle mb-1">Соотношение</label><select id="aspect" class="field"><option>16:9</option><option>9:16</option><option>1:1</option><option>4:3</option><option>21:9</option></select></div>
-    <div><label class="block text-xs subtle mb-1 tooltip" data-tip="Pro: до 10s. Lite: до 5s">Длительность</label><select id="duration" class="field"><option>3s</option><option selected>5s</option><option>10s</option></select></div>
+    <div><label class="block text-xs subtle mb-1 tooltip" data-tip="Pro: до 15s. Lite: до 5s">Длительность</label><select id="duration" class="field"><option>3s</option><option selected>5s</option><option>10s</option><option>15s</option></select></div>
     <div><label class="block text-xs subtle mb-1 tooltip" data-tip="Pro: 1080p. Lite: 720p">Разрешение</label><select id="res" class="field"><option>480p</option><option selected>720p</option><option>1080p</option></select></div>
   </div>
   <div class="flex items-center gap-4 flex-wrap text-sm">
@@ -1116,13 +1116,13 @@ h1{font-feature-settings:'ss03','cv11'}
   window.refreshIcons=refreshIcons;
 </script>
 <footer class="lumen-footer">
-  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v14.1</span>
+  🌟 <span data-i18n="footer.brand">Lumen — Cinematic Prompt Studio</span> · <span id="footerVer">v14.2</span>
   <span style="margin:0 .4rem;opacity:.5">·</span>
   <span data-i18n="footer.crafted">Crafted with ✨ by</span> <strong>Armen</strong>
 </footer>
 
-<script src="app.js?v=14.1" defer></script>
-<script src="extras.js?v=14.1" defer></script>
+<script src="app.js?v=14.2" defer></script>
+<script src="extras.js?v=14.2" defer></script>
 <script>
   // Cache-bust safeguard: if SW still serves an old extras.js without LUMEN_VERSION, force reload
   window.addEventListener('load',function(){
