@@ -88,7 +88,7 @@ hr{border:none;border-top:2px dashed #ddd;margin:32px 0}
   <p>Полное руководство пользователя · by Armen</p>
   <p class="subtle" style="font-size:14px">Создание кинематографичных промтов для видео и картинок<br/>Simple Mode · I2P (картинка→промт) · EN+RU · 12 стилей · Batch-экспорт · История · Story Mode · FCPXML</p>
   <div class="cover-meta">
-    Версия 15.8 · Май 2026<br/>
+    Версия 15.9 · Май 2026<br/>
     Для приложения <code>index.html</code>
   </div>
 </div>
@@ -120,6 +120,7 @@ hr{border:none;border-top:2px dashed #ddd;margin:32px 0}
   <a href="#ai-security" class="lvl2">5.4 Безопасность ключа</a>
   <a href="#ai-tools">6. AI инструменты</a>
   <a href="#ai-tier1" class="lvl2">6.1 v15.8 — Tier 1 улучшения (Router / Director / Cost / Linter / Mix)</a>
+  <a href="#ai-tier2" class="lvl2">6.2 v15.9 — Tier 2 улучшения (Audio / Dialogue / RefVideo / Moodboard / Lighting)</a>
   <a href="#i2v">7. Image-to-Video режим</a>
   <a href="#multishot">8. Multi-shot (раскадровка)</a>
   <a href="#timeline">9. Timeline beats</a>
@@ -781,6 +782,58 @@ Face Lock — это усиленная текстовая инструкция 
 <p>В модалке <b>🔄 Compare</b> (сравнение двух промтов) добавлена кнопка <b>🎨 Скрестить (сюжет A + стиль B)</b>. AI берёт SUBJECT, ACTION, SCENE из левого промта и LIGHTING, COLOR, MOOD, CAMERA из правого, склеивает в единый кинематографичный текст ~150-250 слов.</p>
 <p><b>Use case:</b> у тебя есть промт с интересным сюжетом, но скучным стилем. И второй — с впечатляющим стилем (например, скопирован из удачного результата другого пользователя), но не подходящим тебе сюжетом. Скрести их в один клик.</p>
 
+<h3 id="ai-tier2">6.2 v15.9 — Tier 2 AI-улучшения</h3>
+
+<p>Модуль <code>js/tier2.js</code> добавляет 5 продвинутых AI-фич для полного production-pipeline. Все кнопки окажутся в панели AI-инструментов рядом с Tier 1.</p>
+
+<h4>🎵 Audio Prompt Generator</h4>
+<p>Кнопка <b>🎵 Audio</b>. По текущему EN-промту AI генерирует три параллельных аудио-промта:</p>
+<ul>
+<li><b>🎼 Music (Suno):</b> однострочный промт в формате Suno — жанр, BPM, инструменты, музыкальный ключ, длительность</li>
+<li><b>🔊 Ambient + SFX (ElevenLabs/MMAudio):</b> фоновый слой + список дискретных звуковых событий</li>
+<li><b>🎤 Voice direction:</b> режиссёрская инструкция для актёра озвучки + lip-sync hint</li>
+</ul>
+<p>Каждый блок имеет кнопку «📋 copy». Идея: видео + аудио в один раз.</p>
+
+<h4>🎭 Dialogue Writer</h4>
+<p>Кнопка <b>🎭 Dialogue</b>. AI пишет 1-3 реплики персонажу в формате для Sora/Veo/Kling: <code>[character_descriptor speaking_action]: "line"</code>. Учитывает character/subject/action/scene/mood/duration (расчёт ~3 слова на секунду). Результат добавляется в поле Dialogue.</p>
+
+<h4>🎞 Reference Video Analyzer</h4>
+<p><b>Флагманская фича.</b> Кнопка <b>🎞 Reference video</b> открывает файл-пикер. Выбираешь MP4 (любая длительность) — дальше всё автоматически:</p>
+<ol>
+<li>Браузер извлекает 6 кадров равномерно по всей длине видео (через video+canvas, скейл 640px, JPEG 70% для экономии токенов).</li>
+<li>Все 6 кадров одним мульти-image vision-вызовом отправляются в AI.</li>
+<li>AI возвращает JSON: subject, scene, lighting, palette, mood, style + список из 3-6 шотов (dur/cam/act/tr).</li>
+<li>В модалке показываются 6 thumbnail-кадров + результаты анализа.</li>
+<li>Кнопка <b>✅ Применить</b> заполняет все основные поля и multi-shot таблицу автоматически (включая флажок «Multi-shot»).</li>
+</ol>
+<p><b>Use case:</b> клиент прислал референс-ролик, хочешь воссоздать его в Sora/Runway. Уронить → клик «Применить» → форма заполнена.</p>
+
+<h4>📸 Auto Mood-board</h4>
+<p>Кнопка <b>📸 Mood-board</b>. Генерирует 4 стилистических варианта первого кадра через DALL·E:</p>
+<ul>
+<li>☀ Bright/Optimistic — golden hour, pastel</li>
+<li>🌙 Dark/Melancholic — chiaroscuro, muted</li>
+<li>⚡ High-contrast cinematic — teal/orange</li>
+<li>🎨 Stylized/Surreal — painterly, magical realism</li>
+</ul>
+<p>Все 4 рендериваются параллельно (Promise.all). Клик по понравившемуся → стилистические cue добавляются в lighting/mood. <b>Стоимость:</b> ~$0.16 за 4 картинки (DALL·E 3 базовый тариф).</p>
+
+<h4>💡 AI Cinematographer</h4>
+<p>Кнопка <b>💡 Lighting</b>. AI в роли DOP проектирует полную световую схему из subject/mood/time/scene:</p>
+<table>
+<tr><th>Поле</th><th>Что содержит</th></tr>
+<tr><td><b>setup_name</b></td><td>Rembrandt / Butterfly / Split / Loop / Three-point / High-key / Low-key / Chiaroscuro / Practical-only / Natural-only / Hard-light / Soft-key</td></tr>
+<tr><td><b>key</b></td><td>угол + позиция, тип источника (HMI/LED/softbox), цветовая температура в Кельвинах, интенсивность</td></tr>
+<tr><td><b>fill</b></td><td>ratio (4:1 драматичный / 2:1 cinematic / 1:1 плоский), источник (bounce/fill/ambient)</td></tr>
+<tr><td><b>back</b></td><td>rim/hair/separation/kicker, цвет</td></tr>
+<tr><td><b>practicals</b></td><td>список видимых в кадре источников (лампы, неон, свечи)</td></tr>
+<tr><td><b>atmosphere</b></td><td>haze / fog / dust / clean</td></tr>
+<tr><td><b>reference</b></td><td>фильм или DOP, чья работа похожа (Roger Deakins Blade Runner 2049, Lubezki Birdman, и т.д.)</td></tr>
+<tr><td><b>short</b></td><td>Однострочная кинематографичная версия для поля Lighting (10-15 слов)</td></tr>
+</table>
+<p>Две кнопки в результате: <b>Применить короткое</b> (вписывает «short» в lighting field) и <b>Скопировать полное</b> (выгружает всё описание в буфер для передачи DOP).</p>
+
 <!-- ========== 7 I2V ========== -->
 <h2 id="i2v">7. Image-to-Video режим</h2>
 
@@ -1243,7 +1296,7 @@ Workaround: импортируй сначала в Resolve → <b>File → Expor
 <p>Это локальное приложение. Обновления — заменой файлов <code>index.html</code>, <code>app.js</code>, <code>extras.js</code> и папки <code>js/</code> (модули фич: <code>i2p.js</code>, <code>story.js</code>, <code>history.js</code>, <code>continuity.js</code>, <code>fcpxml.js</code>).</p>
 
 <div class="callout">
-<b>📂 Структура проекта (v15.8)</b>
+<b>📂 Структура проекта (v15.9)</b>
 <ul style="margin:6px 0 0 16px;font-family:monospace;font-size:12px">
 <li><code>index.html</code> — DOM, стили, точка входа</li>
 <li><code>app.js</code> — ядро (Pro Mode, AI-слой, Simple Mode core, Text→Pro, Presets, Text-to-Image)</li>
@@ -1253,12 +1306,13 @@ Workaround: импортируй сначала в Resolve → <b>File → Expor
 <li><code>js/continuity.js</code> — AI script supervisor для Story Mode</li>
 <li><code>js/fcpxml.js</code> — FCPXML экспорт таймлайна</li>
 <li><code>js/history.js</code> — Prompt History (общая история Simple Mode + I2P)</li>
+<li><code>js/tier2.js</code> — <span class="subtle">v15.9</span> Tier 2 AI: Audio / Dialogue / Reference Video / Mood-board / Cinematographer</li>
 </ul>
 Все модули загружаются через <code>&lt;script defer&gt;</code> в порядке зависимостей. Глобальные функции (<code>$</code>, <code>aiCall</code>, <code>toast</code>) определены в <code>app.js</code> и доступны всем модулям.
 </div>
 
 <p class="subtle" style="text-align:center;margin-top:60px;font-size:11px">
-Lumen — Cinematic Prompt Studio v15.8 · Руководство пользователя · by Armen · 2026<br/>
+Lumen — Cinematic Prompt Studio v15.9 · Руководство пользователя · by Armen · 2026<br/>
 Сгенерировано для печати в PDF (A4)
 </p>
 
