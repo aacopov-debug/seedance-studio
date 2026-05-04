@@ -433,11 +433,41 @@ const sT=localStorage.getItem('seedance_theme');if(sT)document.documentElement.d
 setTimeout(syncThemeIcon,150);
 
 const aiModal=$('aiModal'),varsModal=$('varsModal');
-$('aiSettingsBtn').onclick=()=>{aiModal.classList.remove('hidden');$('aiBase').value=localStorage.getItem('ai_base')||'https://api.openai.com/v1';$('aiKey').value=localStorage.getItem('ai_key')||'';$('aiModel').value=localStorage.getItem('ai_model')||'gpt-4o-mini';if($('aiAuth'))$('aiAuth').value=localStorage.getItem('ai_auth')||'bearer';};
-$('aiSave').onclick=()=>{safeLS('ai_base',$('aiBase').value);safeLS('ai_key',$('aiKey').value);safeLS('ai_model',$('aiModel').value);if($('aiAuth'))safeLS('ai_auth',$('aiAuth').value);aiModal.classList.add('hidden');toast('Сохранено');};
+$('aiSettingsBtn').onclick=()=>{aiModal.classList.remove('hidden');$('aiBase').value=localStorage.getItem('ai_base')||'https://api.openai.com/v1';$('aiKey').value=localStorage.getItem('ai_key')||'';$('aiModel').value=localStorage.getItem('ai_model')||'gpt-4o-mini';if($('aiAuth'))$('aiAuth').value=localStorage.getItem('ai_auth')||'bearer';if($('aiProxy'))$('aiProxy').value=localStorage.getItem('ai_proxy')||'';};
+$('aiSave').onclick=()=>{safeLS('ai_base',$('aiBase').value);safeLS('ai_key',$('aiKey').value);safeLS('ai_model',$('aiModel').value);if($('aiAuth'))safeLS('ai_auth',$('aiAuth').value);if($('aiProxy'))safeLS('ai_proxy',$('aiProxy').value.trim());aiModal.classList.add('hidden');toast('Сохранено');};
+/* Copy a minimal Cloudflare Worker that forwards any path to any upstream + adds CORS headers. */
+$('aiProxyTplBtn')?.addEventListener('click',e=>{e.preventDefault();const tpl=`/* Cloudflare Worker: universal CORS proxy for AI gateways
+   Deploy on https://workers.cloudflare.com (free tier: 100k requests/day)
+   Usage in Lumen: set CORS proxy = https://your-worker.workers.dev/
+   Final request URL will be: <proxy>/<full-target-url> */
+export default {
+  async fetch(req) {
+    const CORS = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': '*',
+      'Access-Control-Max-Age': '86400',
+    };
+    if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+    const u = new URL(req.url);
+    // Expect path = /https://target.host/path/to/api
+    const target = u.pathname.slice(1) + u.search;
+    if (!/^https?:\\/\\//.test(target)) return new Response('Bad target', { status: 400, headers: CORS });
+    const r = await fetch(target, { method: req.method, headers: req.headers, body: ['GET','HEAD'].includes(req.method) ? null : req.body });
+    const h = new Headers(r.headers);
+    Object.entries(CORS).forEach(([k,v]) => h.set(k,v));
+    return new Response(r.body, { status: r.status, statusText: r.statusText, headers: h });
+  }
+};`;
+  navigator.clipboard.writeText(tpl).then(()=>toast('✓ Шаблон скопирован — вставь в Cloudflare Worker')).catch(()=>toast('❌ Не удалось скопировать'));
+});
 document.querySelectorAll('[data-aip]').forEach(b=>b.onclick=()=>{const p=AIP[b.dataset.aip];if(!p)return;$('aiBase').value=p.base;$('aiModel').value=p.model;if($('aiAuth')&&p.auth)$('aiAuth').value=p.auth;});
 
-function aiCfg(){return{base:(localStorage.getItem('ai_base')||'https://api.openai.com/v1').replace(/\/$/,''),key:localStorage.getItem('ai_key'),model:localStorage.getItem('ai_model')||'gpt-4o-mini',auth:localStorage.getItem('ai_auth')||'bearer'};}
+function aiCfg(){return{base:(localStorage.getItem('ai_base')||'https://api.openai.com/v1').replace(/\/$/,''),key:localStorage.getItem('ai_key'),model:localStorage.getItem('ai_model')||'gpt-4o-mini',auth:localStorage.getItem('ai_auth')||'bearer',proxy:(localStorage.getItem('ai_proxy')||'').trim().replace(/\/$/,'')};}
+/* Build the effective fetch URL honoring optional proxy prefix. Proxy pattern: <proxy>/<full-target>.
+   E.g. proxy=https://worker.dev, base=https://api.x/v1, path=/chat/completions
+   -> https://worker.dev/https://api.x/v1/chat/completions (Worker parses path and forwards). */
+function _aiUrl(c,path){const target=c.base+path;return c.proxy?c.proxy+'/'+target:target;}
 function needKey(){const c=aiCfg();const local=c.base.includes('localhost')||c.base.includes('11434')||c.auth==='none';if(!c.key&&!local){toast('Нужен AI ключ (⚙ AI)');aiModal.classList.remove('hidden');return null;}return c;}
 
 /* Build the auth-header object for a given config based on the chosen scheme.
@@ -476,7 +506,7 @@ async function aiCall(messages,{json=false,stream=false,onChunk=null}={}){
   const body={model:c.model,messages,temperature:0.85};if(json)body.response_format={type:'json_object'};if(stream)body.stream=true;
   let r;
   try{
-    r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify(body)});
+    r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify(body)});
   }catch(e){
     const diag=_diagnoseFetchError(e,c);
     console.error('[aiCall] fetch failed',e,'cfg',{base:c.base,auth:c.auth});
@@ -625,7 +655,7 @@ async function runVision(dataUrl){
   if(!confirm('🖼 Распознать через AI Vision и заполнить поля? (нужна vision-модель: gpt-4o, gpt-4o-mini, claude-3-5-sonnet)')) return;
   toast('🖼 AI смотрит...');
   try{
-    const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({
+    const r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({
       model:c.model,
       response_format:{type:'json_object'},
       messages:[{role:'user',content:[
@@ -809,7 +839,7 @@ let _visionSkip=false;
 window.runVision=async function(dataUrl){if(!needKey())return;const c=aiCfg();if(!c.key){toast('Нужен ключ');return;}
   if(!_visionSkip){const ok=confirm('🖼 Распознать через AI Vision? (модель должна поддерживать vision)\n\nOK=да и больше не спрашивать в этой сессии. Cancel=пропустить.');if(!ok)return;_visionSkip=true;}
   toast('🖼 AI смотрит...');
-  try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Describe this image for video generation. Reply ONLY as JSON with keys: subject, scene, details, style, mood, lighting, palette, time, weather. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
+  try{const r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Describe this image for video generation. Reply ONLY as JSON with keys: subject, scene, details, style, mood, lighting, palette, time, weather. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
     const j=await r.json();if(j.error){toast('Vision: '+j.error.message);return;}const t=j.choices?.[0]?.message?.content;if(!t)return;applyAiFields(JSON.parse(t));generate();toast('✓');}catch(e){toast('Vision: '+e.message);}};
 
 /* ============ v5: COMMAND PALETTE (Ctrl+K) ============ */
@@ -862,7 +892,7 @@ document.querySelector('aside').appendChild(previewBlock);
 $('previewBtn').onclick=async()=>{if(!needKey())return;const c=aiCfg();if(!c.key)return;const en=$('outEnView').dataset.raw||'';if(!en){toast('Сначала сгенерируйте');return;}
   $('previewBtn').textContent='⏳';$('previewImg').classList.add('hidden');
   try{const stillPrompt=en.split('\n')[0]+', single still cinematic frame, '+v('lighting')+', '+v('palette');
-    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:$('previewModel').value,prompt:stillPrompt.slice(0,3800),size:v('aspect')==='9:16'?'1024x1792':v('aspect')==='1:1'?'1024x1024':'1792x1024',n:1})});
+    const r=await fetch(_aiUrl(c,'/images/generations'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:$('previewModel').value,prompt:stillPrompt.slice(0,3800),size:v('aspect')==='9:16'?'1024x1792':v('aspect')==='1:1'?'1024x1024':'1792x1024',n:1})});
     const j=await r.json();if(j.error){toast('Image: '+j.error.message);return;}const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
     if(url){$('previewImg').innerHTML=`<img src="${url}" class="w-full rounded-lg mb-2"/><div class="flex gap-2"><a href="${url}" download="preview.png" class="soft-btn text-xs px-2 py-1">⬇ Скачать</a><button onclick="navigator.clipboard.writeText('${url}');toast('URL скопирован')" class="soft-btn text-xs px-2 py-1">📋 URL</button></div>`;$('previewImg').classList.remove('hidden');toast('✓');}
   }catch(e){toast('Image: '+e.message);}finally{$('previewBtn').textContent='🎨 Сгенерировать кадр';}};
@@ -1035,7 +1065,7 @@ const _origRunVision=window.runVision;window.runVision=async function(dataUrl){
   if($('imgAsStyle')?.checked){if(!needKey())return;const c=aiCfg();if(!c.key)return;
     if(!_visionSkip){if(!confirm('🎨 Извлечь только стиль (light/palette/mood/style)?'))return;_visionSkip=true;}
     toast('🎨 AI читает стиль...');
-    try{const r=await fetch(c.base+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Extract ONLY visual style from this image. Reply as JSON: {"lighting":"...","palette":"...","mood":"...","style":"..."}. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
+    try{const r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Extract ONLY visual style from this image. Reply as JSON: {"lighting":"...","palette":"...","mood":"...","style":"..."}. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
       const j=await r.json();const t=j.choices?.[0]?.message?.content;const d=JSON.parse(t);Object.entries(d).forEach(([k,vl])=>{if($(k)&&vl)$(k).value=vl;});generate();toast('✓ Стиль');}catch(e){toast('Style: '+e.message);}return;}
   return _origRunVision(dataUrl);
 };
@@ -1050,7 +1080,7 @@ sbBtn.onclick=async()=>{const shots=getShots();if(!shots.length){toast('Нет �
   for(let i=0;i<shots.length;i++){const card=document.createElement('div');card.className="bg-black/10 rounded-lg overflow-hidden border border-white/10";
     card.innerHTML=`<div class="aspect-video bg-black/30 grid place-items-center text-xs subtle">⏳ shot ${i+1}</div><div class="p-2 text-[10px]">Shot ${i+1}: ${shots[i].cam.slice(0,40)}</div>`;sbBox.appendChild(card);
     try{const p=`cinematic still, ${v('subject')}, ${shots[i].cam}, ${shots[i].act}, ${v('lighting')}, ${v('palette')}, ${v('style')}`;
-      const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt:p.slice(0,3800),size:'1792x1024',n:1})});
+      const r=await fetch(_aiUrl(c,'/images/generations'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt:p.slice(0,3800),size:'1792x1024',n:1})});
       const j=await r.json();const url=j.data?.[0]?.url;if(url)card.querySelector('div').outerHTML=`<img src="${url}" class="w-full aspect-video object-cover"/>`;
     }catch(e){card.querySelector('div').textContent='✕ '+e.message;}}
   toast('✓ Storyboard');};
@@ -1434,7 +1464,7 @@ async function generateScenePreview(i){
   const slot=$('storyImg'+i);if(slot)slot.innerHTML='⏳';
   try{
     const prompt=`cinematic still frame, ${STORY.hero}, ${sc.prompt}`.slice(0,3800);
-    const r=await fetch(c.base+'/images/generations',{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt,size:'1792x1024',n:1})});
+    const r=await fetch(_aiUrl(c,'/images/generations'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt,size:'1792x1024',n:1})});
     const j=await r.json();
     if(j.error){if(slot)slot.textContent='✕';toast('Image: '+j.error.message);return;}
     const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
@@ -2531,7 +2561,7 @@ async function generateImage(prompt,opts={}){
   try{
     const body={model,prompt:prompt.slice(0,3800),size,n};
     if(model==='dall-e-3')body.quality=quality;
-    const r=await fetch(c.base+'/images/generations',{
+    const r=await fetch(_aiUrl(c,'/images/generations'),{
       method:'POST',
       headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
       body:JSON.stringify(body)
@@ -3806,7 +3836,7 @@ The palette, composition, lighting, keywords etc. in the output must reflect the
 
   try{
     console.log('sending request...');
-    const r=await fetch(c.base+'/chat/completions',{
+    const r=await fetch(_aiUrl(c,'/chat/completions'),{
       method:'POST',
       headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
       signal:ac.signal,
@@ -4060,7 +4090,7 @@ Reply ONLY as JSON:
 }`;
 
     const userMsg='Analyze this reference image and produce the prompts.'+(mod?' User modification: '+mod:'');
-    const r=await fetch(c.base+'/chat/completions',{
+    const r=await fetch(_aiUrl(c,'/chat/completions'),{
       method:'POST',
       headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
       body:JSON.stringify({
