@@ -95,14 +95,20 @@
       if(b)b.click();
     }},
     {cat:'visual',icon:'🎨',name:'Preview кадр',desc:'Одна картинка первого кадра через DALL·E',cost:'~$0.04',target:'previewBtn'},
-    {cat:'visual',icon:'🎲',name:'4 варианта промта',desc:'Сгенерить 4 разных angle одной идеи',cost:'$0',target:'abBtn'}
+    {cat:'visual',icon:'🎲',name:'4 варианта промта',desc:'Сгенерить 4 разных angle одной идеи',cost:'$0',target:'abBtn'},
+
+    /* ─── 🤝 Collab ─── */
+    {cat:'collab',icon:'🔗',name:'Share Link',desc:'Сжать весь стейт промта в URL. Без бэкенда. Ctrl+Shift+S',cost:'$0',badge:'NEW',target:null,handler:()=>window.openCollabModal?.('share')},
+    {cat:'collab',icon:'📄',name:'Pitch Deck PDF',desc:'Печатная раскадровка A4 с карточками шотов — через диалог печати',cost:'$0',badge:'NEW',target:null,handler:()=>window.openCollabModal?.('pitch')},
+    {cat:'collab',icon:'💾',name:'Workspace Backup',desc:'Экспорт/импорт всего workspace (стейт, история, пресеты) как JSON',cost:'$0',badge:'NEW',target:null,handler:()=>window.openCollabModal?.('backup')}
   ];
 
   const CATS={
     text:  {icon:'🧠',label:'Обработка текста',hint:'Работают с текущим промтом — улучшают, критикуют, оценивают'},
     nav:   {icon:'🎯',label:'Навигация',hint:'Выбор модели, режиссёра, сравнение вариантов'},
     prod:  {icon:'🎭',label:'Production',hint:'Параллельные ассеты для съёмочного пайплайна'},
-    visual:{icon:'🎨',label:'Визуализация',hint:'Генерация картинок и видео-референсов'}
+    visual:{icon:'🎨',label:'Визуализация',hint:'Генерация картинок и видео-референсов'},
+    collab:{icon:'🤝',label:'Collaboration',hint:'Поделиться промтом, сделать PDF pitch-deck, backup workspace'}
   };
 
   /* ============================================================
