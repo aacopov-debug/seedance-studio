@@ -1160,7 +1160,7 @@ const MODELS={
   kling:{n:"🇨🇳 Kling 1.5",max:15,res:["720p","1080p"],hint:"Поддерживает китайский, длинные сцены до 15s"},
   hailuo:{n:"🌶 Hailuo MiniMax",max:6,res:["720p","1080p"],hint:"Хорошо с физикой и эмоциями"},
   sora:{n:"🌀 Sora",max:60,res:["1080p"],hint:"Длинные сюжетные ролики, до 60s"},
-  veo:{n:"🅖 Google Veo",max:8,res:["1080p","4k"],hint:"Высокое качество, native audio"},
+  veo:{n:"🅖 Google Veo",max:60,res:["1080p","4k"],hint:"Veo 3 — высокое качество + native audio, до 60s (8s сегменты с extend)"},
   wan:{n:"🐼 Wan 2.1",max:5,res:["480p","720p"],hint:"Open-source, локальный запуск"}
 };
 const modelSel=document.createElement('select');modelSel.id='modelSel';modelSel.className="field !w-auto !py-1.5 text-xs ml-2";
