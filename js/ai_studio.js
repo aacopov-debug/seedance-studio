@@ -86,6 +86,10 @@
       const b=[...document.querySelectorAll('button')].find(x=>x.innerHTML.includes('🎞 Reference video'));
       if(b)b.click();
     }},
+    {cat:'visual',icon:'🎬',name:'Photo → Storyboard',desc:'Загрузи 1 фото → AI синтезирует 6 ракурсов и заполнит multi-shot раскадровку',cost:'~$0.02',badge:'NEW',target:null,handler:()=>{
+      if(typeof window.openPhotoStoryboard==='function')window.openPhotoStoryboard();
+      else toast('photo_storyboard модуль не загружен');
+    }},
     {cat:'visual',icon:'📸',name:'Mood-board (4 варианта)',desc:'4 стилистических варианта первого кадра через DALL·E',cost:'~$0.16',badge:'NEW',target:null,handler:()=>{
       const b=[...document.querySelectorAll('button')].find(x=>x.innerHTML.includes('📸 Mood-board'));
       if(b)b.click();
