@@ -501,27 +501,67 @@ function _diagnoseFetchError(e,c){
   return '⚠ '+(e.message||String(e)).slice(0,120);
 }
 
+/* ============ Unified AI fetch (single source of truth for all 9 endpoints) ============
+   Centralizes URL building (proxy + base), auth header injection, network error diagnosis,
+   HTTP status checking with body preview, content-type validation (HTML-instead-of-JSON guard),
+   and final j.error unwrapping. Throws a single human-readable Error on any failure mode so
+   callers just need try/catch with a toast. Use this for any non-streaming AI POST. */
+async function aiFetchJson(c, path, body, opts = {}) {
+  const url = _aiUrl(c, path);
+  const init = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ..._aiAuthHeaders(c), ...(opts.headers || {}) },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+  };
+  if (opts.signal) init.signal = opts.signal;
+  let r;
+  try {
+    r = await fetch(url, init);
+  } catch (e) {
+    /* Network/CORS/mixed-content failure — _diagnoseFetchError returns user-friendly RU text */
+    const diag = _diagnoseFetchError(e, c);
+    console.error('[aiFetchJson] network', e, { url, base: c.base, auth: c.auth, proxy: c.proxy });
+    throw new Error(diag.replace(/^[\u274c\u26a0]\s*/, ''));
+  }
+  if (!r.ok) {
+    let detail = '';
+    try { detail = (await r.text()).slice(0, 300); } catch {}
+    console.error('[aiFetchJson] HTTP', r.status, r.statusText, detail);
+    throw new Error(`HTTP ${r.status} ${r.statusText}${detail ? ' — ' + detail : ''}`);
+  }
+  const ct = (r.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('json')) {
+    const txt = await r.text();
+    console.error('[aiFetchJson] non-JSON response', ct, txt.slice(0, 500));
+    throw new Error(`Сервер вернул ${ct || 'unknown content-type'} вместо JSON. Первые 200 симв: ${txt.slice(0, 200)}`);
+  }
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || 'AI API error');
+  return j;
+}
+
 async function aiCall(messages,{json=false,stream=false,onChunk=null}={}){
   const c=needKey();if(!c)return null;
-  const body={model:c.model,messages,temperature:0.85};if(json)body.response_format={type:'json_object'};if(stream)body.stream=true;
-  let r;
+  const body={model:c.model,messages,temperature:0.85};
+  if(json)body.response_format={type:'json_object'};
+  /* Streaming SSE keeps raw fetch (needs body reader). Non-streaming uses aiFetchJson. */
+  if(stream){
+    body.stream=true;
+    let r;
+    try{r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify(body)});}
+    catch(e){toast(_diagnoseFetchError(e,c),'error');return null;}
+    if(!r.ok){let d='';try{d=' — '+(await r.text()).slice(0,200);}catch{}toast(`❌ HTTP ${r.status} ${r.statusText}${d}`,'error');return null;}
+    const rd=r.body.getReader(),de=new TextDecoder();let buf='',full='';
+    while(1){const{done,value}=await rd.read();if(done)break;buf+=de.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(d==='[DONE]')return full;try{const j=JSON.parse(d);const t=j.choices?.[0]?.delta?.content||'';full+=t;onChunk&&onChunk(t,full);}catch(e){console.debug(e)}}}
+    return full;
+  }
   try{
-    r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify(body)});
+    const j=await aiFetchJson(c,'/chat/completions',body);
+    return j.choices?.[0]?.message?.content;
   }catch(e){
-    const diag=_diagnoseFetchError(e,c);
-    console.error('[aiCall] fetch failed',e,'cfg',{base:c.base,auth:c.auth});
-    toast(diag,'error');
+    toast('❌ '+e.message.slice(0,160),'error');
     return null;
   }
-  if(!r.ok){
-    let detail='';
-    try{const txt=await r.text();detail=' '+txt.slice(0,200);}catch{}
-    console.error('[aiCall] HTTP',r.status,detail);
-    toast(`❌ HTTP ${r.status} ${r.statusText}${detail}`,'error');
-    return null;
-  }
-  if(stream){const rd=r.body.getReader(),de=new TextDecoder();let buf='',full='';while(1){const{done,value}=await rd.read();if(done)break;buf+=de.decode(value,{stream:true});const ls=buf.split('\n');buf=ls.pop()||'';for(const l of ls){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(d==='[DONE]')return full;try{const j=JSON.parse(d);const t=j.choices?.[0]?.delta?.content||'';full+=t;onChunk&&onChunk(t,full);}catch(e){console.debug(e)}}}return full;}
-  const j=await r.json();if(j.error){toast('AI: '+j.error.message);return null;}return j.choices?.[0]?.message?.content;
 }
 
 $('aiAutoFill').onclick=async()=>{
@@ -655,16 +695,14 @@ async function runVision(dataUrl){
   if(!confirm('🖼 Распознать через AI Vision и заполнить поля? (нужна vision-модель: gpt-4o, gpt-4o-mini, claude-3-5-sonnet)')) return;
   toast('🖼 AI смотрит...');
   try{
-    const r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({
+    const j=await aiFetchJson(c,'/chat/completions',{
       model:c.model,
       response_format:{type:'json_object'},
       messages:[{role:'user',content:[
         {type:'text',text:'Describe this image for a video-generation prompt. Reply ONLY as JSON with these keys (cinematic English values): subject, scene, details, style, mood, lighting, palette, time, weather. For lighting/mood/style/palette/time/weather pick short cinematic terms.'},
         {type:'image_url',image_url:{url:dataUrl}}
       ]}]
-    })});
-    const j=await r.json();
-    if(j.error){toast('Vision: '+j.error.message); console.error(j.error); return;}
+    });
     const txt=j.choices?.[0]?.message?.content;
     if(!txt){toast('Vision: пустой ответ'); return;}
     applyAiFields(JSON.parse(txt));
@@ -839,8 +877,10 @@ let _visionSkip=false;
 window.runVision=async function(dataUrl){if(!needKey())return;const c=aiCfg();if(!c.key){toast('Нужен ключ');return;}
   if(!_visionSkip){const ok=confirm('🖼 Распознать через AI Vision? (модель должна поддерживать vision)\n\nOK=да и больше не спрашивать в этой сессии. Cancel=пропустить.');if(!ok)return;_visionSkip=true;}
   toast('🖼 AI смотрит...');
-  try{const r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Describe this image for video generation. Reply ONLY as JSON with keys: subject, scene, details, style, mood, lighting, palette, time, weather. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
-    const j=await r.json();if(j.error){toast('Vision: '+j.error.message);return;}const t=j.choices?.[0]?.message?.content;if(!t)return;applyAiFields(JSON.parse(t));generate();toast('✓');}catch(e){toast('Vision: '+e.message);}};
+  try{
+    const j=await aiFetchJson(c,'/chat/completions',{model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Describe this image for video generation. Reply ONLY as JSON with keys: subject, scene, details, style, mood, lighting, palette, time, weather. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]});
+    const t=j.choices?.[0]?.message?.content;if(!t)return;applyAiFields(JSON.parse(t));generate();toast('✓');
+  }catch(e){toast('Vision: '+e.message.slice(0,150));}};
 
 /* ============ v5: COMMAND PALETTE (Ctrl+K) ============ */
 const cmdPalHTML=`<div id="cmdPal" class="hidden fixed inset-0 z-[60] grid place-items-start pt-24 p-4 bg-black/60 backdrop-blur" onclick="if(event.target===this)this.classList.add('hidden')">
@@ -891,11 +931,12 @@ previewBlock.innerHTML=`<div class="flex items-center justify-between mb-3 gap-2
 document.querySelector('aside').appendChild(previewBlock);
 $('previewBtn').onclick=async()=>{if(!needKey())return;const c=aiCfg();if(!c.key)return;const en=$('outEnView').dataset.raw||'';if(!en){toast('Сначала сгенерируйте');return;}
   $('previewBtn').textContent='⏳';$('previewImg').classList.add('hidden');
-  try{const stillPrompt=en.split('\n')[0]+', single still cinematic frame, '+v('lighting')+', '+v('palette');
-    const r=await fetch(_aiUrl(c,'/images/generations'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:$('previewModel').value,prompt:stillPrompt.slice(0,3800),size:v('aspect')==='9:16'?'1024x1792':v('aspect')==='1:1'?'1024x1024':'1792x1024',n:1})});
-    const j=await r.json();if(j.error){toast('Image: '+j.error.message);return;}const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
+  try{
+    const stillPrompt=en.split('\n')[0]+', single still cinematic frame, '+v('lighting')+', '+v('palette');
+    const j=await aiFetchJson(c,'/images/generations',{model:$('previewModel').value,prompt:stillPrompt.slice(0,3800),size:v('aspect')==='9:16'?'1024x1792':v('aspect')==='1:1'?'1024x1024':'1792x1024',n:1});
+    const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
     if(url){$('previewImg').innerHTML=`<img src="${url}" class="w-full rounded-lg mb-2"/><div class="flex gap-2"><a href="${url}" download="preview.png" class="soft-btn text-xs px-2 py-1">⬇ Скачать</a><button onclick="navigator.clipboard.writeText('${url}');toast('URL скопирован')" class="soft-btn text-xs px-2 py-1">📋 URL</button></div>`;$('previewImg').classList.remove('hidden');toast('✓');}
-  }catch(e){toast('Image: '+e.message);}finally{$('previewBtn').textContent='🎨 Сгенерировать кадр';}};
+  }catch(e){toast('Image: '+e.message.slice(0,150));}finally{$('previewBtn').textContent='🎨 Сгенерировать кадр';}};
 
 /* ============ v5: AUTO-ITERATE LOOP ============ */
 const iterBtn=document.createElement('button');iterBtn.id='iterBtn';iterBtn.className="soft-btn text-xs px-3 py-1.5";iterBtn.innerHTML='🔄 Auto-iterate';iterBtn.title='AI критикует и сам применяет правки 3 раунда';
@@ -1065,8 +1106,10 @@ const _origRunVision=window.runVision;window.runVision=async function(dataUrl){
   if($('imgAsStyle')?.checked){if(!needKey())return;const c=aiCfg();if(!c.key)return;
     if(!_visionSkip){if(!confirm('🎨 Извлечь только стиль (light/palette/mood/style)?'))return;_visionSkip=true;}
     toast('🎨 AI читает стиль...');
-    try{const r=await fetch(_aiUrl(c,'/chat/completions'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Extract ONLY visual style from this image. Reply as JSON: {"lighting":"...","palette":"...","mood":"...","style":"..."}. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]})});
-      const j=await r.json();const t=j.choices?.[0]?.message?.content;const d=JSON.parse(t);Object.entries(d).forEach(([k,vl])=>{if($(k)&&vl)$(k).value=vl;});generate();toast('✓ Стиль');}catch(e){toast('Style: '+e.message);}return;}
+    try{
+      const j=await aiFetchJson(c,'/chat/completions',{model:c.model,response_format:{type:'json_object'},messages:[{role:'user',content:[{type:'text',text:'Extract ONLY visual style from this image. Reply as JSON: {"lighting":"...","palette":"...","mood":"...","style":"..."}. Use cinematic English.'},{type:'image_url',image_url:{url:dataUrl}}]}]});
+      const t=j.choices?.[0]?.message?.content;const d=JSON.parse(t);Object.entries(d).forEach(([k,vl])=>{if($(k)&&vl)$(k).value=vl;});generate();toast('✓ Стиль');
+    }catch(e){toast('Style: '+e.message.slice(0,150));}return;}
   return _origRunVision(dataUrl);
 };
 
@@ -1079,10 +1122,11 @@ sbBtn.onclick=async()=>{const shots=getShots();if(!shots.length){toast('Нет �
   sbBox.classList.add('sb-box');shotsEl.parentElement.appendChild(sbBox);
   for(let i=0;i<shots.length;i++){const card=document.createElement('div');card.className="bg-black/10 rounded-lg overflow-hidden border border-white/10";
     card.innerHTML=`<div class="aspect-video bg-black/30 grid place-items-center text-xs subtle">⏳ shot ${i+1}</div><div class="p-2 text-[10px]">Shot ${i+1}: ${shots[i].cam.slice(0,40)}</div>`;sbBox.appendChild(card);
-    try{const p=`cinematic still, ${v('subject')}, ${shots[i].cam}, ${shots[i].act}, ${v('lighting')}, ${v('palette')}, ${v('style')}`;
-      const r=await fetch(_aiUrl(c,'/images/generations'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt:p.slice(0,3800),size:'1792x1024',n:1})});
-      const j=await r.json();const url=j.data?.[0]?.url;if(url)card.querySelector('div').outerHTML=`<img src="${url}" class="w-full aspect-video object-cover"/>`;
-    }catch(e){card.querySelector('div').textContent='✕ '+e.message;}}
+    try{
+      const p=`cinematic still, ${v('subject')}, ${shots[i].cam}, ${shots[i].act}, ${v('lighting')}, ${v('palette')}, ${v('style')}`;
+      const j=await aiFetchJson(c,'/images/generations',{model:'dall-e-3',prompt:p.slice(0,3800),size:'1792x1024',n:1});
+      const url=j.data?.[0]?.url;if(url)card.querySelector('div').outerHTML=`<img src="${url}" class="w-full aspect-video object-cover"/>`;
+    }catch(e){card.querySelector('div').textContent='✕ '+e.message.slice(0,40);}}
   toast('✓ Storyboard');};
 
 /* ============ v5: RECENTLY USED in selects ============ */
@@ -1464,12 +1508,10 @@ async function generateScenePreview(i){
   const slot=$('storyImg'+i);if(slot)slot.innerHTML='⏳';
   try{
     const prompt=`cinematic still frame, ${STORY.hero}, ${sc.prompt}`.slice(0,3800);
-    const r=await fetch(_aiUrl(c,'/images/generations'),{method:'POST',headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},body:JSON.stringify({model:'dall-e-3',prompt,size:'1792x1024',n:1})});
-    const j=await r.json();
-    if(j.error){if(slot)slot.textContent='✕';toast('Image: '+j.error.message);return;}
+    const j=await aiFetchJson(c,'/images/generations',{model:'dall-e-3',prompt,size:'1792x1024',n:1});
     const url=j.data?.[0]?.url||(j.data?.[0]?.b64_json?'data:image/png;base64,'+j.data[0].b64_json:null);
     if(url){sc.imgUrl=url;saveStory();if(slot)slot.innerHTML=`<img src="${url}" class="w-full h-full object-cover"/>`;}
-  }catch(e){if(slot)slot.textContent='✕ '+e.message.slice(0,15);}
+  }catch(e){if(slot)slot.textContent='✕ '+e.message.slice(0,15);toast('Image: '+e.message.slice(0,120));}
 }
 
 $('storyPrevAll').onclick=async()=>{
@@ -2561,17 +2603,11 @@ async function generateImage(prompt,opts={}){
   try{
     const body={model,prompt:prompt.slice(0,3800),size,n};
     if(model==='dall-e-3')body.quality=quality;
-    const r=await fetch(_aiUrl(c,'/images/generations'),{
-      method:'POST',
-      headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
-      body:JSON.stringify(body)
-    });
-    const j=await r.json();
-    if(j.error){toast('Image: '+j.error.message);logError('image',j.error);return null;}
+    const j=await aiFetchJson(c,'/images/generations',body);
     return (j.data||[]).map(d=>d.url||(d.b64_json?'data:image/png;base64,'+d.b64_json:null)).filter(Boolean);
   }catch(e){
     logError('generateImage',e);
-    toast('⚠ Image: '+e.message.slice(0,80));
+    toast('⚠ Image: '+e.message.slice(0,120));
     return null;
   }
 }
@@ -3836,28 +3872,17 @@ The palette, composition, lighting, keywords etc. in the output must reflect the
 
   try{
     console.log('sending request...');
-    const r=await fetch(_aiUrl(c,'/chat/completions'),{
-      method:'POST',
-      headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
-      signal:ac.signal,
-      body:JSON.stringify({
-        model:c.model,
-        response_format:{type:'json_object'},
-        temperature:0.4,
-        max_tokens:1500,
-        messages:[
-          {role:'system',content:systemPrompt},
-          {role:'user',content:userContent}
-        ]
-      })
-    });
-    console.log('response status:',r.status,'in',Date.now()-t0,'ms');
-    if(!r.ok){
-      const errTxt=await r.text();
-      throw new Error('HTTP '+r.status+': '+errTxt.slice(0,300));
-    }
-    const j=await r.json();
-    if(j.error)throw new Error(j.error.message||'Vision API error');
+    const j=await aiFetchJson(c,'/chat/completions',{
+      model:c.model,
+      response_format:{type:'json_object'},
+      temperature:0.4,
+      max_tokens:1500,
+      messages:[
+        {role:'system',content:systemPrompt},
+        {role:'user',content:userContent}
+      ]
+    },{signal:ac.signal});
+    console.log('response in',Date.now()-t0,'ms');
     const txt=j.choices?.[0]?.message?.content;
     if(!txt)throw new Error('Пустой ответ AI');
     console.log('parsed JSON length:',txt.length,'chars');
@@ -4090,35 +4115,17 @@ Reply ONLY as JSON:
 }`;
 
     const userMsg='Analyze this reference image and produce the prompts.'+(mod?' User modification: '+mod:'');
-    const r=await fetch(_aiUrl(c,'/chat/completions'),{
-      method:'POST',
-      headers:{'Content-Type':'application/json',..._aiAuthHeaders(c)},
-      body:JSON.stringify({
-        model:c.model,
-        response_format:{type:'json_object'},
-        messages:[
-          {role:'system',content:sys},
-          {role:'user',content:[
-            {type:'text',text:userMsg},
-            {type:'image_url',image_url:{url:i2pState.img}}
-          ]}
-        ]
-      })
+    const j=await aiFetchJson(c,'/chat/completions',{
+      model:c.model,
+      response_format:{type:'json_object'},
+      messages:[
+        {role:'system',content:sys},
+        {role:'user',content:[
+          {type:'text',text:userMsg},
+          {type:'image_url',image_url:{url:i2pState.img}}
+        ]}
+      ]
     });
-    /* Surface HTTP + non-JSON errors with real body preview. Without this, gateways that return
-       HTML error pages (e.g. Nekocode when model doesn't support vision, Cloudflare 5xx pages,
-       auth failures rendering login HTML) caused cryptic "Unexpected token '<'" JSON parse errors. */
-    if(!r.ok){
-      let detail='';try{detail=(await r.text()).slice(0,300);}catch{}
-      throw new Error(`HTTP ${r.status} ${r.statusText}${detail?' — '+detail:''}`);
-    }
-    const ct=(r.headers.get('content-type')||'').toLowerCase();
-    if(!ct.includes('json')){
-      const body=await r.text();
-      throw new Error(`Сервер вернул ${ct||'unknown content-type'} вместо JSON. Первые 200 симв: ${body.slice(0,200)}`);
-    }
-    const j=await r.json();
-    if(j.error)throw new Error(j.error.message||'Vision API error');
     const txt=j.choices?.[0]?.message?.content;
     if(!txt)throw new Error('Пустой ответ AI');
     const data=JSON.parse(txt);
