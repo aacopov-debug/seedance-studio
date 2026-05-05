@@ -100,7 +100,8 @@ const AIP={
   deepseek:{base:'https://api.deepseek.com',model:'deepseek-chat',auth:'bearer'},
   nekocode:{base:'https://ru.gateway.nekocode.app/andromeda/v1',model:'gpt-5.5',auth:'bearer'},
   anthropic:{base:'https://api.anthropic.com/v1',model:'claude-sonnet-4-5',auth:'x-api-key'},
-  groq:{base:'https://api.groq.com/openai/v1',model:'llama-3.3-70b-versatile',auth:'bearer'}
+  groq:{base:'https://api.groq.com/openai/v1',model:'llama-3.3-70b-versatile',auth:'bearer'},
+  gemini:{base:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-2.0-flash',auth:'bearer'}
 };
 
 const $=id=>document.getElementById(id);
